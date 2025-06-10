@@ -27,6 +27,7 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 
 # Comprehensive Indian Stock Index and Individual Stock Mapping
 STOCK_CATEGORIES = {
@@ -284,7 +285,7 @@ class StockAnalyzer:
             # It's good practice to store API keys in environment variables or a config file
             # For this example, I'm using the one you provided.
             # Consider moving this to a more secure location like an environment variable.
-            api_key = "e205d77d7bc14acc8744d3ea10568f50" 
+            api_key = NEWSAPI_KEY
             
             # Use the full company name for the query if available, otherwise use the ticker
             # This might require a mapping from ticker to full company name
