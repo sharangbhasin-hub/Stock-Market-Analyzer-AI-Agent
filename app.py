@@ -170,7 +170,8 @@ def setup_google_sheets():
     """Initializes connection to Google Sheets."""
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = Credentials.from_service_account_file("service_account.json", scopes=scope)
+        creds_dict = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
         try:
             sheet = client.open("EliteTradingAnalyzerLog").sheet1
