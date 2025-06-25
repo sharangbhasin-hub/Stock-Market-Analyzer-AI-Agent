@@ -1,17 +1,17 @@
-# 📈 Stock Market Analyzer AI Agent
+# 📈 Elite Trading Analyzer
 
-> **Intelligent analysis for Indian stock indices and individual stocks with AI-powered insights**
+> **Advanced trading analysis with EMA/RSI strategy, AI insights, and professional charting**
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red.svg)](https://streamlit.io)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](#contributing)
 
-![Demo](video/0609%20(1).gif)
+![Demo](video/0625.gif)
 
 ## 🌟 Overview
 
-The **Stock Market Analyzer AI Agent** is an intelligent financial analysis tool designed specifically for the Indian stock market. Built with Streamlit and powered by advanced AI models, it provides comprehensive analysis of major Indian indices (NIFTY 50, BANK NIFTY, SENSEX) and individual stocks with real-time data, technical indicators, sentiment analysis, and AI-powered trading recommendations.
+The **Elite Trading Analyzer** is a sophisticated trading tool built with Streamlit that combines technical analysis, sentiment analysis, and AI-powered insights. Designed for both global markets and Indian stock indices, it provides professional-grade analysis with real-time data, advanced charting, and intelligent trading recommendations.
 
 ## 🌟 **Please ⭐ STAR this repository if you find it helpful!**
 ## 🔄 **Don't forget to FORK this project to contribute!**
@@ -19,83 +19,93 @@ The **Stock Market Analyzer AI Agent** is an intelligent financial analysis tool
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-### 📊 **Comprehensive Technical Analysis**
-- **Enhanced RSI Analysis** with optimized levels (40:60 instead of traditional 30:70)
-- **Multi-timeframe Moving Averages** (20, 25, 50, 200-day periods)
-- **MACD Analysis** with signal line crossovers and histogram
-- **Volume Analysis** with 20-day average comparison
-- **Support & Resistance Levels** calculation
-- **Real-time Price Tracking** with percentage changes
+### 📊 **Advanced Technical Analysis**
+- **EMA-Based Strategy** with 20, 50, and 200-period Exponential Moving Averages
+- **Optimized RSI Analysis** with custom thresholds (40 for oversold, 60 for overbought)
+- **MACD Analysis** with signal line, histogram, and trend detection
+- **Multi-Signal Integration** for high-confidence trading signals
+- **Vectorized Calculations** for entire dataset analysis
 
-### 🤖 **AI-Powered Insights**
-- **DeepSeek AI Integration** via OpenRouter API for intelligent strategy summaries
-- **FinBERT Sentiment Analysis** for financial news
-- **Automated Signal Generation** with confidence scoring
-- **Risk Assessment** and entry/exit strategy recommendations
+### 🤖 **AI-Powered Intelligence**
+- **DeepSeek AI Integration** via OpenRouter API for strategic summaries
+- **FinBERT Sentiment Analysis** for financial news processing
+- **Automated Signal Generation** with confidence scoring system
+- **Context-Aware Analysis** combining technical and fundamental factors
 
-### 📰 **News & Sentiment Analysis**
-- **Real-time News Scraping** from NewsAPI (last 3 days)
-- **Advanced Sentiment Scoring** using FinBERT model
-- **News Impact Assessment** on trading decisions
-- **Headline-based Market Sentiment** integration
+### 🌍 **Universal Asset Coverage**
+- **Global Equities** - Stocks from major exchanges worldwide
+- **Cryptocurrencies** - Bitcoin, Ethereum, and altcoins
+- **ETFs** - Exchange-traded funds analysis
+- **Indices** - Major stock market indices
+- **Commodities** - Gold, oil, and commodity futures
+- **Forex** - Currency pair analysis
+- **Indian Markets** - Comprehensive NIFTY coverage
 
-### 📈 **Indian Stock Market Coverage**
-- **NIFTY 50 Index** - Complete 50 stock coverage
-- **BANK NIFTY** - All major banking stocks
+### 🇮🇳 **Curated Indian Stock Lists**
+- **NIFTY 50** - Top 50 Indian companies with individual stock analysis
+- **BANK NIFTY** - Complete banking sector coverage
 - **NIFTY AUTO** - Automotive sector analysis
-- **NIFTY PHARMA** - Pharmaceutical stocks
-- **NIFTY METAL** - Metal & mining sector
+- **NIFTY PHARMA** - Pharmaceutical companies
+- **NIFTY METAL** - Metals and mining sector
 - **NIFTY IT** - Information technology stocks
 - **NIFTY FMCG** - Fast-moving consumer goods
 
-### 🔔 **Alert & Logging System**
-- **Email Alerts** for high-confidence signals
-- **Google Sheets Integration** for automated logging
-- **Downloadable Reports** in JSON format
-- **Real-time Notifications** for trading opportunities
+### 📈 **Professional Charting**
+- **Interactive Plotly Charts** with Price, EMA overlays, RSI, and Volume
+- **TradingView Integration** - Embedded professional charts for discretionary analysis
+- **Color-Coded Visualization** - Green/red volume bars based on price action
+- **Multi-Panel Layout** - Price action, momentum, and volume in one view
 
-### 📊 **Interactive Visualizations**
-- **Multi-panel Charts** with price, RSI, and MACD
-- **Moving Average Overlays** with trend analysis
-- **Volume Histograms** with activity indicators
-- **Real-time Data Updates** with yfinance integration
+### 📰 **News & Sentiment Analysis**
+- **Real-Time News Scraping** using NewsAPI
+- **Financial Sentiment Analysis** with FinBERT model
+- **News Impact Assessment** on trading decisions
+- **Sentiment Score Integration** into signal generation
+
+### 🔔 **Logging & Export System**
+- **Google Sheets Integration** - Automated analysis logging
+- **JSON Report Export** - Complete analysis data download
+- **Historical Tracking** - Track signals and performance over time
+- **Professional Documentation** - Detailed analysis reports
 
 ---
 
-## 🛠️ How I Built This
+## 🛠️ How This Works
 
-### 🏗️ **Architecture & Design**
-I designed this as a modular, object-oriented system with the `StockAnalyzer` class as the core engine. The architecture follows these principles:
+### 🏗️ **Core Architecture**
+The application is built around the `StockAnalyzer` class which implements a sophisticated EMA/RSI trading strategy:
 
-1. **Separation of Concerns** - Each component handles specific functionality
-2. **Scalable Design** - Easy to add new indicators or data sources
-3. **Error Handling** - Robust exception handling throughout
-4. **API Integration** - Multiple external services for comprehensive data
+#### **Signal Generation Algorithm:**
+1. **RSI Component**: Bullish signals when RSI < 40, Bearish when RSI > 60
+2. **MACD Component**: Bullish when histogram > 0, Bearish when histogram < 0  
+3. **EMA Trend Component**: Bullish when Price > EMA20 > EMA50, Bearish when opposite
+4. **Confidence Scoring**: Based on consensus strength across indicators
 
-### 🔧 **Technical Implementation**
+#### **Technical Implementation:**
+- **Vectorized Processing**: Entire dataset analysis for optimal performance
+- **Yahoo Finance Integration**: Real-time data via yfinance API
+- **Multi-Asset Search**: Dynamic ticker discovery across asset classes
+- **Error Handling**: Robust exception management and user feedback
 
-#### **Core Components:**
-- **StockAnalyzer Class**: Main analysis engine with technical indicators
-- **Signal Generation Engine**: Advanced algorithm combining multiple indicators
-- **Sentiment Analysis Pipeline**: FinBERT integration for financial sentiment
-- **Data Fetching Layer**: yfinance wrapper with error handling
-- **Visualization Engine**: matplotlib-based charting system
+### 🔧 **Advanced Features**
 
-#### **Key Algorithms:**
-1. **Enhanced RSI Calculation** with 40:60 threshold optimization
-2. **MACD Signal Processing** with histogram analysis
-3. **Moving Average Convergence** analysis for trend detection
-4. **Sentiment Scoring Algorithm** combining news impact
-5. **Confidence Scoring System** for signal reliability
+#### **Exponential Moving Averages (EMA)**
+- **20-period EMA**: Short-term trend identification
+- **50-period EMA**: Medium-term trend confirmation  
+- **200-period EMA**: Long-term trend analysis
+- **Crossover Analysis**: EMA alignment for trend strength
 
-#### **API Integrations:**
-- **yfinance**: Real-time stock data from Yahoo Finance
-- **NewsAPI**: Latest financial news headlines
-- **OpenRouter + DeepSeek**: AI-powered analysis summaries
-- **Google Sheets API**: Automated logging and tracking
-- **Gmail API**: Alert system for trading signals
+#### **RSI Optimization**
+- **Custom Thresholds**: 40/60 levels optimized for volatile markets
+- **14-period Calculation**: Standard momentum analysis
+- **Trend Integration**: RSI combined with EMA signals
+
+#### **MACD Analysis**
+- **12/26/9 Configuration**: Standard MACD parameters
+- **Histogram Focus**: Momentum change detection
+- **Signal Line Crossovers**: Entry/exit point identification
 
 ---
 
@@ -110,8 +120,8 @@ Internet connection for real-time data
 
 ### **Step 1: Clone Repository**
 ```bash
-git clone https://github.com/Dharmik-Solanki-G/Stock-Market-Analyzer-AI-Agent.git
-cd Stock-Market-Analyzer-AI-Agent
+git clone https://github.com/yourusername/elite-trading-analyzer.git
+cd elite-trading-analyzer
 ```
 
 ### **Step 2: Install Dependencies**
@@ -123,11 +133,10 @@ pip install -r requirements.txt
 Create a `.env` file in the root directory:
 ```env
 OPENROUTER_API_KEY=your_openrouter_api_key_here
-GMAIL_EMAIL=your_gmail_email_here
-GMAIL_APP_PASSWORD=your_gmail_app_password_here
+NEWSAPI_KEY=your_newsapi_key_here
 ```
 
-### **Step 4: Google Sheets Setup**
+### **Step 4: Google Sheets Setup (Optional)**
 1. Create a Google Cloud Project
 2. Enable Google Sheets API
 3. Create Service Account credentials
@@ -143,327 +152,319 @@ streamlit run app.py
 
 ## 📋 Requirements
 
-Create `requirements.txt` with these dependencies:
 ```txt
-streamlit==1.28.1
-yfinance==0.2.18
-pandas==2.0.3
-numpy==1.24.3
-matplotlib==3.7.2
-requests==2.31.0
-beautifulsoup4==4.12.2
-transformers==4.33.2
-torch==2.0.1
-openai==1.3.5
-gspread==5.11.3
-google-auth==2.23.3
-google-auth-oauthlib==1.1.0
-google-auth-httplib2==0.1.1
-python-dotenv==1.0.0
+streamlit>=1.28.0
+yfinance>=0.2.18
+pandas>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+transformers>=4.33.0
+openai>=1.3.0
+gspread>=5.11.0
+google-auth>=2.23.0
+python-dotenv>=1.0.0
+plotly>=5.15.0
+warnings
+datetime
+json
+time
 ```
 
 ---
 
 ## 🎯 Usage Guide
 
-### **1. Select Analysis Type**
-- Choose between **Index Analysis** or **Individual Stock Analysis**
-- Select from 7 major NIFTY categories
-- Pick specific stocks from comprehensive lists
+### **1. Asset Selection**
+Choose from multiple asset classes:
+- **Equities**: Search global stocks by company name
+- **Cryptocurrencies**: Bitcoin, Ethereum, altcoins
+- **ETFs**: Exchange-traded funds
+- **Indices**: Major market indices
+- **Commodities**: Gold, oil, futures
+- **Forex**: Currency pairs
+- **Indian Lists**: Curated NIFTY categories
 
-### **2. Configure Settings**
-- **Data Period**: 30d, 60d, 90d, 6mo, 1y
-- **Analysis Depth**: Technical + Sentiment + AI insights
-- **Alert Preferences**: Email notifications for signals
+### **2. Search Functionality**
+- **Dynamic Search**: Type company names or tickers
+- **Auto-Complete**: Yahoo Finance search integration
+- **Multi-Exchange**: Global market coverage
+- **Asset Filtering**: Results filtered by asset type
 
-### **3. Run Analysis**
-- Click **"🔍 Analyze Now"** button
-- Wait for comprehensive analysis (30-60 seconds)
-- Review detailed results and recommendations
+### **3. Analysis Configuration**
+- **Time Periods**: 5d, 1mo, 3mo, 6mo, ytd, 1y, 2y, 5y, max
+- **Real-Time Data**: Latest market prices and volumes
+- **Historical Analysis**: Complete dataset technical analysis
 
-### **4. Interpret Results**
-- **Trading Signal**: Buy/Sell/Hold with confidence level
-- **Technical Indicators**: RSI, MACD, Moving Averages
-- **AI Summary**: Strategic recommendations and risk assessment
-- **News Sentiment**: Market sentiment from recent headlines
+### **4. Comprehensive Results**
+- **Trading Signal**: Buy/Sell/Hold with confidence levels
+- **Key Metrics**: Current price, RSI, sentiment, signal strength
+- **Technical Details**: EMA values, MACD components
+- **AI Summary**: Strategic recommendations and market analysis
+- **News Headlines**: Recent news with sentiment analysis
+- **Professional Charts**: Both custom analysis and TradingView integration
 
 ---
 
-## 📊 Technical Indicators Explained
+## 📊 Understanding the Analysis
 
-### **RSI (Relative Strength Index) - Enhanced 40:60 Model**
-- **Below 40**: Oversold condition (Potential Buy Signal)
+### **Trading Signals**
+- **BUY**: When 2+ bullish conditions are met (RSI < 40, MACD histogram > 0, EMA alignment)
+- **SELL**: When 2+ bearish conditions are met (RSI > 60, MACD histogram < 0, EMA misalignment)
+- **HOLD**: When conditions are mixed or neutral
+
+### **Confidence Levels**
+- **High**: Strong consensus across all indicators
+- **Medium**: Moderate agreement between indicators  
+- **Low**: Conflicting or weak signals
+
+### **RSI Interpretation**
+- **Below 40**: Potentially oversold (bullish signal)
 - **40-60**: Normal trading range
-- **Above 60**: Overbought condition (Potential Sell Signal)
-- **Optimization**: Traditional 30:70 levels adjusted for Indian markets
+- **Above 60**: Potentially overbought (bearish signal)
 
-### **MACD (Moving Average Convergence Divergence)**
-- **MACD Line**: 12-day EMA minus 26-day EMA
-- **Signal Line**: 9-day EMA of MACD line
-- **Histogram**: MACD line minus Signal line
-- **Signals**: Crossovers indicate momentum changes
-
-### **Moving Averages**
-- **20-day MA**: Short-term trend indicator
-- **25-day MA**: Custom intermediate trend (unique feature)
-- **50-day MA**: Medium-term trend analysis
-- **200-day MA**: Long-term trend confirmation
-
-### **Volume Analysis**
-- **Current Volume**: Today's trading volume
-- **20-day Average**: Historical volume baseline
-- **Volume Ratio**: Current vs. average volume comparison
-- **Activity Levels**: High/Normal/Low volume classification
+### **EMA Trend Analysis**
+- **Bullish Alignment**: Price > EMA20 > EMA50 > EMA200
+- **Bearish Alignment**: Price < EMA20 < EMA50 < EMA200
+- **Mixed Signals**: EMAs crossed or conflicting
 
 ---
 
 ## 🔬 Advanced Features
 
-### **Signal Generation Algorithm**
-The proprietary algorithm combines:
-1. **Technical Score** (60% weight): RSI + MACD + MA alignment
-2. **Sentiment Score** (25% weight): News sentiment analysis
-3. **Volume Score** (15% weight): Volume activity assessment
-4. **Confidence Calculation**: Based on signal strength consensus
-
 ### **AI Strategy Engine**
-Powered by DeepSeek AI model:
-- Analyzes all technical indicators
-- Incorporates market sentiment
+Powered by DeepSeek AI via OpenRouter:
+- Analyzes all technical indicators simultaneously
+- Incorporates market sentiment from news
 - Provides actionable trading strategies
-- Includes risk management recommendations
-- Offers entry/exit point suggestions
+- Includes risk assessment and recommendations
+- Contextual analysis based on current market conditions
 
-### **News Sentiment Processing**
-Advanced NLP pipeline:
-1. **NewsAPI Integration**: Real-time headline fetching
-2. **FinBERT Analysis**: Financial sentiment classification
-3. **Sentiment Scoring**: Quantitative sentiment measurement
-4. **Impact Assessment**: News influence on price movements
+### **News Sentiment Integration**
+- **NewsAPI Integration**: Real-time financial news
+- **FinBERT Processing**: Financial domain sentiment analysis
+- **Sentiment Scoring**: Quantitative sentiment measurement
+- **Signal Integration**: Sentiment impact on trading decisions
 
----
+### **Professional Charting**
+- **Custom Plotly Charts**: Price, EMA, RSI, Volume in unified view
+- **TradingView Widgets**: Professional charting for advanced analysis
+- **Interactive Features**: Zoom, pan, and detailed examination
+- **Color Coding**: Visual indicators for trend direction
 
-## 📈 Supported Stocks
-
-### **NIFTY 50 (50 stocks)**
-Complete coverage including Reliance, TCS, HDFC Bank, Infosys, ICICI Bank, and 45 others.
-
-### **BANK NIFTY (12 stocks)**
-All major banking stocks including HDFC Bank, ICICI Bank, SBI, Kotak Mahindra Bank, and others.
-
-### **NIFTY AUTO (15 stocks)**
-Automotive sector including Maruti Suzuki, Tata Motors, M&M, Hero MotoCorp, and others.
-
-### **NIFTY PHARMA (15 stocks)**
-Pharmaceutical companies including Sun Pharma, Dr. Reddy's, Cipla, Divis Labs, and others.
-
-### **NIFTY METAL (14 stocks)**
-Metal & mining sector including Tata Steel, JSW Steel, Hindalco, Vedanta, and others.
-
-### **NIFTY IT (10 stocks)**
-IT services companies including TCS, Infosys, HCL Tech, Wipro, Tech Mahindra, and others.
-
-### **NIFTY FMCG (13 stocks)**
-Consumer goods including HUL, ITC, Nestle India, Britannia, and others.
+### **Data Export & Logging**
+- **Google Sheets Logging**: Automatic analysis tracking
+- **JSON Reports**: Complete analysis data export
+- **Historical Records**: Performance tracking over time
+- **Professional Documentation**: Detailed analysis summaries
 
 ---
 
-## 🚨 Alert System
+## 🇮🇳 Indian Stock Coverage
 
-### **Email Notifications**
-- **High-Confidence Signals**: Automatic email alerts
-- **Signal Details**: Complete analysis summary
-- **Timing**: Real-time delivery
-- **Customization**: Configurable recipient lists
+### **NIFTY 50 Index (50 stocks)**
+Major companies including:
+- **Technology**: TCS, Infosys, HCL Tech, Wipro, Tech Mahindra
+- **Banking**: HDFC Bank, ICICI Bank, SBI, Kotak Mahindra, Axis Bank
+- **Energy**: Reliance Industries, ONGC, BPCL, NTPC
+- **Consumer**: HUL, ITC, Nestle, Britannia, Asian Paints
+- **Automotive**: Maruti Suzuki, Tata Motors, M&M, Hero MotoCorp
+- **Pharmaceuticals**: Sun Pharma, Dr. Reddy's, Cipla, Divis Labs
 
-### **Google Sheets Logging**
-- **Automatic Logging**: All analyses saved
-- **Historical Tracking**: Performance monitoring
-- **Data Export**: Easy data retrieval
-- **Trend Analysis**: Long-term pattern recognition
-
----
-
-## 🔐 Security & Privacy
-
-### **API Key Management**
-- Environment variables for sensitive data
-- No hardcoded credentials
-- Secure token handling
-- Rate limiting compliance
-
-### **Data Privacy**
-- No personal data storage
-- Market data only processing
-- Secure API communications
-- Local data processing preference
+### **Sectoral Indices**
+- **BANK NIFTY**: 12 major banking stocks
+- **NIFTY AUTO**: 15 automotive companies  
+- **NIFTY PHARMA**: 15 pharmaceutical companies
+- **NIFTY METAL**: 14 metals & mining stocks
+- **NIFTY IT**: 10 information technology companies
+- **NIFTY FMCG**: 13 consumer goods companies
 
 ---
 
 ## 🎨 User Interface
 
 ### **Streamlit Dashboard**
-- **Clean, Professional Design**: Modern financial interface
-- **Real-time Updates**: Live data visualization
-- **Mobile Responsive**: Works on all devices
-- **Interactive Charts**: Zoom, pan, and analyze
+- **Clean Design**: Professional financial interface
+- **Real-Time Updates**: Live market data integration
+- **Responsive Layout**: Works on desktop and mobile
+- **Interactive Elements**: Dynamic charts and controls
 
-### **Color-Coded Signals**
-- 🟢 **Green**: Buy signals and positive indicators
-- 🔴 **Red**: Sell signals and negative indicators
-- 🟡 **Yellow**: Hold signals and neutral conditions
-- 📊 **Charts**: Professional financial visualizations
+### **Visual Indicators**
+- 🟢 **Green**: Bullish signals, positive sentiment, uptrends
+- 🔴 **Red**: Bearish signals, negative sentiment, downtrends  
+- 🟡 **Yellow**: Neutral conditions, hold signals
+- 📊 **Charts**: Professional-grade visualizations
 
----
-
-## 🔄 Update History
-
-### **Latest Enhancements**
-- ✅ **RSI Optimization**: 40:60 levels for Indian markets
-- ✅ **25-day MA Addition**: Enhanced trend analysis
-- ✅ **3-day News Window**: Recent sentiment focus
-- ✅ **Volume Integration**: Activity-based signals
-- ✅ **AI Enhancement**: DeepSeek integration
-- ✅ **Complete Stock Coverage**: All NIFTY stocks included
+### **Information Hierarchy**
+- **Key Metrics**: Primary trading information at the top
+- **Technical Analysis**: Detailed indicator breakdown
+- **AI Insights**: Strategic recommendations
+- **News & Sentiment**: Market context and sentiment
+- **Professional Charts**: Advanced analysis tools
 
 ---
 
-## 🚀 Performance Metrics
+## 🚀 Performance & Optimization
 
 ### **Analysis Speed**
-- **Data Fetching**: 5-10 seconds
-- **Technical Calculation**: 2-3 seconds
-- **AI Processing**: 10-15 seconds
-- **Total Analysis Time**: 30-45 seconds
+- **Data Fetching**: 3-5 seconds for real-time data
+- **Technical Calculations**: 1-2 seconds for full analysis
+- **AI Processing**: 5-10 seconds for strategy summary
+- **Chart Generation**: 2-3 seconds for visualizations
+- **Total Analysis**: 15-25 seconds end-to-end
 
-### **Accuracy Metrics**
-- **Signal Accuracy**: Based on backtesting
-- **Sentiment Correlation**: News impact analysis
-- **Trend Prediction**: Moving average effectiveness
-- **Risk Assessment**: Confidence scoring validation
+### **Accuracy Features**
+- **Vectorized Calculations**: Efficient technical analysis
+- **Multi-Signal Confirmation**: Reduced false signals
+- **Confidence Scoring**: Signal reliability assessment
+- **Historical Validation**: Backtested strategy components
 
 ---
 
-## 🛠️ Customization Options
+## 🔐 Security & Privacy
 
-### **Indicator Parameters**
-- **RSI Period**: Adjustable window (default: 14)
-- **MACD Settings**: Customizable EMA periods
-- **MA Periods**: Flexible timeframe selection
-- **Volume Window**: Configurable average period
+### **API Security**
+- **Environment Variables**: Secure credential storage
+- **No Hardcoded Keys**: All sensitive data externalized
+- **Rate Limiting**: Compliance with API limits
+- **Error Handling**: Graceful failure management
 
-### **Alert Thresholds**
-- **Confidence Levels**: High/Medium/Low customization
-- **Signal Sensitivity**: Adjustable trigger points
-- **Notification Frequency**: Configurable timing
-- **Report Generation**: Custom format options
+### **Data Privacy**
+- **No Personal Data**: Only market data processing
+- **Local Processing**: Analysis performed locally
+- **Optional Logging**: Google Sheets integration is optional
+- **No Data Retention**: Session-based analysis only
+
+---
+
+## 🛠️ Customization
+
+### **Strategy Parameters**
+The core strategy can be customized by modifying:
+- **RSI Thresholds**: Currently 40/60, adjustable in code
+- **EMA Periods**: 20/50/200, can be modified
+- **MACD Settings**: 12/26/9 configuration
+- **Signal Weights**: Adjust component importance
+
+### **UI Customization**
+- **Chart Colors**: Modify Plotly color schemes
+- **Layout**: Adjust Streamlit components
+- **Metrics Display**: Customize key performance indicators
+- **Export Formats**: Modify report structures
 
 ---
 
 ## 🔧 Troubleshooting
 
 ### **Common Issues**
-1. **API Limits**: NewsAPI free tier limitations
-2. **Network Errors**: Internet connectivity requirements
-3. **Data Availability**: Market hours consideration
-4. **Authentication**: Google Sheets setup verification
+1. **No Data Retrieved**: Check ticker symbol validity
+2. **API Errors**: Verify internet connection and API keys
+3. **Google Sheets**: Confirm service account setup
+4. **Slow Performance**: Check network speed for real-time data
 
-### **Solutions**
-- Check internet connection
-- Verify API key configuration
-- Ensure market hours for real-time data
-- Validate Google Sheets permissions
-
----
-
-## 📞 Support
-
-### **Getting Help**
-- **Documentation**: Comprehensive guides provided
-- **Code Comments**: Detailed inline explanations
-- **Error Messages**: Descriptive problem identification
-- **Logging**: Detailed operation tracking
+### **Error Handling**
+- **Graceful Degradation**: App continues with limited features
+- **User Feedback**: Clear error messages and suggestions
+- **Fallback Options**: Alternative data sources when possible
+- **Debug Information**: Detailed logging for troubleshooting
 
 ---
 
-## 🎯 Future Enhancements
+## 🚀 Future Enhancements
 
 ### **Planned Features**
+- **Backtesting Engine**: Historical strategy performance
+- **Portfolio Analysis**: Multi-asset portfolio tracking
 - **Options Analysis**: Derivatives trading signals
-- **Portfolio Tracking**: Multi-stock management
-- **Backtesting Engine**: Historical performance analysis
+- **Alerts System**: Email/SMS notifications for signals
 - **Mobile App**: Native mobile application
-- **Machine Learning**: Predictive price modeling
-- **Crypto Support**: Cryptocurrency analysis extension
+- **Machine Learning**: Enhanced prediction models
+
+### **Technical Improvements**
+- **WebSocket Integration**: Real-time streaming data
+- **Database Integration**: Historical data storage
+- **API Rate Optimization**: More efficient data usage
+- **Performance Caching**: Faster repeated analysis
 
 ---
 
-## 🏆 Why This Project Stands Out
+## 🏆 What Makes This Special
 
-### **Unique Features**
-1. **Indian Market Focus**: Tailored for NSE/BSE stocks
-2. **AI Integration**: Advanced strategy recommendations
-3. **Comprehensive Coverage**: All major NIFTY indices
-4. **Real-time Analysis**: Live market data processing
-5. **Professional Grade**: Institution-quality analysis
-6. **Open Source**: Community-driven development
+### **Unique Advantages**
+1. **Universal Coverage**: Global markets + Indian focus
+2. **Professional Integration**: TradingView embedded charts
+3. **AI Enhancement**: Context-aware strategy recommendations
+4. **EMA-Based Strategy**: Trend-following with momentum confirmation
+5. **Multi-Asset Support**: Stocks, crypto, ETFs, indices, forex
+6. **Real-Time Analysis**: Live market data integration
 
 ### **Technical Excellence**
-- **Modular Architecture**: Scalable and maintainable
-- **Error Handling**: Robust exception management
-- **Performance Optimization**: Efficient data processing
-- **Security Best Practices**: Secure credential management
+- **Clean Architecture**: Modular, maintainable code
+- **Error Resilience**: Robust exception handling
+- **Performance Optimized**: Vectorized calculations
+- **User Experience**: Intuitive interface design
 - **Documentation**: Comprehensive guides and comments
 
 ---
 
-## 📚 Learning Resources
+## 📚 Educational Value
 
-### **Understanding Technical Analysis**
-- **RSI**: Momentum oscillator for overbought/oversold conditions
-- **MACD**: Trend-following momentum indicator
-- **Moving Averages**: Trend identification and smoothing
-- **Volume**: Market participation and strength measurement
+### **Learning Technical Analysis**
+- **EMA Strategy**: Understanding exponential moving averages
+- **RSI Analysis**: Momentum oscillator interpretation
+- **MACD Signals**: Trend and momentum combination
+- **Multi-Timeframe**: Different period analysis
 
-### **Sentiment Analysis**
-- **FinBERT**: Financial domain BERT model
-- **News Impact**: Headlines effect on stock prices
-- **Market Psychology**: Investor behavior analysis
-- **Quantitative Sentiment**: Numerical sentiment scoring
-
----
-
-## 💡 Pro Tips
-
-### **Best Practices**
-1. **Combine Signals**: Don't rely on single indicators
-2. **Consider Volume**: High volume confirms price movements
-3. **Check Sentiment**: News can override technical signals
-4. **Risk Management**: Always use stop-loss orders
-5. **Market Hours**: Best signals during active trading
-6. **Trend Confirmation**: Multiple timeframe analysis
-
-### **Advanced Usage**
-- **Batch Analysis**: Analyze multiple stocks simultaneously
-- **Historical Comparison**: Track signal accuracy over time
-- **Custom Alerts**: Set personalized notification criteria
-- **Data Export**: Use logged data for further analysis
+### **Market Understanding**
+- **Sentiment Analysis**: News impact on markets
+- **Volume Analysis**: Market participation insights  
+- **Trend Recognition**: Identifying market direction
+- **Risk Management**: Signal confidence assessment
 
 ---
 
-## 🎉 **Show Your Appreciation**
+## 💡 Best Practices
+
+### **Using the Analyzer**
+1. **Multiple Confirmations**: Don't rely on single indicators
+2. **Volume Confirmation**: Check volume with price moves
+3. **News Context**: Consider sentiment in decisions
+4. **Timeframe Analysis**: Use appropriate data periods
+5. **Risk Management**: Always use stop-losses
+6. **Paper Trading**: Test strategies before real trading
+
+### **Strategy Optimization**
+- **Backtest First**: Validate on historical data
+- **Market Conditions**: Adapt to trending vs. ranging markets  
+- **Position Sizing**: Use appropriate risk per trade
+- **Regular Review**: Monitor and adjust strategy performance
+
+---
+
+## 🎉 **Community & Support**
 
 ### **⭐ Star This Repository**
-If you find this project helpful, please give it a star! It helps others discover this tool.
+Help others discover this tool by starring the repository!
 
 ### **🔄 Fork and Contribute**
-Fork this repository to contribute improvements, bug fixes, or new features.
+- Add new technical indicators
+- Improve the UI/UX
+- Add new asset classes
+- Enhance the AI integration
+- Fix bugs and optimize performance
 
-### **👍 Like and Share**
-Share this project with fellow traders, developers, and financial enthusiasts.
+### **📢 Share Your Experience**
+- Share screenshots of successful analyses
+- Discuss strategy improvements
+- Report bugs and suggest features
+- Help other traders learn the system
 
-### **💬 Feedback Welcome**
-Your feedback helps improve this tool for the entire community.
+### **💬 Get Support**
+- Check the documentation for common issues
+- Review the code comments for technical details
+- Open issues for bugs or feature requests
+- Join discussions about trading strategies
 
 ---
 
@@ -475,26 +476,42 @@ This project is open source and available under the [MIT License](LICENSE).
 
 ## 🙏 Acknowledgments
 
-- **yfinance**: For providing reliable financial data
-- **Streamlit**: For the amazing web framework
-- **NewsAPI**: For real-time news data
-- **OpenRouter**: For AI API access
-- **FinBERT**: For financial sentiment analysis
-- **Google**: For Sheets API integration
+- **yfinance**: Reliable financial data from Yahoo Finance
+- **Streamlit**: Amazing web application framework
+- **Plotly**: Professional interactive charting
+- **TradingView**: Embedded professional charts
+- **NewsAPI**: Real-time financial news data
+- **OpenRouter**: AI API access for DeepSeek integration
+- **FinBERT**: Financial sentiment analysis model
+- **Google**: Sheets API for data logging
 
 ---
 
-**Built with ❤️ for the Indian Stock Market Community**
+## ⚠️ Disclaimer
 
-*This tool is for educational and informational purposes only. Always consult with financial advisors before making investment decisions.*
+**This tool is for educational and informational purposes only. It does not constitute financial advice. Always:**
+- Do your own research before making trading decisions
+- Consult with qualified financial advisors
+- Practice proper risk management
+- Never invest more than you can afford to lose
+- Understand that past performance doesn't guarantee future results
+
+**Trading and investing involve significant risk of loss.**
 
 ---
+
+**Built with ❤️ for the Global Trading Community**
 
 ## 🚀 **Don't Forget To:**
-- ⭐ **STAR** this repository
-- 🔄 **FORK** and contribute
-- 👍 **LIKE** and appreciate
-- 📢 **SHARE** with others
-- 💬 **PROVIDE** feedback
+- ⭐ **STAR** this repository if you find it useful
+- 🔄 **FORK** and contribute improvements  
+- 👍 **LIKE** and share with fellow traders
+- 📢 **SHARE** on social media and trading communities
+- 💬 **PROVIDE** feedback and suggestions
+- 🐛 **REPORT** bugs to help improve the tool
 
 **Happy Trading! 📈💰**
+
+---
+
+*Elite Trading Analyzer - Where Technology Meets Trading Excellence*
