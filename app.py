@@ -32,7 +32,11 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GMAIL_EMAIL = os.getenv("GMAIL_EMAI")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+# Configure the Gemini API
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
 
 # --- Static Data & Mappings ---
 # Comprehensive Indian Stock Index and Individual Stock Mapping
@@ -562,7 +566,7 @@ class StockAnalyzer:
             You are a professional stock market analyst. Analyze the following data for {ticker_name}:
 
             Technical Indicators:
-            - RSI: {rsi:.2f} (Oversold<40, Overbought>60)
+            - RSI: {rsi:.2f} (A value below 40 suggests oversold, above 60 suggests overbought)
             - MACD Line: {macd['line']:.2f}
             - MACD Signal: {macd['signal']:.2f}
             - MACD Histogram: {macd['histogram']:.2f}
@@ -578,40 +582,31 @@ class StockAnalyzer:
             Recent Headlines (Last 3 days):
             {chr(10).join(headlines[:3])}
 
-            Provide a concise trading strategy summary (2-3 sentences) explaining:
-            1. Why this signal was generated
-            2. Key risk factors to consider
-            3. Suggested entry/exit strategy if applicable
-
-            Keep it professional and actionable for retail traders.
+            Provide a concise trading strategy summary in 2-3 sentences. Explain why this signal was generated, mention key risk factors, and suggest a potential entry/exit strategy if applicable. The tone should be professional and actionable for a retail trader.
             """
-            
-            # Google Gemini API call
-            if GEMINI_API_KEY:
-                genai.configure(api_key=GEMINI_API_KEY)
-                
-                # Create the model
+
+            # Google Gemini Pro API call
+            if GOOGLE_API_KEY:
                 model = genai.GenerativeModel('gemini-pro')
-                
-                # Generate response
-                response = model.generate_content(
-                    prompt,
-                    generation_config=genai.types.GenerationConfig(
-                        temperature=0.7,
-                        max_output_tokens=300,
-                    )
-                )
-                
-                return response.text.strip()
+                response = model.generate_content(prompt)
+                # It's good practice to check if the response has text.
+                if response.text:
+                    return response.text.strip()
+                else:
+                    # Handle cases where the model might return an empty response due to safety settings or other issues.
+                    raise Exception("Model returned an empty response.")
             else:
-                raise Exception("API key not configured")
-            
+                raise Exception("Google API key not configured")
+
         except Exception as e:
             st.warning(f"AI summary unavailable: {e}")
+            # Fallback summary if the API fails
             rsi_status = "oversold" if rsi < 40 else "overbought" if rsi > 60 else "neutral"
             macd_trend = "bullish" if macd['line'] > macd['signal'] else "bearish"
-            return f"Technical analysis suggests {signal} signal with {confidence} confidence. RSI at {rsi:.1f} indicates {rsi_status} conditions and MACD shows {macd_trend} momentum. Consider market sentiment and risk management."
-
+            return (f"Technical analysis suggests a '{signal}' signal with {confidence} confidence. "
+                    f"The RSI at {rsi:.1f} indicates {rsi_status} conditions, and the MACD shows {macd_trend} momentum. "
+                    f"Always consider overall market sentiment and employ proper risk management.")
+                    
 def setup_google_sheets():
     """Setup Google Sheets connection"""
     try:
