@@ -586,23 +586,23 @@ class StockAnalyzer:
             Keep it professional and actionable for retail traders.
             """
             
-        # Google Gemini API call
-        if GEMINI_API_KEY:
-            genai.configure(api_key=GEMINI_API_KEY)
-            
-            # Create the model
-            model = genai.GenerativeModel('gemini-pro')
-            
-            # Generate response
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=300,
+            # Google Gemini API call
+            if GEMINI_API_KEY:
+                genai.configure(api_key=GEMINI_API_KEY)
+                
+                # Create the model
+                model = genai.GenerativeModel('gemini-pro')
+                
+                # Generate response
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=300,
+                    )
                 )
-            )
-            
-            return response.text.strip()
+                
+                return response.text.strip()
             else:
                 raise Exception("API key not configured")
             
