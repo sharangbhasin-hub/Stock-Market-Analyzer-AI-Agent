@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
 import openai
+import google.generativeai as genai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -31,6 +32,7 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GMAIL_EMAIL = os.getenv("GMAIL_EMAI")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # --- Static Data & Mappings ---
 # Comprehensive Indian Stock Index and Individual Stock Mapping
@@ -553,7 +555,7 @@ class StockAnalyzer:
         return signal, confidence
     
     def get_ai_summary(self, ticker_name, rsi, macd, ma_data, signal, confidence, sentiment_label, headlines):
-        """Generate AI summary using OpenRouter DeepSeek"""
+        """Generate AI summary using OpenRouter DeepSeek/Google Gemini Pro"""
         try:
             # Prepare the prompt
             prompt = f"""
@@ -584,23 +586,23 @@ class StockAnalyzer:
             Keep it professional and actionable for retail traders.
             """
             
-            # OpenRouter API call
-            if OPENROUTER_API_KEY:
-                client = openai.OpenAI(
-                    base_url="https://openrouter.ai/api/v1",
-                    api_key=OPENROUTER_API_KEY,
+        # Google Gemini API call
+        if GEMINI_API_KEY:
+            genai.configure(api_key=GEMINI_API_KEY)
+            
+            # Create the model
+            model = genai.GenerativeModel('gemini-pro')
+            
+            # Generate response
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=300,
                 )
-                
-                response = client.chat.completions.create(
-                    model="deepseek/deepseek-v3.2-exp",
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ],
-                    max_tokens=300,
-                    temperature=0.7
-                )
-                
-                return response.choices[0].message.content.strip()
+            )
+            
+            return response.text.strip()
             else:
                 raise Exception("API key not configured")
             
@@ -1080,7 +1082,7 @@ def main():
     # Footer
     st.markdown("---")
     st.markdown(
-        "*Enhanced Stock Analyzer powered by yfinance, FinBERT, OpenRouter DeepSeek, and Google Sheets API*"
+        "*Enhanced Stock Analyzer powered by yfinance, FinBERT, OpenRouter DeepSeek/Google Gemini Pro, and Google Sheets API*"
     )
     st.markdown("*Updated with RSI (40:60), 25-day MA, 3-day news, and complete Nifty stock coverage*")
 
