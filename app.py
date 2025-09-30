@@ -587,7 +587,7 @@ class StockAnalyzer:
 
             # Google Gemini Pro API call
             if GOOGLE_API_KEY:
-                model = genai.GenerativeModel('gemini-1.5-pro-latest')
+                model = genai.GenerativeModel('gemini-2.5-pro-latest')
                 response = model.generate_content(prompt)
                 # It's good practice to check if the response has text.
                 if response.text:
