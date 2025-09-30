@@ -27,7 +27,7 @@ warnings.filterwarnings('ignore')
 load_dotenv()
 
 # Configuration
-OPENROUTER_API_KEY = os.getenv("AIzaSyAIk7Fa78sZob_9jN7hopcvUPPTMCBCzv0")
+OPENROUTER_API_KEY = os.getenv("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")
 GMAIL_EMAIL = os.getenv("sharangbhasin@gmail.com")
 GMAIL_APP_PASSWORD = os.getenv("S@bharang_9999")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
@@ -587,7 +587,7 @@ class StockAnalyzer:
             # OpenRouter API call
             if OPENROUTER_API_KEY:
                 client = openai.OpenAI(
-                    base_url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent",
+                    base_url="https://openrouter.ai/api/v1",
                     api_key=OPENROUTER_API_KEY,
                 )
                 
