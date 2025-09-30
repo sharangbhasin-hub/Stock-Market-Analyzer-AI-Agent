@@ -25,8 +25,8 @@ load_dotenv()
 
 # Configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-GMAIL_EMAIL = os.getenv("GMAIL_EMAIL")
-GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+GMAIL_EMAIL = os.getenv("sharangbhasin@gmail.com")
+GMAIL_APP_PASSWORD = os.getenv("Sharang_9999")
 
 # Comprehensive Indian Stock Index and Individual Stock Mapping
 STOCK_CATEGORIES = {
