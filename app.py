@@ -592,7 +592,7 @@ class StockAnalyzer:
                 )
                 
                 response = client.chat.completions.create(
-                    model="deepseek/deepseek-chat",
+                    model="deepseek/deepseek-v3.2-exp",
                     messages=[
                         {"role": "user", "content": prompt}
                     ],
