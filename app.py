@@ -27,9 +27,9 @@ warnings.filterwarnings('ignore')
 load_dotenv()
 
 # Configuration
-OPENROUTER_API_KEY = os.getenv("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")
-GMAIL_EMAIL = os.getenv("sharangbhasin@gmail.com")
-GMAIL_APP_PASSWORD = os.getenv("S@bharang_9999")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+GMAIL_EMAIL = os.getenv("GMAIL_EMAI")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 
 # --- Static Data & Mappings ---
