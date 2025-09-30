@@ -18,6 +18,9 @@ from datetime import datetime, timedelta
 import json
 import time
 import warnings
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+import streamlit.components.v1 as components								 
 warnings.filterwarnings('ignore')
 
 # Load environment variables
@@ -27,7 +30,9 @@ load_dotenv()
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 GMAIL_EMAIL = os.getenv("sharangbhasin@gmail.com")
 GMAIL_APP_PASSWORD = os.getenv("Sharang_9999")
+NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 
+# --- Static Data & Mappings ---
 # Comprehensive Indian Stock Index and Individual Stock Mapping
 STOCK_CATEGORIES = {
     "NIFTY 50 Index": {
@@ -192,10 +197,141 @@ STOCK_CATEGORIES = {
             "Emami": "EMAMILTD.NS",
             "P&G Hygiene": "PGHH.NS",
             "VBL": "VBL.NS"
-        }
+        }																																																																					  																	 
     }
 }
+==============================================================================
+# === GLOBAL HELPER FUNCTIONS (Defined before they are called) =================
+# ==============================================================================
 
+@st.cache_data
+def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
+    """Searches Yahoo Finance for a given query, filtered by asset type."""
+    asset_type_map = {
+        "Equities (Stocks)": "EQUITY", "Cryptocurrencies": "CRYPTOCURRENCY", "ETFs": "ETF",
+        "Mutual Funds": "MUTUALFUND", "Indices": "INDEX", "Commodities": "COMMODITY", "Currencies / Forex": "CURRENCY"
+    }
+    api_quote_type = asset_type_map.get(asset_type, "EQUITY")
+    base_url = "https://query1.finance.yahoo.com/v1/finance/search"
+    params = {
+        'q': query, 'quotesCount': 10, 'newsCount': 0, 'listsCount': 0, 'enableFuzzyQuery': 'false',
+        'quotesQueryId': 'tss_match_phrase_query', 'multiQuoteQueryId': 'multi_quote_single_token_query',
+        'newsQueryId': 'news_cie_vespa', 'enableCb': 'true', 'enableNavLinks': 'true',
+        'enableEnhancedTrivialQuery': 'true', 'quoteType': api_quote_type
+    }
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+    try:
+        response = requests.get(base_url, headers=headers, params=params, timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        results = data.get('quotes', [])
+        if not results: return {}
+        ticker_options = {}
+        for result in results:
+            name = result.get('longname') or result.get('shortname')
+            if name and 'symbol' in result:
+                exchange = result.get('exchDisp', 'N/A')
+                display_name = f"{name} ({result['symbol']}) - {exchange}"
+                ticker_options[display_name] = result['symbol']
+        return ticker_options
+    except Exception as e:
+        st.warning(f"Could not connect to Yahoo Finance search: {e}")
+        return {}
+
+@st.cache_data
+def fetch_stock_data(ticker, period="1y"):
+    """Fetch stock data using yfinance."""
+    try:
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        if not info.get('longName') and not info.get('shortName'):
+             st.error(f"Ticker '{ticker}' not found or is invalid.")
+             return None
+        hist = stock.history(period=period)
+        if hist.empty:
+            st.error(f"No historical data found for ticker: {ticker}.")
+            return None
+        return hist
+    except Exception as e:
+        st.error(f"Error fetching data for '{ticker}': {e}")
+        return None
+
+def create_plotly_charts(data, ticker_name):
+    """Creates a focused trading chart with Price/EMAs, RSI, and color-coded Volume."""
+    fig = make_subplots(
+        rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03,
+        subplot_titles=('Price & EMAs', 'RSI', 'Volume'), row_heights=[0.6, 0.2, 0.2]
+    )
+    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Price', line=dict(color='white', width=2)), row=1, col=1)
+    for span, color in zip([20, 50, 200], ['#1f77b4', '#ff7f0e', '#d62728']):
+        fig.add_trace(go.Scatter(x=data.index, y=data['Close'].ewm(span=span, adjust=False).mean(), mode='lines', name=f'EMA {span}', line=dict(width=1.5, color=color)), row=1, col=1)
+    rsi_series = 100 - (100 / (1 + (data['Close'].diff().where(lambda x: x > 0, 0).rolling(14).mean() / -data['Close'].diff().where(lambda x: x < 0, 0).rolling(14).mean())))
+    fig.add_trace(go.Scatter(x=data.index, y=rsi_series, mode='lines', name='RSI', line=dict(color='#9467bd')), row=2, col=1)
+    rsi_lines = [
+        {'y': 70, 'dash': 'dash', 'text': 'Overbought'}, {'y': 60, 'dash': 'dot', 'text': ''},
+        {'y': 40, 'dash': 'dot', 'text': ''}, {'y': 30, 'dash': 'dash', 'text': 'Oversold'}
+    ]
+    for line in rsi_lines:
+        fig.add_hline(y=line['y'], line_dash=line['dash'], line_color="grey", row=2, col=1,
+                      annotation_text=line['text'], annotation_position="right")
+    colors = ['#2ca02c' if row['Close'] >= row['Open'] else '#d62728' for index, row in data.iterrows()]
+    fig.add_trace(go.Bar(x=data.index, y=data['Volume'], name='Volume', marker_color=colors), row=3, col=1)
+    fig.update_layout(height=800, title_text=f'Technical Analysis for {ticker_name}', showlegend=True,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                      xaxis_rangeslider_visible=False, template='plotly_dark')
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="RSI", range=[0, 100], row=2, col=1)
+    fig.update_yaxes(title_text="Volume", row=3, col=1)
+    return fig
+
+def embed_tradingview_widget(ticker):
+    """Generates and embeds a TradingView Advanced Real-Time Chart widget."""
+    tv_ticker = f"NSE:{ticker.replace('.NS', '')}" if ".NS" in ticker else f"BSE:{ticker.replace('.BO', '')}" if ".BO" in ticker else ticker.replace('-', '')
+    html_code = f"""
+    <div class="tradingview-widget-container" style="height:500px;width:100%;">
+      <div id="tradingview_chart" style="height:100%;width:100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget({{
+        "width": "100%", "height": 500, "symbol": "{tv_ticker}", "interval": "D",
+        "timezone": "Etc/UTC", "theme": "dark", "style": "1", "locale": "en",
+        "enable_publishing": false, "allow_symbol_change": true, "container_id": "tradingview_chart"
+      }});
+      </script>
+    </div>"""
+    return html_code
+
+def setup_google_sheets():
+    """Initializes connection to Google Sheets."""
+    try:
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+        creds_dict = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        client = gspread.authorize(creds)
+        try:
+            sheet = client.open("EliteTradingAnalyzerLog").sheet1
+        except gspread.SpreadsheetNotFound:
+            sheet = client.create("EliteTradingAnalyzerLog").sheet1
+            headers = ["Timestamp", "Ticker", "Signal", "Confidence", "RSI", "Sentiment", "AI Summary"]
+            sheet.append_row(headers)
+        return sheet
+    except Exception as e:
+        st.error(f"Google Sheets setup failed: {e}")
+        return None
+
+def log_to_sheets(sheet, data):
+    """Logs a row of data to the specified Google Sheet."""
+    if sheet:
+        try:
+            sheet.append_row(data)
+            return True
+        except Exception as e:
+            st.warning(f"Failed to log to sheets: {e}")
+    return False
+
+# ==============================================================================
+# === PRIMARY ANALYSIS CLASS ===================================================
+# ==============================================================================																	
 class StockAnalyzer:
     def __init__(self):
         self.sentiment_analyzer = None
@@ -278,6 +414,7 @@ class StockAnalyzer:
                 'MA_200': current_price
             }
     
+   		
     def scrape_news_headlines(self, ticker_name, days=1): # Defaulting to 1 day for recent news
         """Scrape news headlines from NewsAPI.org"""
         try:
