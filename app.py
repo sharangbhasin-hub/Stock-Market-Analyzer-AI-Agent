@@ -947,7 +947,7 @@ def main():
                 fig = create_indicator_charts(data, rsi, macd, ma_data)
                 st.pyplot(fig)
                 
-				# --- ADD THIS CODE HERE ---
+				# Charts
 				st.subheader("🚀 Live Professional Chart (for Discretionary Analysis)")
 				st.info("Use this chart for your own drawing and advanced indicator analysis.")
 				components.html(embed_tradingview_widget(ticker), height=520)
