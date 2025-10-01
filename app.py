@@ -383,8 +383,8 @@ class StockAnalyzer:
     def compute_macd(self, data):
         """Calculate MACD"""
         try:
-            exp1 = data['Close'].ewm(span=12).mean()
-            exp2 = data['Close'].ewm(span=26).mean()
+            exp1 = data['Close'].ewm(span=12, adjust=False).mean()
+            exp2 = data['Close'].ewm(span=26, adjust=False).mean()
             macd = exp1 - exp2
             signal = macd.ewm(span=9).mean()
             histogram = macd - signal
@@ -776,7 +776,7 @@ def main():
     
     # Title and description
     st.title("📈 Stock Market Analyzer AI Agent")
-    st.markdown("*Intelligent analysis for Indian stock indices and individual stocks with AI-powered insights*")
+    st.markdown("*Intelligent analysis for Any stock indices and individual stocks with AI-powered insights*")
     
     # Sidebar
     st.sidebar.header("Stock Selection")
@@ -812,11 +812,11 @@ def main():
     st.sidebar.info(f"Ticker: {ticker}")
     
     # Analysis settings
-    st.sidebar.header("Settings")
+    st.sidebar.header("⚙️ Settings")
     period = st.sidebar.selectbox(
         "Data Period:",
-        ["30d", "60d", "90d", "6mo", "1y"],
-        index=1
+        ["5d", "1mo", "3mo", "6mo", "ytd", "1y", "2y", "5y", "max"],
+        index=5
     )
     
     # Initialize analyzer
