@@ -207,12 +207,10 @@ STOCK_CATEGORIES = {
         }
     }
 }
-
-
 # ==============================================================================
 # === GLOBAL HELPER FUNCTIONS (Defined before they are called) =================
 # ==============================================================================
-@st.cache_data(ttl=3600)  # Cache the results for 1 hour
+@st.cache_data(ttl=3600) # Cache the results for 1 hour
 def run_pre_market_screener():
     """
     Downloads all NSE stock symbols, fetches their previous day's data,
@@ -225,24 +223,19 @@ def run_pre_market_screener():
         df_all_stocks = pd.read_csv(url)
         # We only need the 'SYMBOL' column and we'll append '.NS' for yfinance
         nse_symbols = [f"{symbol}.NS" for symbol in df_all_stocks['SYMBOL']]
-
+        
         # Limit to the first 100 stocks for speed during development, remove later
-        symbols_to_scan = nse_symbols[:100]
-        st.write(
-            f"Found {len(nse_symbols)} total stocks. Scanning the first {len(symbols_to_scan)} for this run..."
-        )
+        symbols_to_scan = nse_symbols[:100] 
+        st.write(f"Found {len(nse_symbols)} total stocks. Scanning the first {len(symbols_to_scan)} for this run...")
 
         # Step 2: Fetch previous day's data for all stocks at once
         # Using a 5-day period to ensure we get the last trading day's data
         tickers_str = " ".join(symbols_to_scan)
-        data = yf.download(tickers_str,
-                           period="5d",
-                           group_by='ticker',
-                           auto_adjust=True)
+        data = yf.download(tickers_str, period="5d", group_by='ticker', auto_adjust=True)
 
         screened_list = {}
         progress_bar = st.progress(0)
-
+        
         # Step 3: Apply filtering criteria
         for i, ticker in enumerate(symbols_to_scan):
             try:
@@ -252,62 +245,40 @@ def run_pre_market_screener():
                     last_day = stock_data.iloc[-1]
                     price = last_day['Close']
                     volume = last_day['Volume']
-
+                    
                     # Your screening criteria from the notes
                     if price > 100 and volume > 100000:
-                        screened_list[ticker] = {
-                            'price': price,
-                            'volume': volume
-                        }
+                        screened_list[ticker] = {'price': price, 'volume': volume}
             except Exception:
                 # Ignore tickers that fail to download, often due to delisting
                 continue
             progress_bar.progress((i + 1) / len(symbols_to_scan))
 
-        st.write(
-            f"Screening complete. Found {len(screened_list)} stocks meeting your criteria."
-        )
+        st.write(f"Screening complete. Found {len(screened_list)} stocks meeting your criteria.")
         return screened_list
 
     except Exception as e:
         st.error(f"An error occurred during the pre-market scan: {e}")
         return {}
 
-
 @st.cache_data
 def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
     """Searches Yahoo Finance for a given query, filtered by asset type."""
     asset_type_map = {
-        "Equities (Stocks)": "EQUITY",
-        "Cryptocurrencies": "CRYPTOCURRENCY",
-        "ETFs": "ETF",
-        "Mutual Funds": "MUTUALFUND",
-        "Indices": "INDEX",
-        "Commodities": "COMMODITY",
-        "Currencies / Forex": "CURRENCY"
+        "Equities (Stocks)": "EQUITY", "Cryptocurrencies": "CRYPTOCURRENCY", "ETFs": "ETF",
+        "Mutual Funds": "MUTUALFUND", "Indices": "INDEX", "Commodities": "COMMODITY", "Currencies / Forex": "CURRENCY"
     }
     api_quote_type = asset_type_map.get(asset_type, "EQUITY")
     base_url = "https://query1.finance.yahoo.com/v1/finance/search"
     params = {
-        'q': query,
-        'quotesCount': 10,
-        'newsCount': 0,
-        'listsCount': 0,
-        'enableFuzzyQuery': 'false',
-        'quotesQueryId': 'tss_match_phrase_query',
-        'multiQuoteQueryId': 'multi_quote_single_token_query',
-        'newsQueryId': 'news_cie_vespa',
-        'enableCb': 'true',
-        'enableNavLinks': 'true',
-        'enableEnhancedTrivialQuery': 'true',
-        'quoteType': api_quote_type
+        'q': query, 'quotesCount': 10, 'newsCount': 0, 'listsCount': 0, 'enableFuzzyQuery': 'false',
+        'quotesQueryId': 'tss_match_phrase_query', 'multiQuoteQueryId': 'multi_quote_single_token_query',
+        'newsQueryId': 'news_cie_vespa', 'enableCb': 'true', 'enableNavLinks': 'true',
+        'enableEnhancedTrivialQuery': 'true', 'quoteType': api_quote_type
     }
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     try:
-        response = requests.get(base_url,
-                                headers=headers,
-                                params=params,
-                                timeout=5)
+        response = requests.get(base_url, headers=headers, params=params, timeout=5)
         response.raise_for_status()
         data = response.json()
         results = data.get('quotes', [])
@@ -323,7 +294,6 @@ def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
     except Exception as e:
         st.warning(f"Could not connect to Yahoo Finance search: {e}")
         return {}
-
 
 @st.cache_data
 def fetch_stock_data(ticker, period="1y"):
@@ -343,98 +313,37 @@ def fetch_stock_data(ticker, period="1y"):
         st.error(f"Error fetching data for '{ticker}': {e}")
         return None
 
-
 def create_plotly_charts(data, ticker_name):
     """Creates a focused trading chart with Price/EMAs, RSI, and color-coded Volume."""
-    fig = make_subplots(rows=3,
-                        cols=1,
-                        shared_xaxes=True,
-                        vertical_spacing=0.03,
-                        subplot_titles=('Price & EMAs', 'RSI', 'Volume'),
-                        row_heights=[0.6, 0.2, 0.2])
-    fig.add_trace(go.Scatter(x=data.index,
-                             y=data['Close'],
-                             mode='lines',
-                             name='Price',
-                             line=dict(color='white', width=2)),
-                  row=1,
-                  col=1)
+    fig = make_subplots(
+        rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.03,
+        subplot_titles=('Price & EMAs', 'RSI', 'Volume'), row_heights=[0.6, 0.2, 0.2]
+    )
+    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Price', line=dict(color='white', width=2)), row=1, col=1)
     for span, color in zip([20, 50, 200], ['#1f77b4', '#ff7f0e', '#d62728']):
-        fig.add_trace(go.Scatter(x=data.index,
-                                 y=data['Close'].ewm(span=span,
-                                                     adjust=False).mean(),
-                                 mode='lines',
-                                 name=f'EMA {span}',
-                                 line=dict(width=1.5, color=color)),
-                      row=1,
-                      col=1)
-    rsi_series = 100 - (
-        100 /
-        (1 +
-         (data['Close'].diff().where(lambda x: x > 0, 0).rolling(14).mean() /
-          -data['Close'].diff().where(lambda x: x < 0, 0).rolling(14).mean())))
-    fig.add_trace(go.Scatter(x=data.index,
-                             y=rsi_series,
-                             mode='lines',
-                             name='RSI',
-                             line=dict(color='#9467bd')),
-                  row=2,
-                  col=1)
-    rsi_lines = [{
-        'y': 70,
-        'dash': 'dash',
-        'text': 'Overbought'
-    }, {
-        'y': 60,
-        'dash': 'dot',
-        'text': ''
-    }, {
-        'y': 40,
-        'dash': 'dot',
-        'text': ''
-    }, {
-        'y': 30,
-        'dash': 'dash',
-        'text': 'Oversold'
-    }]
-    for line in rsi_lines:
-        fig.add_hline(y=line['y'],
-                      line_dash=line['dash'],
-                      line_color="grey",
-                      row=2,
-                      col=1,
-                      annotation_text=line['text'],
-                      annotation_position="right")
-    colors = [
-        '#2ca02c' if row['Close'] >= row['Open'] else '#d62728'
-        for index, row in data.iterrows()
+        fig.add_trace(go.Scatter(x=data.index, y=data['Close'].ewm(span=span, adjust=False).mean(), mode='lines', name=f'EMA {span}', line=dict(width=1.5, color=color)), row=1, col=1)
+    rsi_series = 100 - (100 / (1 + (data['Close'].diff().where(lambda x: x > 0, 0).rolling(14).mean() / -data['Close'].diff().where(lambda x: x < 0, 0).rolling(14).mean())))
+    fig.add_trace(go.Scatter(x=data.index, y=rsi_series, mode='lines', name='RSI', line=dict(color='#9467bd')), row=2, col=1)
+    rsi_lines = [
+        {'y': 70, 'dash': 'dash', 'text': 'Overbought'}, {'y': 60, 'dash': 'dot', 'text': ''},
+        {'y': 40, 'dash': 'dot', 'text': ''}, {'y': 30, 'dash': 'dash', 'text': 'Oversold'}
     ]
-    fig.add_trace(go.Bar(x=data.index,
-                         y=data['Volume'],
-                         name='Volume',
-                         marker_color=colors),
-                  row=3,
-                  col=1)
-    fig.update_layout(height=800,
-                      title_text=f'Technical Analysis for {ticker_name}',
-                      showlegend=True,
-                      legend=dict(orientation="h",
-                                  yanchor="bottom",
-                                  y=1.02,
-                                  xanchor="right",
-                                  x=1),
-                      xaxis_rangeslider_visible=False,
-                      template='plotly_dark')
+    for line in rsi_lines:
+        fig.add_hline(y=line['y'], line_dash=line['dash'], line_color="grey", row=2, col=1,
+                      annotation_text=line['text'], annotation_position="right")
+    colors = ['#2ca02c' if row['Close'] >= row['Open'] else '#d62728' for index, row in data.iterrows()]
+    fig.add_trace(go.Bar(x=data.index, y=data['Volume'], name='Volume', marker_color=colors), row=3, col=1)
+    fig.update_layout(height=800, title_text=f'Technical Analysis for {ticker_name}', showlegend=True,
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                      xaxis_rangeslider_visible=False, template='plotly_dark')
     fig.update_yaxes(title_text="Price", row=1, col=1)
     fig.update_yaxes(title_text="RSI", range=[0, 100], row=2, col=1)
     fig.update_yaxes(title_text="Volume", row=3, col=1)
     return fig
 
-
 def embed_tradingview_widget(ticker):
     """Generates and embeds a TradingView Advanced Real-Time Chart widget."""
-    tv_ticker = f"NSE:{ticker.replace('.NS', '')}" if ".NS" in ticker else f"BSE:{ticker.replace('.BO', '')}" if ".BO" in ticker else ticker.replace(
-        '-', '')
+    tv_ticker = f"NSE:{ticker.replace('.NS', '')}" if ".NS" in ticker else f"BSE:{ticker.replace('.BO', '')}" if ".BO" in ticker else ticker.replace('-', '')
     html_code = f"""
     <div class="tradingview-widget-container" style="height:500px;width:100%;">
       <div id="tradingview_chart" style="height:100%;width:100%;"></div>
@@ -449,14 +358,10 @@ def embed_tradingview_widget(ticker):
     </div>"""
     return html_code
 
-
 def setup_google_sheets():
     """Initializes connection to Google Sheets."""
     try:
-        scope = [
-            "https://spreadsheets.google.com/feeds",
-            "https://www.googleapis.com/auth/drive"
-        ]
+        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         creds_dict = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
@@ -464,16 +369,12 @@ def setup_google_sheets():
             sheet = client.open("TradingAnalyzerLog").sheet1
         except gspread.SpreadsheetNotFound:
             sheet = client.create("TradingAnalyzerLog").sheet1
-            headers = [
-                "Timestamp", "Ticker", "Signal", "Confidence", "RSI",
-                "Sentiment", "AI Summary"
-            ]
+            headers = ["Timestamp", "Ticker", "Signal", "Confidence", "RSI", "Sentiment", "AI Summary"]
             sheet.append_row(headers)
         return sheet
     except Exception as e:
         st.error(f"Google Sheets setup failed: {e}")
         return None
-
 
 def log_to_sheets(sheet, data):
     """Logs a row of data to the specified Google Sheet."""
@@ -485,43 +386,38 @@ def log_to_sheets(sheet, data):
             st.warning(f"Failed to log to sheets: {e}")
     return False
 
-
 # ==============================================================================
 # === PRIMARY ANALYSIS CLASS ===================================================
 # ==============================================================================
 class StockAnalyzer:
-    # Add these new methods INSIDE the StockAnalyzer class
+# Add these new methods INSIDE the StockAnalyzer class
 
     def check_candlestick_pattern(self, five_min_data):
         """Identifies key 3-candle reversal patterns like Morning Star."""
         if len(five_min_data) < 3:
             return "Not enough data"
-
+    
         last3 = five_min_data.tail(3)
         c1, c2, c3 = last3.iloc[0], last3.iloc[1], last3.iloc[2]
-
+    
         # Morning Star (Bullish Reversal)
-        is_morning_star = (
-            c1['close'] < c1['open'] and  # 1st is bearish
-            abs(c2['close'] - c2['open']) < abs(c1['close'] - c1['open'])
-            and  # 2nd is small body
-            c3['close'] > c3['open'] and  # 3rd is bullish
-            c3['close'] > c1['open'])  # 3rd closes above 1st open
+        is_morning_star = (c1['close'] < c1['open'] and  # 1st is bearish
+                           abs(c2['close'] - c2['open']) < abs(c1['close'] - c1['open']) and # 2nd is small body
+                           c3['close'] > c3['open'] and  # 3rd is bullish
+                           c3['close'] > c1['open'])     # 3rd closes above 1st open
         if is_morning_star:
             return "Morning Star (Bullish)"
-
+    
         # Evening Star (Bearish Reversal)
-        is_evening_star = (
-            c1['close'] > c1['open'] and  # 1st is bullish
-            abs(c2['close'] - c2['open']) < abs(c1['close'] - c1['open'])
-            and  # 2nd is small body
-            c3['close'] < c3['open'] and  # 3rd is bearish
-            c3['close'] < c1['open'])  # 3rd closes below 1st open
+        is_evening_star = (c1['close'] > c1['open'] and  # 1st is bullish
+                           abs(c2['close'] - c2['open']) < abs(c1['close'] - c1['open']) and # 2nd is small body
+                           c3['close'] < c3['open'] and  # 3rd is bearish
+                           c3['close'] < c1['open'])     # 3rd closes below 1st open
         if is_evening_star:
             return "Evening Star (Bearish)"
-
+    
         return "No significant pattern"
-
+    
     def run_confirmation_checklist(self, analysis_results):
         """
         Runs the full 5-point confirmation checklist to generate a final trade signal.
@@ -534,78 +430,71 @@ class StockAnalyzer:
             "5. Indicator Alignment": "⚠️ PENDING",
             "FINAL_SIGNAL": "HOLD"
         }
-
+    
         five_min_df = analysis_results['5m_data']
         if five_min_df.empty:
             return checklist
-
+    
         resistance = analysis_results['resistance']
         support = analysis_results['support']
         latest_price = analysis_results['latest_price']
-
+    
         # Check 1 & 2: At a key level with price rejection (simplified check)
-        at_resistance = abs(latest_price - resistance
-                            ) / resistance < 0.005  # Within 0.5% of resistance
-        at_support = abs(latest_price -
-                         support) / support < 0.005  # Within 0.5% of support
-
+        at_resistance = abs(latest_price - resistance) / resistance < 0.005 # Within 0.5% of resistance
+        at_support = abs(latest_price - support) / support < 0.005 # Within 0.5% of support
+        
         if at_support:
             checklist["1. At Key S/R Level"] = "✅ At Support"
             # Check for a bullish rejection candle (hammer-like)
             last_candle = five_min_df.iloc[-1]
-            if (last_candle['low'] < support) and (last_candle['close']
-                                                   > support):
+            if (last_candle['low'] < support) and (last_candle['close'] > support):
                 checklist["2. Price Rejection"] = "✅ Bullish Rejection"
         elif at_resistance:
             checklist["1. At Key S/R Level"] = "✅ At Resistance"
             # Check for a bearish rejection candle (shooting star-like)
             last_candle = five_min_df.iloc[-1]
-            if (last_candle['high'] > resistance) and (last_candle['close']
-                                                       < resistance):
+            if (last_candle['high'] > resistance) and (last_candle['close'] < resistance):
                 checklist["2. Price Rejection"] = "✅ Bearish Rejection"
         else:
             checklist["1. At Key S/R Level"] = "❌ Not at a key level"
             checklist["2. Price Rejection"] = "❌ No Rejection"
-
+    
         # Check 3: Chart Pattern (using our existing function)
         pattern_status = self.detect_breakout_retest(five_min_df, resistance)
         if "✅ Retest Confirmed" in pattern_status:
             checklist["3. Chart Pattern Confirmed"] = "✅ Breakout/Retest"
         else:
             checklist["3. Chart Pattern Confirmed"] = "❌ No Confirmed Pattern"
-
+            
         # Check 4: Candlestick Pattern
         candle_pattern = self.check_candlestick_pattern(five_min_df)
-        checklist[
-            "4. Candlestick Signal"] = f"✅ {candle_pattern}" if "No significant" not in candle_pattern else "❌ No Signal"
-
+        checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}" if "No significant" not in candle_pattern else "❌ No Signal"
+    
         # Check 5: Indicator Alignment
         rsi = self.compute_rsi(five_min_df.rename(columns={'close': 'Close'}))
         five_min_df = self.compute_vwap(five_min_df)
         vwap = five_min_df['vwap'].iloc[-1]
-
+        
         # Bullish Alignment Check
-        if (checklist["1. At Key S/R Level"] == "✅ At Support" and rsi < 70
-                and latest_price > vwap):
+        if (checklist["1. At Key S/R Level"] == "✅ At Support" and 
+            rsi < 70 and latest_price > vwap):
             checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
         # Bearish Alignment Check
-        elif (checklist["1. At Key S/R Level"] == "✅ At Resistance"
-              and rsi > 30 and latest_price < vwap):
+        elif (checklist["1. At Key S/R Level"] == "✅ At Resistance" and
+              rsi > 30 and latest_price < vwap):
             checklist["5. Indicator Alignment"] = "✅ Bearish Alignment"
         else:
             checklist["5. Indicator Alignment"] = "❌ No Alignment"
-
+            
         # Final Signal Generation
-        bullish_checks = sum(
-            1 for v in checklist.values()
-            if "✅ Bullish" in str(v) or ("✅ Breakout/Retest" in str(v)))
+        bullish_checks = sum(1 for v in checklist.values() if "✅ Bullish" in str(v) or ("✅ Breakout/Retest" in str(v)))
         if bullish_checks >= 3:
             checklist["FINAL_SIGNAL"] = "BUY"
-
+        
         return checklist
-
+    
     # Add this new method INSIDE the StockAnalyzer class
-
+    
     def detect_breakout_retest(self, five_min_data, resistance):
         """
         Analyzes 5-minute data to detect a breakout, retest, and confirmation.
@@ -613,50 +502,49 @@ class StockAnalyzer:
         """
         if five_min_data.empty or resistance == 0:
             return "Not Analyzed"
-
+    
         # We'll analyze the last 20 candles for this pattern
         recent_data = five_min_data.tail(20)
-
+        
         breakout_candle_index = -1
         retest_candle_index = -1
-
+    
         # 1. Detect the Breakout
         for i in range(1, len(recent_data)):
-            prev_high = recent_data['high'].iloc[i - 1]
+            prev_high = recent_data['high'].iloc[i-1]
             current_high = recent_data['high'].iloc[i]
-
+            
             # A breakout happens when price crosses the resistance level
             if current_high > resistance and prev_high <= resistance:
                 breakout_candle_index = i
-                break  # Found the most recent breakout
-
+                break # Found the most recent breakout
+    
         if breakout_candle_index == -1:
             return "No Breakout Detected"
-
+    
         # 2. Detect the Retest (after the breakout)
         for i in range(breakout_candle_index + 1, len(recent_data)):
             current_low = recent_data['low'].iloc[i]
-
+            
             # A retest happens when the price comes back down to touch the old resistance
             if current_low <= resistance:
                 retest_candle_index = i
-                break  # Found the retest
-
+                break # Found the retest
+    
         if retest_candle_index == -1:
             return f"Breakout Occurred at {recent_data.index[breakout_candle_index].strftime('%H:%M')}. Awaiting Retest."
-
+    
         # 3. Check for Confirmation (1-2 candles after retest)
         if retest_candle_index < len(recent_data) - 1:
             # Check the candle immediately following the retest
             confirmation_candle = recent_data.iloc[retest_candle_index + 1]
-
+            
             # Confirmation is when the price bounces back up above the resistance level
             if confirmation_candle['close'] > resistance:
                 return f"✅ Retest Confirmed at {recent_data.index[retest_candle_index + 1].strftime('%H:%M')}. Potential Entry."
-
+    
         return f"Retest in Progress at {recent_data.index[retest_candle_index].strftime('%H:%M')}. Awaiting Confirmation."
-
-
+    
 # Add this new method INSIDE the StockAnalyzer class
 
     def run_multi_timeframe_analysis(self, ticker):
@@ -667,7 +555,7 @@ class StockAnalyzer:
         3. Returns the 5-min data for execution analysis.
         """
         analysis_results = {}
-
+    
         # 1. Daily Chart Analysis for Overall Trend
         daily_data = fetch_stock_data(ticker, period="6mo")
         if daily_data is not None and not daily_data.empty:
@@ -675,14 +563,14 @@ class StockAnalyzer:
             daily_data['SMA50'] = daily_data['Close'].rolling(window=50).mean()
             last_price = daily_data['Close'].iloc[-1]
             last_sma50 = daily_data['SMA50'].iloc[-1]
-
+            
             if last_price > last_sma50:
                 analysis_results['trend'] = "Uptrend"
             else:
                 analysis_results['trend'] = "Downtrend"
         else:
             analysis_results['trend'] = "Unknown"
-
+    
         # 2. 15-Minute Chart for Support & Resistance
         fifteen_min_data = fetch_intraday_data(ticker, interval="15minute")
         if fifteen_min_data is not None and not fifteen_min_data.empty:
@@ -692,20 +580,18 @@ class StockAnalyzer:
         else:
             analysis_results['support'] = 0
             analysis_results['resistance'] = 0
-
+    
         # 3. Get 5-Minute Data for Execution
         five_min_data = fetch_intraday_data(ticker, interval="5minute")
         if five_min_data is not None and not five_min_data.empty:
             analysis_results['5m_data'] = five_min_data
             analysis_results['latest_price'] = five_min_data['close'].iloc[-1]
         else:
-            analysis_results['5m_data'] = pd.DataFrame(
-            )  # Return empty DataFrame
-            analysis_results['latest_price'] = daily_data['Close'].iloc[
-                -1] if daily_data is not None else 0
-
+            analysis_results['5m_data'] = pd.DataFrame() # Return empty DataFrame
+            analysis_results['latest_price'] = daily_data['Close'].iloc[-1] if daily_data is not None else 0
+    
         return analysis_results
-
+    
     def __init__(self):
         self.sentiment_analyzer = None
         self.setup_sentiment_analyzer()
@@ -713,9 +599,11 @@ class StockAnalyzer:
     def setup_sentiment_analyzer(self):
         """Initialize sentiment analysis pipeline"""
         try:
-            self.sentiment_analyzer = pipeline("sentiment-analysis",
-                                               model="ProsusAI/finbert",
-                                               return_all_scores=True)
+            self.sentiment_analyzer = pipeline(
+                "sentiment-analysis",
+                model="ProsusAI/finbert",
+                return_all_scores=True
+            )
         except Exception as e:
             st.warning(f"Using default sentiment analyzer due to: {e}")
             self.sentiment_analyzer = pipeline("sentiment-analysis")
@@ -755,12 +643,9 @@ class StockAnalyzer:
             histogram = macd - signal
 
             return {
-                'line':
-                macd.iloc[-1] if not pd.isna(macd.iloc[-1]) else 0.0,
-                'signal':
-                signal.iloc[-1] if not pd.isna(signal.iloc[-1]) else 0.0,
-                'histogram':
-                histogram.iloc[-1] if not pd.isna(histogram.iloc[-1]) else 0.0
+                'line': macd.iloc[-1] if not pd.isna(macd.iloc[-1]) else 0.0,
+                'signal': signal.iloc[-1] if not pd.isna(signal.iloc[-1]) else 0.0,
+                'histogram': histogram.iloc[-1] if not pd.isna(histogram.iloc[-1]) else 0.0
             }
         except:
             return {'line': 0.0, 'signal': 0.0, 'histogram': 0.0}
@@ -768,24 +653,16 @@ class StockAnalyzer:
     def compute_moving_averages(self, data):
         """Calculate Moving Averages including 25-day MA"""
         try:
-            ma_20 = data['Close'].rolling(
-                window=20).mean().iloc[-1] if len(data) >= 20 else np.nan
-            ma_25 = data['Close'].rolling(
-                window=25).mean().iloc[-1] if len(data) >= 25 else np.nan
-            ma_50 = data['Close'].rolling(
-                window=50).mean().iloc[-1] if len(data) >= 50 else np.nan
-            ma_200 = data['Close'].rolling(
-                window=200).mean().iloc[-1] if len(data) >= 200 else np.nan
+            ma_20 = data['Close'].rolling(window=20).mean().iloc[-1] if len(data) >= 20 else np.nan
+            ma_25 = data['Close'].rolling(window=25).mean().iloc[-1] if len(data) >= 25 else np.nan
+            ma_50 = data['Close'].rolling(window=50).mean().iloc[-1] if len(data) >= 50 else np.nan
+            ma_200 = data['Close'].rolling(window=200).mean().iloc[-1] if len(data) >= 200 else np.nan
 
             return {
-                'MA_20':
-                ma_20 if not pd.isna(ma_20) else data['Close'].iloc[-1],
-                'MA_25':
-                ma_25 if not pd.isna(ma_25) else data['Close'].iloc[-1],
-                'MA_50':
-                ma_50 if not pd.isna(ma_50) else data['Close'].iloc[-1],
-                'MA_200':
-                ma_200 if not pd.isna(ma_200) else data['Close'].iloc[-1]
+                'MA_20': ma_20 if not pd.isna(ma_20) else data['Close'].iloc[-1],
+                'MA_25': ma_25 if not pd.isna(ma_25) else data['Close'].iloc[-1],
+                'MA_50': ma_50 if not pd.isna(ma_50) else data['Close'].iloc[-1],
+                'MA_200': ma_200 if not pd.isna(ma_200) else data['Close'].iloc[-1]
             }
         except:
             current_price = data['Close'].iloc[-1]
@@ -796,9 +673,7 @@ class StockAnalyzer:
                 'MA_200': current_price
             }
 
-    def scrape_news_headlines(self,
-                              ticker_name,
-                              days=1):  # Defaulting to 1 day for recent news
+    def scrape_news_headlines(self, ticker_name, days=1): # Defaulting to 1 day for recent news
         """Scrape news headlines from NewsAPI.org"""
         try:
             # It's good practice to store API keys in environment variables or a config file
@@ -809,9 +684,7 @@ class StockAnalyzer:
             # Use the full company name for the query if available, otherwise use the ticker
             # This might require a mapping from ticker to full company name
             # For now, we'll use the ticker_name directly, cleaned up.
-            search_query = ticker_name.replace("^", "").replace(".NS",
-                                                                "").replace(
-                                                                    "NSE", "")
+            search_query = ticker_name.replace("^", "").replace(".NS", "").replace("NSE", "")
 
             # Construct the NewsAPI URL
             # sortBy=publishedAt will give the most recent articles first
@@ -819,13 +692,11 @@ class StockAnalyzer:
             url = f"https://newsapi.org/v2/everything?q={search_query}&language=en&sortBy=publishedAt&apiKey={api_key}&pageSize=5"
 
             headers = {
-                "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
             }
 
             response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status(
-            )  # Raise an exception for HTTP errors (4xx or 5xx)
+            response.raise_for_status() # Raise an exception for HTTP errors (4xx or 5xx)
 
             news_data = response.json()
             headlines = []
@@ -833,21 +704,18 @@ class StockAnalyzer:
             if news_data.get("status") == "ok" and news_data.get("articles"):
                 for article in news_data["articles"]:
                     title = article.get("title")
-                    if title and len(title) > 15:  # Basic filter for relevance
+                    if title and len(title) > 15: # Basic filter for relevance
                         headlines.append(title)
-                    if len(headlines) >= 5:  # Limit to 5 headlines
+                    if len(headlines) >= 5: # Limit to 5 headlines
                         break
 
-            return headlines if headlines else [
-                f"Recent market news for {search_query} unavailable via NewsAPI"
-            ]
+            return headlines if headlines else [f"Recent market news for {search_query} unavailable via NewsAPI"]
 
         except requests.exceptions.RequestException as e:
             st.warning(f"Could not fetch news from NewsAPI: {e}")
             return [f"Market news for {ticker_name} unavailable via NewsAPI"]
         except Exception as e:
-            st.warning(
-                f"An unexpected error occurred while fetching news: {e}")
+            st.warning(f"An unexpected error occurred while fetching news: {e}")
             return [f"Market news for {ticker_name} unavailable via NewsAPI"]
 
     def analyze_sentiment(self, headlines):
@@ -863,14 +731,9 @@ class StockAnalyzer:
                     if isinstance(result, list) and len(result) > 0:
                         if isinstance(result[0], list):
                             # FinBERT format
-                            sentiment_scores = {
-                                item['label']: item['score']
-                                for item in result[0]
-                            }
+                            sentiment_scores = {item['label']: item['score'] for item in result[0]}
                             if 'positive' in sentiment_scores:
-                                sentiments.append(
-                                    sentiment_scores['positive'] -
-                                    sentiment_scores.get('negative', 0))
+                                sentiments.append(sentiment_scores['positive'] - sentiment_scores.get('negative', 0))
                             else:
                                 sentiments.append(0)
                         else:
@@ -920,11 +783,11 @@ class StockAnalyzer:
 
         # Moving Average signals (using 25-day MA as well)
         current_price = ma_data.get('current_price', ma_data['MA_20'])
-        if (current_price > ma_data['MA_25'] > ma_data['MA_50']
-                and ma_data['MA_25'] > ma_data['MA_200']):
+        if (current_price > ma_data['MA_25'] > ma_data['MA_50'] and
+                ma_data['MA_25'] > ma_data['MA_200']):
             bullish_signals += 1
-        elif (current_price < ma_data['MA_25'] < ma_data['MA_50']
-              and ma_data['MA_25'] < ma_data['MA_200']):
+        elif (current_price < ma_data['MA_25'] < ma_data['MA_50'] and
+              ma_data['MA_25'] < ma_data['MA_200']):
             bearish_signals += 1
 
         # Sentiment boost
@@ -942,13 +805,11 @@ class StockAnalyzer:
             confidence = "High" if bearish_signals >= 2.5 else "Medium"
         else:
             signal = "Hold"
-            confidence = "Medium" if abs(bullish_signals -
-                                         bearish_signals) > 0.5 else "Low"
+            confidence = "Medium" if abs(bullish_signals - bearish_signals) > 0.5 else "Low"
 
         return signal, confidence
 
-    def get_ai_summary(self, ticker_name, rsi, macd, ma_data, signal,
-                       confidence, sentiment_label, headlines):
+    def get_ai_summary(self, ticker_name, rsi, macd, ma_data, signal, confidence, sentiment_label, headlines):
         """Generate AI summary using OpenRouter DeepSeek/Google Gemini Pro"""
         try:
             # Prepare the prompt
@@ -992,14 +853,10 @@ class StockAnalyzer:
             st.warning(f"AI summary unavailable: {e}")
             # Fallback summary if the API fails
             rsi_status = "oversold" if rsi < 40 else "overbought" if rsi > 60 else "neutral"
-            macd_trend = "bullish" if macd['line'] > macd[
-                'signal'] else "bearish"
-            return (
-                f"Technical analysis suggests a '{signal}' signal with {confidence} confidence. "
-                f"The RSI at {rsi:.1f} indicates {rsi_status} conditions, and the MACD shows {macd_trend} momentum. "
-                f"Always consider overall market sentiment and employ proper risk management."
-            )
-
+            macd_trend = "bullish" if macd['line'] > macd['signal'] else "bearish"
+            return (f"Technical analysis suggests a '{signal}' signal with {confidence} confidence. "
+                    f"The RSI at {rsi:.1f} indicates {rsi_status} conditions, and the MACD shows {macd_trend} momentum. "
+                    f"Always consider overall market sentiment and employ proper risk management.")
 
 def setup_google_sheets():
     """Setup Google Sheets connection"""
@@ -1011,8 +868,10 @@ def setup_google_sheets():
         ]
 
         # Load credentials from service account file
-        creds = Credentials.from_service_account_file("service_account.json",
-                                                      scopes=scope)
+        creds = Credentials.from_service_account_file(
+            "service_account.json",
+            scopes=scope
+        )
 
         client = gspread.authorize(creds)
 
@@ -1037,7 +896,6 @@ def setup_google_sheets():
         st.error(f"Google Sheets setup failed: {e}")
         return None
 
-
 def log_to_sheets(sheet, data):
     """Log analysis results to Google Sheets"""
     if sheet:
@@ -1049,9 +907,7 @@ def log_to_sheets(sheet, data):
             return False
     return False
 
-
-def send_email_alert(ticker_name, signal, confidence, ai_summary,
-                     sentiment_label):
+def send_email_alert(ticker_name, signal, confidence, ai_summary, sentiment_label):
     """Send email alert"""
     try:
         if not GMAIL_EMAIL or not GMAIL_APP_PASSWORD:
@@ -1093,54 +949,29 @@ def send_email_alert(ticker_name, signal, confidence, ai_summary,
         st.warning(f"Email sending failed: {e}")
         return False
 
-
 def create_indicator_charts(data, rsi, macd, ma_data):
     """Create indicator charts with improved MA display"""
     fig, axes = plt.subplots(3, 1, figsize=(12, 10))
 
     # Price and Moving Averages
-    axes[0].plot(data.index[-30:],
-                 data['Close'][-30:],
-                 label='Close Price',
-                 linewidth=2,
-                 color='black')
+    axes[0].plot(data.index[-30:], data['Close'][-30:], label='Close Price', linewidth=2, color='black')
 
     # Calculate and plot moving averages for the chart
     if len(data) >= 20:
         ma_20_series = data['Close'].rolling(window=20).mean()
-        axes[0].plot(data.index[-30:],
-                     ma_20_series[-30:],
-                     color='orange',
-                     linestyle='--',
-                     label='MA 20',
-                     alpha=0.8)
+        axes[0].plot(data.index[-30:], ma_20_series[-30:], color='orange', linestyle='--', label='MA 20', alpha=0.8)
 
     if len(data) >= 25:
         ma_25_series = data['Close'].rolling(window=25).mean()
-        axes[0].plot(data.index[-30:],
-                     ma_25_series[-30:],
-                     color='purple',
-                     linestyle='--',
-                     label='MA 25',
-                     alpha=0.8)
+        axes[0].plot(data.index[-30:], ma_25_series[-30:], color='purple', linestyle='--', label='MA 25', alpha=0.8)
 
     if len(data) >= 50:
         ma_50_series = data['Close'].rolling(window=50).mean()
-        axes[0].plot(data.index[-30:],
-                     ma_50_series[-30:],
-                     color='blue',
-                     linestyle='--',
-                     label='MA 50',
-                     alpha=0.8)
+        axes[0].plot(data.index[-30:], ma_50_series[-30:], color='blue', linestyle='--', label='MA 50', alpha=0.8)
 
     if len(data) >= 200:
         ma_200_series = data['Close'].rolling(window=200).mean()
-        axes[0].plot(data.index[-30:],
-                     ma_200_series[-30:],
-                     color='red',
-                     linestyle='--',
-                     label='MA 200',
-                     alpha=0.8)
+        axes[0].plot(data.index[-30:], ma_200_series[-30:], color='red', linestyle='--', label='MA 200', alpha=0.8)
 
     axes[0].set_title('Price & Moving Averages')
     axes[0].legend()
@@ -1150,37 +981,20 @@ def create_indicator_charts(data, rsi, macd, ma_data):
     rsi_series = []
     for i in range(len(data)):
         if i >= 13:  # Need at least 14 points for RSI
-            temp_data = data.iloc[:i + 1]
+            temp_data = data.iloc[:i+1]
             delta = temp_data['Close'].diff()
             gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
             loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
             rs = gain / loss
             temp_rsi = 100 - (100 / (1 + rs))
-            rsi_series.append(
-                temp_rsi.iloc[-1] if not pd.isna(temp_rsi.iloc[-1]) else 50)
+            rsi_series.append(temp_rsi.iloc[-1] if not pd.isna(temp_rsi.iloc[-1]) else 50)
         else:
             rsi_series.append(50)
 
-    axes[1].plot(data.index[-30:],
-                 rsi_series[-30:],
-                 label='RSI',
-                 color='purple',
-                 linewidth=2)
-    axes[1].axhline(y=60,
-                    color='red',
-                    linestyle='--',
-                    alpha=0.7,
-                    label='Overbought (60)')
-    axes[1].axhline(y=40,
-                    color='green',
-                    linestyle='--',
-                    alpha=0.7,
-                    label='Oversold (40)')
-    axes[1].axhline(y=50,
-                    color='gray',
-                    linestyle='-',
-                    alpha=0.5,
-                    label='Neutral (50)')
+    axes[1].plot(data.index[-30:], rsi_series[-30:], label='RSI', color='purple', linewidth=2)
+    axes[1].axhline(y=60, color='red', linestyle='--', alpha=0.7, label='Overbought (60)')
+    axes[1].axhline(y=40, color='green', linestyle='--', alpha=0.7, label='Oversold (40)')
+    axes[1].axhline(y=50, color='gray', linestyle='-', alpha=0.5, label='Neutral (50)')
     axes[1].set_title(f'RSI (Current: {rsi:.2f})')
     axes[1].set_ylim(0, 100)
     axes[1].legend()
@@ -1193,19 +1007,9 @@ def create_indicator_charts(data, rsi, macd, ma_data):
     signal_line = macd_line.ewm(span=9).mean()
     histogram = macd_line - signal_line
 
-    axes[2].plot(data.index[-30:],
-                 macd_line[-30:],
-                 label='MACD Line',
-                 color='blue')
-    axes[2].plot(data.index[-30:],
-                 signal_line[-30:],
-                 label='Signal Line',
-                 color='red')
-    axes[2].bar(data.index[-30:],
-                histogram[-30:],
-                label='Histogram',
-                alpha=0.3,
-                color='gray')
+    axes[2].plot(data.index[-30:], macd_line[-30:], label='MACD Line', color='blue')
+    axes[2].plot(data.index[-30:], signal_line[-30:], label='Signal Line', color='red')
+    axes[2].bar(data.index[-30:], histogram[-30:], label='Histogram', alpha=0.3, color='gray')
     axes[2].axhline(y=0, color='black', linestyle='-', alpha=0.3)
     axes[2].set_title('MACD')
     axes[2].legend()
@@ -1214,64 +1018,66 @@ def create_indicator_charts(data, rsi, macd, ma_data):
     plt.tight_layout()
     return fig
 
-
 def main():
-    st.set_page_config(page_title="📈 Stock Market Analyzer AI",
-                       page_icon="📈",
-                       layout="wide")
+    st.set_page_config(
+        page_title="📈 Stock Market Analyzer AI",
+        page_icon="📈",
+        layout="wide"
+    )
 
     # Title and description
     st.title("📈 Stock Market Analyzer AI Agent")
-    st.markdown(
-        "*Intelligent analysis for Any stock indices and individual stocks with AI-powered insights*"
-    )
+    st.markdown("*Intelligent analysis for Any stock indices and individual stocks with AI-powered insights*")
 
     # --- NEW DYNAMIC STOCK SELECTION LOGIC ---
-
+    
     # Initialize session state to hold our screened stocks
     if 'screened_stocks' not in st.session_state:
         st.session_state.screened_stocks = None
-
+    
     st.sidebar.header("Pre-Market Analysis")
     if st.sidebar.button("Run Daily Stock Screener"):
         # When button is clicked, run the screener and store results
         st.session_state.screened_stocks = run_pre_market_screener()
-
+    
     st.sidebar.header("Stock Selection")
-
+    
     # Let the user choose between analyzing an Index or a stock from the screened list
     analysis_target = st.sidebar.radio(
         "What do you want to analyze?",
-        ("Index", "Individual Stock from Screener"))
-
+        ("Index", "Individual Stock from Screener")
+    )
+    
     ticker = None
     ticker_name = None
-
+    
     if analysis_target == "Index":
-        selected_category = st.sidebar.selectbox("Choose Index:",
-                                                 list(STOCK_CATEGORIES.keys()),
-                                                 index=0)
+        selected_category = st.sidebar.selectbox(
+            "Choose Index:",
+            list(STOCK_CATEGORIES.keys()),
+            index=0
+        )
         ticker = STOCK_CATEGORIES[selected_category]["ticker"]
         ticker_name = selected_category
-
-    else:  # This handles "Individual Stock from Screener"
+    
+    else: # This handles "Individual Stock from Screener"
         if st.session_state.screened_stocks:
             # If the screener has been run, populate the dropdown with its results
             # The screener returns tickers as keys, so we use them directly
             screened_tickers = list(st.session_state.screened_stocks.keys())
-
-            selected_ticker = st.sidebar.selectbox("Choose Screened Stock:",
-                                                   screened_tickers)
+            
+            selected_ticker = st.sidebar.selectbox(
+                "Choose Screened Stock:",
+                screened_tickers
+            )
             ticker = selected_ticker
             # For display, remove the ".NS" from the ticker name
             ticker_name = selected_ticker.replace(".NS", "")
-
+            
         else:
             # If screener hasn't been run, show a message
-            st.sidebar.warning(
-                "Please run the daily stock screener first to see a list of stocks."
-            )
-
+            st.sidebar.warning("Please run the daily stock screener first to see a list of stocks.")
+    
     # --- END OF NEW LOGIC ---
 
     # Display current selection
@@ -1283,7 +1089,8 @@ def main():
     period = st.sidebar.selectbox(
         "Data Period:",
         ["5d", "1mo", "3mo", "6mo", "ytd", "1y", "2y", "5y", "max"],
-        index=5)
+        index=5
+    )
 
     # Initialize analyzer
     if 'analyzer' not in st.session_state:
@@ -1296,9 +1103,7 @@ def main():
     # Main analysis button
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        analyze_button = st.button("🔍 Analyze Now",
-                                   type="primary",
-                                   use_container_width=True)
+        analyze_button = st.button("🔍 Analyze Now", type="primary", use_container_width=True)
 
     if analyze_button and ticker:
         # --- SWING ANALYSIS MODE ---
@@ -1306,136 +1111,114 @@ def main():
             with st.spinner(f"Running Swing Analysis for {ticker_name}..."):
                 try:
                     # This is all your original, working code for swing analysis
-                    data = st.session_state.analyzer.fetch_stock_data(
-                        ticker, period)
+                    data = st.session_state.analyzer.fetch_stock_data(ticker, period)
                     if data is None:
                         st.stop()
-
+    
                     # Calculate indicators
                     rsi = st.session_state.analyzer.compute_rsi(data)
                     macd = st.session_state.analyzer.compute_macd(data)
-                    ma_data = st.session_state.analyzer.compute_moving_averages(
-                        data)
+                    ma_data = st.session_state.analyzer.compute_moving_averages(data)
                     data = st.session_state.analyzer.compute_atr(data)
                     data = st.session_state.analyzer.compute_obv(data)
-                    fib_levels = st.session_state.analyzer.compute_fibonacci_levels(
-                        data)
+                    fib_levels = st.session_state.analyzer.compute_fibonacci_levels(data)
                     latest_atr = data[f'ATRr_14'].iloc[-1]
                     latest_obv = data['OBV'].iloc[-1]
-
+                    
                     # Get news and sentiment
-                    headlines = st.session_state.analyzer.scrape_news_headlines(
-                        ticker_name, days=1)
-                    sentiment_label, sentiment_score = st.session_state.analyzer.analyze_sentiment(
-                        headlines)
-
+                    headlines = st.session_state.analyzer.scrape_news_headlines(ticker_name, days=1)
+                    sentiment_label, sentiment_score = st.session_state.analyzer.analyze_sentiment(headlines)
+                    
                     # Generate signal
                     signal, confidence = st.session_state.analyzer.generate_signal(
-                        rsi, macd, ma_data, sentiment_score)
-
+                        rsi, macd, ma_data, sentiment_score
+                    )
+                    
                     # Get AI summary
                     ai_summary = st.session_state.analyzer.get_ai_summary(
                         ticker_name, rsi, macd, ma_data, signal, confidence,
-                        sentiment_label, headlines)
-
+                        sentiment_label, headlines
+                    )
+                    
                     # Display all results (your original UI code)
                     st.success("Swing Analysis Complete!")
-
+                    
                     # (Your existing metrics, charts, and display code would go here)
                     # For brevity, I'll just put the chart call
                     st.subheader("📈 Technical Analysis Charts")
                     fig = create_indicator_charts(data, rsi, macd, ma_data)
                     st.pyplot(fig)
-
+    
                 except Exception as e:
                     st.error(f"❌ Swing Analysis failed: {e}")
                     st.exception(e)
-
+    
         # --- INTRADAY ANALYSIS MODE ---
         elif analysis_mode == "Intraday Analysis":
-            with st.spinner(
-                    f"Running Multi-Timeframe Analysis for {ticker_name}..."):
+            with st.spinner(f"Running Multi-Timeframe Analysis for {ticker_name}..."):
                 try:
                     # Run our new comprehensive analysis function
-                    analysis = st.session_state.analyzer.run_multi_timeframe_analysis(
-                        ticker)
-
+                    analysis = st.session_state.analyzer.run_multi_timeframe_analysis(ticker)
+    
                     if analysis:
                         st.success("Multi-Timeframe Analysis Complete!")
-
+    
                         # Display the high-level findings
                         col1, col2, col3, col4 = st.columns(4)
                         col1.metric("Selected Stock", ticker_name)
                         col2.metric("Overall Trend (Daily)", analysis['trend'])
-                        col3.metric("Support (15-min)",
-                                    f"₹{analysis['support']:.2f}")
-                        col4.metric("Resistance (15-min)",
-                                    f"₹{analysis['resistance']:.2f}")
+                        col3.metric("Support (15-min)", f"₹{analysis['support']:.2f}")
+                        col4.metric("Resistance (15-min)", f"₹{analysis['resistance']:.2f}")
 
                         # --- START NEW CODE ---
                         # Run Pattern Recognition
                         resistance_level = analysis['resistance']
-                        pattern_status = st.session_state.analyzer.detect_breakout_retest(
-                            five_min_df, resistance_level)
-
+                        pattern_status = st.session_state.analyzer.detect_breakout_retest(five_min_df, resistance_level)
+                        
                         st.subheader("📈 Pattern Recognition Status")
                         st.info(pattern_status)
                         # --- END NEW CODE ---
 
-                        # --- START NEW CODE ---
+    # --- START NEW CODE ---
                         # Run the full confirmation checklist
                         st.subheader("✅ Confirmation Checklist")
-                        checklist_results = st.session_state.analyzer.run_confirmation_checklist(
-                            analysis)
-
+                        checklist_results = st.session_state.analyzer.run_confirmation_checklist(analysis)
+                        
                         final_signal = checklist_results.pop("FINAL_SIGNAL")
-
+                        
                         col1, col2 = st.columns(2)
                         with col1:
-                            for key, value in list(
-                                    checklist_results.items())[:3]:
+                            for key, value in list(checklist_results.items())[:3]:
                                 st.write(f"**{key}:** {value}")
                         with col2:
-                            for key, value in list(
-                                    checklist_results.items())[3:]:
+                            for key, value in list(checklist_results.items())[3:]:
                                 st.write(f"**{key}:** {value}")
-
+                        
                         st.subheader("🤖 Final AI Signal")
                         if final_signal == "BUY":
-                            st.success(
-                                f"**{final_signal}** - High probability bullish setup detected."
-                            )
+                            st.success(f"**{final_signal}** - High probability bullish setup detected.")
                         elif final_signal == "SELL":
-                            st.error(
-                                f"**{final_signal}** - High probability bearish setup detected."
-                            )
+                            st.error(f"**{final_signal}** - High probability bearish setup detected.")
                         else:
-                            st.warning(
-                                f"**{final_signal}** - Conditions not met for a high-probability trade."
-                            )
+                            st.warning(f"**{final_signal}** - Conditions not met for a high-probability trade.")
                         # --- END NEW CODE ---
 
                         # Now, we use the 5-minute data for detailed indicator calculation
                         five_min_df = analysis['5m_data']
                         if not five_min_df.empty:
                             # Calculate Intraday Indicators like VWAP on the 5-min data
-                            five_min_df = st.session_state.analyzer.compute_vwap(
-                                five_min_df)
-
+                            five_min_df = st.session_state.analyzer.compute_vwap(five_min_df)
+                            
                             # Display the Intraday Chart
                             st.subheader("5-Minute Execution Chart")
-                            intraday_fig = create_intraday_chart(
-                                five_min_df, ticker_name)
-                            st.plotly_chart(intraday_fig,
-                                            use_container_width=True)
+                            intraday_fig = create_intraday_chart(five_min_df, ticker_name)
+                            st.plotly_chart(intraday_fig, use_container_width=True)
                         else:
-                            st.warning(
-                                "Could not retrieve 5-minute data for detailed analysis."
-                            )
+                            st.warning("Could not retrieve 5-minute data for detailed analysis.")
                 except Exception as e:
                     st.error(f"❌ Intraday Analysis failed: {e}")
                     st.exception(e)
-
+    
     elif analyze_button and not ticker:
         st.sidebar.error("Please select a stock or index to analyze.")
 
@@ -1467,10 +1250,7 @@ def main():
     st.markdown(
         "*Enhanced Stock Analyzer powered by yfinance, FinBERT, OpenRouter DeepSeek/Google Gemini Pro, and Google Sheets API*"
     )
-    st.markdown(
-        "*Updated with RSI (40:60), 25-day MA, 3-day news, and complete Nifty stock coverage*"
-    )
-
+    st.markdown("*Updated with RSI (40:60), 25-day MA, 3-day news, and complete Nifty stock coverage*")
 
 if __name__ == "__main__":
     main()
