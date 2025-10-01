@@ -315,9 +315,9 @@ def setup_google_sheets():
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
         try:
-            sheet = client.open("EliteTradingAnalyzerLog").sheet1
+            sheet = client.open("TradingAnalyzerLog").sheet1
         except gspread.SpreadsheetNotFound:
-            sheet = client.create("EliteTradingAnalyzerLog").sheet1
+            sheet = client.create("TradingAnalyzerLog").sheet1
             headers = ["Timestamp", "Ticker", "Signal", "Confidence", "RSI", "Sentiment", "AI Summary"]
             sheet.append_row(headers)
         return sheet
