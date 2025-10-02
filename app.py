@@ -2163,8 +2163,7 @@ def main():
 
                 # Stop-Loss & Targets section
         st.subheader("🎯 Stop-Loss & Targets")
-
-                col1, col2, col3 = st.columns(3)
+        col1, col2, col3 = st.columns(3)
 
                 with col1:
                     st.markdown("### 🛑 Stop-Loss")
