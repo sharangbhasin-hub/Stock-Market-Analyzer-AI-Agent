@@ -1961,6 +1961,45 @@ def main():
                 col4.metric("Position Size", f"{results.get('position_size', 0)} shares")
                 col5.metric("Capital Used", f"₹{results.get('capital_used', 0):,.0f}")
 
+        # ========== DISPLAY CHARTS (ADD THIS) ==========
+        st.markdown("---")
+        st.subheader("📈 Multi-Timeframe Technical Charts")
+        
+        # Create tabs for different timeframes
+        chart_tab1, chart_tab2, chart_tab3 = st.tabs(["📊 Daily Chart", "⏰ 15-Min Chart", "⚡ 5-Min Chart"])
+        
+        with chart_tab1:
+            if 'daily_data' in results and results['daily_data'] is not None:
+                st.write("**Daily Timeframe Analysis**")
+                fig_daily = create_plotly_charts(results['daily_data'], f"{results['ticker']} - Daily")
+                st.plotly_chart(fig_daily, use_container_width=True)
+            else:
+                st.warning("Daily chart data not available")
+        
+        with chart_tab2:
+            if '15m_data' in results and results['15m_data'] is not None:
+                st.write("**15-Minute Intraday Analysis**")
+                fig_15m = create_plotly_charts(results['15m_data'], f"{results['ticker']} - 15 Min")
+                st.plotly_chart(fig_15m, use_container_width=True)
+            else:
+                st.warning("15-minute chart data not available")
+        
+        with chart_tab3:
+            if '5m_data' in results and results['5m_data'] is not None:
+                st.write("**5-Minute Scalping View**")
+                fig_5m = create_plotly_charts(results['5m_data'], f"{results['ticker']} - 5 Min")
+                st.plotly_chart(fig_5m, use_container_width=True)
+            else:
+                st.warning("5-minute chart data not available")
+        
+        # ========== TRADINGVIEW WIDGET ==========
+        st.markdown("---")
+        st.subheader("📊 TradingView Live Chart")
+        tradingview_html = embed_tradingview_widget(results['ticker'])
+        components.html(tradingview_html, height=550)
+        
+        st.markdown("---")
+
                 # Stop-Loss & Targets section
                 st.subheader("🎯 Stop-Loss & Targets")
 
