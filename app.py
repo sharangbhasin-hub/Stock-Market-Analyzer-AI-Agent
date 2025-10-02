@@ -2162,28 +2162,28 @@ def main():
         st.markdown("---")
 
                 # Stop-Loss & Targets section
-        st.subheader("🎯 Stop-Loss & Targets")
-        col1, col2, col3 = st.columns(3)
-    
-            with col1:
-                st.markdown("### 🛑 Stop-Loss")
-                st.metric("Stop-Loss Price", f"₹{results.get('stop_loss', 0):.2f}",
-                         f"-₹{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
-                st.metric("Risk Amount", f"₹{results.get('risk_amount', 0):.2f}")
-                st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
-                st.info(f"**VWAP Trailing:** ₹{results['vwap']:.2f}\n\nTrail stop to VWAP. Exit if closes below.")
-    
-            with col2:
-                st.markdown("### 🎯 Profit Targets")
-                if results.get('targets'):
-                    for target in results['targets']:
-                        st.metric(target['level'], f"₹{target['price']:.2f}", f"+₹{target['profit_potential']:.2f}")
-    
-            with col3:
-                st.markdown("### 📍 Key Levels")
-                st.metric("Resistance", f"₹{results['resistance']:.2f}")
-                st.metric("Support", f"₹{results['support']:.2f}")
-                st.metric("ATR (14)", f"₹{results.get('atr', 0):.2f}")
+                st.subheader("🎯 Stop-Loss & Targets")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.markdown("### 🛑 Stop-Loss")
+                    st.metric("Stop-Loss Price", f"₹{results.get('stop_loss', 0):.2f}",
+                             f"-₹{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
+                    st.metric("Risk Amount", f"₹{results.get('risk_amount', 0):.2f}")
+                    st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
+                    st.info(f"**VWAP Trailing:** ₹{results['vwap']:.2f}\n\nTrail stop to VWAP. Exit if closes below.")
+                
+                with col2:
+                    st.markdown("### 🎯 Profit Targets")
+                    if results.get('targets'):
+                        for target in results['targets']:
+                            st.metric(target['level'], f"₹{target['price']:.2f}", f"+₹{target['profit_potential']:.2f}")
+                
+                with col3:
+                    st.markdown("### 📍 Key Levels")
+                    st.metric("Resistance", f"₹{results['resistance']:.2f}")
+                    st.metric("Support", f"₹{results['support']:.2f}")
+                    st.metric("ATR (14)", f"₹{results.get('atr', 0):.2f}")
 
                 # News Section
                 if results.get('news_headlines'):
