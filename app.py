@@ -55,6 +55,7 @@ GMAIL_EMAIL = os.getenv("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
 
 # Broker API Configuration
 KITE_API_KEY = os.getenv("KITE_API_KEY")
@@ -71,6 +72,45 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # Configure APIs
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
+
+# ==============================================================================
+# === ALPHA VANTAGE API ========================================================
+# ==============================================================================
+from io import StringIO
+
+class AlphaVantageAPI:
+    def __init__(self, api_key=None):
+        self.api_key = api_key or ALPHA_VANTAGE_API_KEY
+        self.base_url = "https://www.alphavantage.co/query"
+    
+    def search_symbols(self, keywords):
+        params = {'function': 'SYMBOL_SEARCH', 'keywords': keywords, 'apikey': self.api_key}
+        try:
+            response = requests.get(self.base_url, params=params, timeout=10)
+            data = response.json()
+            if data and 'bestMatches' in data:
+                return {f"{m.get('2. name','')} ({m.get('1. symbol','')})" : m.get('1. symbol','') 
+                        for m in data['bestMatches']}
+            return {}
+        except:
+            return {}
+    
+    def get_quote(self, symbol):
+        params = {'function': 'GLOBAL_QUOTE', 'symbol': symbol, 'apikey': self.api_key}
+        try:
+            response = requests.get(self.base_url, params=params, timeout=10)
+            data = response.json()
+            if data and 'Global Quote' in data:
+                q = data['Global Quote']
+                return {'price': float(q.get('05. price', 0)), 
+                       'change': float(q.get('09. change', 0)),
+                       'volume': int(q.get('06. volume', 0))}
+            return None
+        except:
+            return None
+
+
+
 
 # ==============================================================================
 # === DATABASE SETUP ===========================================================
@@ -930,7 +970,7 @@ def get_ai_analysis_gemini(prompt):
         return "Gemini API key not configured"
     
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-pro')
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
@@ -1988,23 +2028,193 @@ def main():
     # ===========================================================================
     
     with tab3:
-        st.subheader("🎯 Options Trading")
+        st.subheader("🎯 Options Trading Dashboard")
         options_analyzer = OptionsAnalyzer()
-        todays_expiry = options_analyzer.get_todays_expiry()
-        st.info(f"📅 Today's Expiry: **{todays_expiry}**")
-        # [Keep previous options code]
+        st.info(f"📅 Today's Expiry: **{options_analyzer.get_todays_expiry()}**")
+        
+        opt_ticker = st.text_input("Options Ticker", "^NSEI", key="opt_tick")
+        
+        if st.button("📊 Analyze Options Chain"):
+            with st.spinner("Fetching options data..."):
+                options_data = options_analyzer.fetch_options_chain(opt_ticker)
+                
+                if options_data:
+                    pcr_data = options_analyzer.calculate_pcr(options_data)
+                    
+                    if pcr_data:
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("PCR (OI)", f"{pcr_data['pcr_oi']:.2f}")
+                        col2.metric("Put OI", f"{pcr_data['put_oi']:,}")
+                        col3.metric("Call OI", f"{pcr_data['call_oi']:,}")
+                        st.markdown(f"**Sentiment:** {pcr_data['sentiment']}")
+                    
+                    st.markdown("### 📞 Call Options")
+                    st.dataframe(options_data['calls'].head(10), use_container_width=True)
+                    
+                    st.markdown("### 📉 Put Options")
+                    st.dataframe(options_data['puts'].head(10), use_container_width=True)
+                else:
+                    st.error("❌ Could not fetch options data")
     
     with tab4:
-        st.subheader("📈 Backtesting")
-        # [Keep previous backtesting code]
+        st.subheader("📈 Strategy Backtesting")
+        
+        col1, col2, col3 = st.columns(3)
+        bt_ticker = col1.text_input("Ticker", "AAPL", key="bt_tick")
+        bt_period = col2.selectbox("Period", ["1mo", "3mo", "6mo", "1y", "2y"])
+        bt_capital = col3.number_input("Initial Capital (₹)", value=100000, key="bt_cap")
+        
+        strategy = st.selectbox("Strategy", ["RSI Strategy", "MACD Strategy", "Moving Average Crossover"])
+        
+        if st.button("🚀 Run Backtest"):
+            with st.spinner("Running backtest..."):
+                data = yf.Ticker(bt_ticker).history(period=bt_period)
+                
+                if not data.empty:
+                    if strategy == "RSI Strategy":
+                        delta = data['Close'].diff()
+                        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+                        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+                        data['RSI'] = 100 - (100 / (1 + gain/loss))
+                        
+                        signals = pd.Series(index=data.index, data='HOLD')
+                        signals[data['RSI'] < 30] = 'BUY'
+                        signals[data['RSI'] > 70] = 'SELL'
+                    
+                    backtester = Backtester(bt_capital)
+                    metrics = backtester.run_backtest(data, signals)
+                    
+                    st.markdown("### 📊 Backtest Results")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("Total Trades", metrics['total_trades'])
+                    col2.metric("Win Rate", f"{metrics['win_rate']:.2f}%")
+                    col3.metric("Total Profit", f"₹{metrics['total_profit']:,.2f}")
+                    col4.metric("Return", f"{metrics['total_return_pct']:.2f}%")
+                    
+                    col5, col6, col7, col8 = st.columns(4)
+                    col5.metric("Winning Trades", metrics['winning_trades'])
+                    col6.metric("Losing Trades", metrics['losing_trades'])
+                    col7.metric("Profit Factor", f"{metrics['profit_factor']:.2f}")
+                    col8.metric("Final Capital", f"₹{metrics['final_capital']:,.2f}")
+                    
+                    if backtester.trades:
+                        st.markdown("### 📋 Trade History")
+                        trades_df = pd.DataFrame(backtester.trades)
+                        st.dataframe(trades_df, use_container_width=True)
+                        
+                        trades_df['cumulative_profit'] = trades_df['profit_loss'].cumsum()
+                        import plotly.express as px
+                        fig = px.line(trades_df, y='cumulative_profit', title='Equity Curve')
+                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.error("Could not fetch data")
     
     with tab5:
-        st.subheader("💼 Portfolio")
-        # [Keep previous portfolio code]
+        st.subheader("💼 Portfolio Analysis")
+        
+        portfolio_input = st.text_area("Enter Tickers (one per line)", "AAPL\nMSFT\nGOOGL\nAMZN", height=150)
+        
+        if st.button("🔍 Analyze Portfolio"):
+            tickers = [t.strip() for t in portfolio_input.split('\n') if t.strip()]
+            
+            if tickers:
+                portfolio_data = []
+                progress_bar = st.progress(0)
+                
+                for i, ticker in enumerate(tickers):
+                    try:
+                        stock = yf.Ticker(ticker)
+                        data = stock.history(period="60d")
+                        
+                        if not data.empty:
+                            latest_price = data['Close'].iloc[-1]
+                            change = ((data['Close'].iloc[-1] - data['Close'].iloc[0]) / data['Close'].iloc[0]) * 100
+                            
+                            delta = data['Close'].diff()
+                            gain = (delta.where(delta > 0, 0)).rolling(14).mean()
+                            loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+                            rsi = 100 - (100 / (1 + gain/loss))
+                            latest_rsi = rsi.iloc[-1]
+                            
+                            signal = "HOLD"
+                            if latest_rsi < 40:
+                                signal = "BUY"
+                            elif latest_rsi > 60:
+                                signal = "SELL"
+                            
+                            portfolio_data.append({
+                                'Ticker': ticker,
+                                'Price': f"${latest_price:.2f}",
+                                'Change (60d)': f"{change:+.2f}%",
+                                'RSI': f"{latest_rsi:.2f}",
+                                'Signal': signal
+                            })
+                    except:
+                        pass
+                    
+                    progress_bar.progress((i + 1) / len(tickers))
+                
+                if portfolio_data:
+                    df = pd.DataFrame(portfolio_data)
+                    
+                    st.markdown("### 📊 Portfolio Overview")
+                    st.dataframe(df, use_container_width=True)
+                    
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Buy Signals", len(df[df['Signal'] == 'BUY']))
+                    col2.metric("Sell Signals", len(df[df['Signal'] == 'SELL']))
+                    col3.metric("Hold Signals", len(df[df['Signal'] == 'HOLD']))
     
     with tab6:
-        st.subheader("📱 Live Trading")
-        # [Keep previous live trading code]
+        st.subheader("📱 Live Trading Terminal")
+        
+        if not st.session_state['broker'].connected:
+            st.error("⚠️ Broker not connected. Configure Kite API keys in Settings.")
+        else:
+            st.success("✅ Broker connected")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                order_ticker = st.text_input("Ticker", "RELIANCE", key="ord_tick")
+                order_type = st.selectbox("Order Type", ["MARKET", "LIMIT"])
+            
+            with col2:
+                transaction = st.selectbox("Transaction", ["BUY", "SELL"])
+                quantity = st.number_input("Quantity", value=1, min_value=1)
+            
+            with col3:
+                if order_type == "LIMIT":
+                    limit_price = st.number_input("Limit Price (₹)", value=0.0, step=0.1)
+                else:
+                    limit_price = None
+                
+                st.write("")
+                execute_button = st.button("🚀 Execute Order", type="primary", use_container_width=True)
+            
+            if execute_button:
+                if order_ticker and quantity > 0:
+                    with st.spinner("Placing order..."):
+                        result = st.session_state['broker'].place_order(
+                            order_ticker, transaction, quantity, order_type, limit_price
+                        )
+                        
+                        if result['status'] == 'success':
+                            st.success(f"✅ Order placed! Order ID: {result.get('order_id', 'N/A')}")
+                            log_trade_to_db(order_ticker, transaction, limit_price if limit_price else 0.0, quantity, "live_trading")
+                        else:
+                            st.error(f"❌ Order failed: {result.get('message', 'Unknown error')}")
+            
+            st.markdown("---")
+            st.markdown("### 📋 Recent Orders")
+            
+            history_df = get_trade_history(limit=10)
+            if not history_df.empty:
+                st.dataframe(history_df, use_container_width=True)
+            else:
+                st.info("No order history yet")
+
     
     # ===========================================================================
     # === TAB 7: SETTINGS (RESTORED WITH API KEYS) ============================
