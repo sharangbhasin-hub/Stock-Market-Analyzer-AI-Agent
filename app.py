@@ -1012,7 +1012,7 @@ def get_ai_analysis_gemini(prompt):
         return "Gemini API key not configured"
 
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        model = genai.GenerativeModel('gemini-2.5-pro')
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
