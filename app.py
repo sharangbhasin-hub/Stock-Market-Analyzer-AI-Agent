@@ -1883,7 +1883,7 @@ def main():
                     if 'loaded_stocks' in st.session_state:
                         selected = st.selectbox("Select:", list(st.session_state['loaded_stocks'].keys()))
                         ticker_input = st.session_state['loaded_stocks'][selected]
-                else: # Direct
+                else:
                     ticker_input = st.text_input("Enter Ticker Symbol", "AAPL")
 
             # ANALYSIS BUTTON
@@ -2122,237 +2122,236 @@ def main():
                 
                 st.markdown("---")
 
-        # ========== DISPLAY CHARTS (ADD THIS) ==========
-        st.markdown("---")
-        st.subheader("📈 Multi-Timeframe Technical Charts")
-        
-        # Create tabs for different timeframes
-        chart_tab1, chart_tab2, chart_tab3 = st.tabs(["📊 Daily Chart", "⏰ 15-Min Chart", "⚡ 5-Min Chart"])
-        
-        with chart_tab1:
-            if 'daily_data' in results and results['daily_data'] is not None:
-                st.write("**Daily Timeframe Analysis**")
-                fig_daily = create_plotly_charts(results['daily_data'], f"{results['ticker']} - Daily")
-                st.plotly_chart(fig_daily, use_container_width=True)
-            else:
-                st.warning("Daily chart data not available")
-        
-        with chart_tab2:
-            if '15m_data' in results and results['15m_data'] is not None:
-                st.write("**15-Minute Intraday Analysis**")
-                fig_15m = create_plotly_charts(results['15m_data'], f"{results['ticker']} - 15 Min")
-                st.plotly_chart(fig_15m, use_container_width=True)
-            else:
-                st.warning("15-minute chart data not available")
-        
-        with chart_tab3:
-            if '5m_data' in results and results['5m_data'] is not None:
-                st.write("**5-Minute Scalping View**")
-                fig_5m = create_plotly_charts(results['5m_data'], f"{results['ticker']} - 5 Min")
-                st.plotly_chart(fig_5m, use_container_width=True)
-            else:
-                st.warning("5-minute chart data not available")
-        
-        # ========== TRADINGVIEW WIDGET ==========
-        st.markdown("---")
-        st.subheader("📊 TradingView Live Chart")
-        tradingview_html = embed_tradingview_widget(results['ticker'])
-        components.html(tradingview_html, height=550)
-        
-        st.markdown("---")
-        
-        # Stop-Loss & Targets section
-        st.subheader("🎯 Stop-Loss & Targets")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("### 🛑 Stop-Loss")
-            st.metric("Stop-Loss Price", f"₹{results.get('stop_loss', 0):.2f}",
-                     f"-₹{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
-            st.metric("Risk Amount", f"₹{results.get('risk_amount', 0):.2f}")
-            st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
-            st.info(f"**VWAP Trailing:** ₹{results['vwap']:.2f}\n\nTrail stop to VWAP. Exit if closes below.")
-        
-        with col2:
-            st.markdown("### 🎯 Profit Targets")
-            if results.get('targets'):
-                for target in results['targets']:
-                    st.metric(target['level'], f"₹{target['price']:.2f}", f"+₹{target['profit_potential']:.2f}")
-        
-        with col3:
-            st.markdown("### 📍 Key Levels")
-            st.metric("Resistance", f"₹{results['resistance']:.2f}")
-            st.metric("Support", f"₹{results['support']:.2f}")
-            st.metric("ATR (14)", f"₹{results.get('atr', 0):.2f}")
-
-        # News Section
-        if results.get('news_headlines'):
-            st.subheader("📰 Latest News")
-            for headline in results['news_headlines'][:5]:
-                st.write(f"• {headline}")
-
-        # ========== MACD ANALYSIS DISPLAY ==========
-        st.markdown("---")
-        st.markdown("### 📊 MACD (Moving Average Convergence Divergence)")
-        
-        macd_data = results.get('macd', {})
-        
-        macd_col1, macd_col2, macd_col3, macd_col4 = st.columns(4)
-        
-        with macd_col1:
-            st.metric("MACD Line", f"{macd_data.get('line', 0):.2f}")
-        
-        with macd_col2:
-            st.metric("Signal Line", f"{macd_data.get('signal', 0):.2f}")
-        
-        with macd_col3:
-            histogram = macd_data.get('histogram', 0)
-            st.metric("Histogram", f"{histogram:.2f}")
-        
-        with macd_col4:
-            if histogram > 0:
-                st.success("🟢 Bullish Momentum")
-                st.caption("MACD above signal line")
-            elif histogram < 0:
-                st.error("🔴 Bearish Momentum")
-                st.caption("MACD below signal line")
-            else:
-                st.info("⚪ Neutral")
-        
-        macd_line = macd_data.get('line', 0)
-        signal_line = macd_data.get('signal', 0)
-        
-        if macd_line > signal_line:
-            st.write("**Crossover Status:** ✅ Bullish Crossover (MACD above Signal)")
-        elif macd_line < signal_line:
-            st.write("**Crossover Status:** ❌ Bearish Crossover (MACD below Signal)")
-        else:
-            st.write("**Crossover Status:** ⚪ No Clear Crossover")
-        
-        st.caption("""
-        **💡 MACD Interpretation:**
-        - **Histogram > 0:** Bullish momentum (MACD above signal)
-        - **Histogram < 0:** Bearish momentum (MACD below signal)
-        - **Crossovers:** Strong buy/sell signals when MACD crosses signal line
-        """)
-
-        # ========== FIBONACCI ANALYSIS DISPLAY ==========
-        st.markdown("---")
-        if 'fibonacci' in results and results['fibonacci']:
-            st.subheader("📐 Fibonacci Retracement & Extension Levels")
-            
-            fib_data = results['fibonacci']
-            
-            fib_col1, fib_col2 = st.columns(2)
-            
-            with fib_col1:
-                st.markdown("### 📊 Trend & Levels")
-                trend = fib_data.get('trend', 'N/A')
+                # ========== DISPLAY CHARTS ==========
+                st.subheader("📈 Multi-Timeframe Technical Charts")
                 
-                if trend == 'uptrend':
-                    st.success(f"**Trend:** 🟢 {trend.upper()}")
+                chart_tab1, chart_tab2, chart_tab3 = st.tabs(["📊 Daily", "⏰ 15-Min", "⚡ 5-Min"])
+                
+                with chart_tab1:
+                    if 'daily_data' in results and results['daily_data'] is not None:
+                        st.write("**Daily Timeframe Analysis**")
+                        fig_daily = create_plotly_charts(results['daily_data'], f"{results['ticker']} - Daily")
+                        st.plotly_chart(fig_daily, use_container_width=True)
+                    else:
+                        st.warning("Daily chart data not available")
+                
+                with chart_tab2:
+                    if '15m_data' in results and results['15m_data'] is not None:
+                        st.write("**15-Minute Intraday Analysis**")
+                        fig_15m = create_plotly_charts(results['15m_data'], f"{results['ticker']} - 15 Min")
+                        st.plotly_chart(fig_15m, use_container_width=True)
+                    else:
+                        st.warning("15-minute chart data not available")
+                
+                with chart_tab3:
+                    if '5m_data' in results and results['5m_data'] is not None:
+                        st.write("**5-Minute Scalping View**")
+                        fig_5m = create_plotly_charts(results['5m_data'], f"{results['ticker']} - 5 Min")
+                        st.plotly_chart(fig_5m, use_container_width=True)
+                    else:
+                        st.warning("5-minute chart data not available")
+
+                # ========== TRADINGVIEW WIDGET ==========
+                st.markdown("---")
+                st.subheader("📊 TradingView Live Chart")
+                tradingview_html = embed_tradingview_widget(results['ticker'])
+                components.html(tradingview_html, height=550)
+                
+                st.markdown("---")
+                
+                # Stop-Loss & Targets
+                st.subheader("🎯 Stop-Loss & Targets")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.markdown("### 🛑 Stop-Loss")
+                    st.metric("Stop-Loss Price", f"₹{results.get('stop_loss', 0):.2f}",
+                             f"-₹{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
+                    st.metric("Risk Amount", f"₹{results.get('risk_amount', 0):.2f}")
+                    st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
+                    st.info(f"**VWAP Trailing:** ₹{results['vwap']:.2f}\n\nTrail stop to VWAP. Exit if closes below.")
+                
+                with col2:
+                    st.markdown("### 🎯 Profit Targets")
+                    if results.get('targets'):
+                        for target in results['targets']:
+                            st.metric(target['level'], f"₹{target['price']:.2f}", f"+₹{target['profit_potential']:.2f}")
+                
+                with col3:
+                    st.markdown("### 📍 Key Levels")
+                    st.metric("Resistance", f"₹{results['resistance']:.2f}")
+                    st.metric("Support", f"₹{results['support']:.2f}")
+                    st.metric("ATR (14)", f"₹{results.get('atr', 0):.2f}")
+
+                # News
+                if results.get('news_headlines'):
+                    st.markdown("---")
+                    st.subheader("📰 Latest News")
+                    for headline in results['news_headlines'][:5]:
+                        st.write(f"• {headline}")
+
+                # MACD
+                st.markdown("---")
+                st.markdown("### 📊 MACD (Moving Average Convergence Divergence)")
+                
+                macd_data = results.get('macd', {})
+                
+                macd_col1, macd_col2, macd_col3, macd_col4 = st.columns(4)
+                
+                with macd_col1:
+                    st.metric("MACD Line", f"{macd_data.get('line', 0):.2f}")
+                
+                with macd_col2:
+                    st.metric("Signal Line", f"{macd_data.get('signal', 0):.2f}")
+                
+                with macd_col3:
+                    histogram = macd_data.get('histogram', 0)
+                    st.metric("Histogram", f"{histogram:.2f}")
+                
+                with macd_col4:
+                    if histogram > 0:
+                        st.success("🟢 Bullish Momentum")
+                        st.caption("MACD above signal line")
+                    elif histogram < 0:
+                        st.error("🔴 Bearish Momentum")
+                        st.caption("MACD below signal line")
+                    else:
+                        st.info("⚪ Neutral")
+                
+                macd_line = macd_data.get('line', 0)
+                signal_line = macd_data.get('signal', 0)
+                
+                if macd_line > signal_line:
+                    st.write("**Crossover Status:** ✅ Bullish Crossover (MACD above Signal)")
+                elif macd_line < signal_line:
+                    st.write("**Crossover Status:** ❌ Bearish Crossover (MACD below Signal)")
                 else:
-                    st.error(f"**Trend:** 🔴 {trend.upper()}")
+                    st.write("**Crossover Status:** ⚪ No Clear Crossover")
                 
-                if 'fib_levels' in fib_data:
-                    st.write("**Fibonacci Levels:**")
-                    for level_name, level_price in list(fib_data['fib_levels'].items())[:7]:
-                        distance = level_price - results['latest_price']
-                        if abs(distance) / results['latest_price'] < 0.01:
-                            st.success(f"✅ **{level_name}:** ₹{level_price:.2f} ← Near Current Price")
+                st.caption("""
+                **💡 MACD Interpretation:**
+                - **Histogram > 0:** Bullish momentum (MACD above signal)
+                - **Histogram < 0:** Bearish momentum (MACD below signal)
+                - **Crossovers:** Strong buy/sell signals when MACD crosses signal line
+                """)
+
+                # Fibonacci
+                st.markdown("---")
+                if 'fibonacci' in results and results['fibonacci']:
+                    st.subheader("📐 Fibonacci Retracement & Extension Levels")
+                    
+                    fib_data = results['fibonacci']
+                    
+                    fib_col1, fib_col2 = st.columns(2)
+                    
+                    with fib_col1:
+                        st.markdown("### 📊 Trend & Levels")
+                        trend = fib_data.get('trend', 'N/A')
+                        
+                        if trend == 'uptrend':
+                            st.success(f"**Trend:** 🟢 {trend.upper()}")
                         else:
-                            st.write(f"• {level_name}: ₹{level_price:.2f}")
-            
-            with fib_col2:
-                st.markdown("### 🎯 Nearest Fib Targets")
-                
-                if 'targets' in fib_data and fib_data['targets']:
-                    for target in fib_data['targets'][:3]:
-                        st.metric(
-                            target['level'], 
-                            f"₹{target['price']:.2f}",
-                            f"+₹{target['distance']:.2f}"
-                )
-                else:
-                    st.info("No nearby Fibonacci targets identified")
-            
-            st.caption("""
-            **💡 How to use Fibonacci:**
-            - **Uptrend:** Price retraces to 0.382, 0.5, or 0.618 → Buy opportunity
-            - **Downtrend:** Price rallies to 0.382, 0.5, or 0.618 → Sell opportunity
-            - **Extension levels** (1.272, 1.618, 2.0) → Profit targets
-            """)
-    
-    elif trading_mode == "Swing Trading":
-        st.subheader("📊 Swing Trading Analysis")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
-        col2.metric("Signal", results['signal'])
-        col3.metric("RSI", f"{results['rsi']:.2f}")
-        
-        ma_50 = results['moving_averages']['MA_50']
-        trend = "Bullish" if results['latest_price'] > ma_50 else "Bearish"
-        col4.metric("Trend", trend)
-        
-        st.markdown("---")
-        st.markdown("### 📈 Swing Trade Metrics")
-        
-        swing_col1, swing_col2, swing_col3, swing_col4 = st.columns(4)
-        
-        with swing_col1:
-            st.markdown("**52-Week Range**")
-            st.metric("52W High", f"₹{results.get('52w_high', 0):.2f}")
-            distance_high = results.get('distance_from_52w_high', 0)
-            st.metric("Distance from High", f"{distance_high:+.2f}%")
-        
-        with swing_col2:
-            st.markdown("**52-Week Low**")
-            st.metric("52W Low", f"₹{results.get('52w_low', 0):.2f}")
-            distance_low = ((results['latest_price'] - results.get('52w_low', 0)) / results.get('52w_low', 1)) * 100
-            st.metric("Distance from Low", f"{distance_low:+.2f}%")
-        
-        with swing_col3:
-            st.markdown("**Long-term EMAs**")
-            ema_100 = results.get('ema_100', 0)
-            ema_200 = results.get('ema_200', 0)
-            
-            if ema_100:
-                st.metric("EMA 100", f"₹{ema_100:.2f}")
-            else:
-                st.metric("EMA 100", "N/A")
-            
-            if ema_200:
-                st.metric("EMA 200", f"₹{ema_200:.2f}")
-            else:
-                st.metric("EMA 200", "N/A")
-        
-        with swing_col4:
-            st.markdown("**Moving Averages**")
-            st.metric("MA 50", f"₹{results['moving_averages']['MA_50']:.2f}")
-            st.metric("MA 200", f"₹{results['moving_averages']['MA_200']:.2f}")
-        
-        st.markdown("---")
-        st.markdown("### 📊 Trend Analysis")
-        
-        ma_50 = results['moving_averages']['MA_50']
-        ma_200 = results['moving_averages']['MA_200']
-        price = results['latest_price']
-        
-        if price > ma_50 > ma_200:
-            st.success("🟢 **Strong Uptrend** - Price above MA50 above MA200")
-        elif price < ma_50 < ma_200:
-            st.error("🔴 **Strong Downtrend** - Price below MA50 below MA200")
-        elif price > ma_50 and ma_50 < ma_200:
-            st.warning("⚠️ **Mixed Signals** - Price above MA50 but MA50 below MA200")
-        else:
-            st.info("⚪ **Consolidation** - No clear trend")
-        
-        st.markdown("---")
+                            st.error(f"**Trend:** 🔴 {trend.upper()}")
+                        
+                        if 'fib_levels' in fib_data:
+                            st.write("**Fibonacci Levels:**")
+                            for level_name, level_price in list(fib_data['fib_levels'].items())[:7]:
+                                distance = level_price - results['latest_price']
+                                if abs(distance) / results['latest_price'] < 0.01:
+                                    st.success(f"✅ **{level_name}:** ₹{level_price:.2f} ← Near Current Price")
+                                else:
+                                    st.write(f"• {level_name}: ₹{level_price:.2f}")
+                    
+                    with fib_col2:
+                        st.markdown("### 🎯 Nearest Fib Targets")
+                        
+                        if 'targets' in fib_data and fib_data['targets']:
+                            for target in fib_data['targets'][:3]:
+                                st.metric(
+                                    target['level'], 
+                                    f"₹{target['price']:.2f}",
+                                    f"+₹{target['distance']:.2f}"
+                                )
+                        else:
+                            st.info("No nearby Fibonacci targets identified")
+                    
+                    st.caption("""
+                    **💡 How to use Fibonacci:**
+                    - **Uptrend:** Price retraces to 0.382, 0.5, or 0.618 → Buy opportunity
+                    - **Downtrend:** Price rallies to 0.382, 0.5, or 0.618 → Sell opportunity
+                    - **Extension levels** (1.272, 1.618, 2.0) → Profit targets
+                    """)
 
-    # TradingView Widget (shown for both modes)
-    st.subheader("📈 TradingView Live Chart")
-    components.html(embed_tradingview_widget(st.session_state.get('current_ticker', 'RELIANCE.NS')), height=500)
+            elif trading_mode == "Swing Trading":
+                st.subheader("📊 Swing Trading Analysis")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
+                col2.metric("Signal", results['signal'])
+                col3.metric("RSI", f"{results['rsi']:.2f}")
+                
+                ma_50 = results['moving_averages']['MA_50']
+                trend = "Bullish" if results['latest_price'] > ma_50 else "Bearish"
+                col4.metric("Trend", trend)
+                
+                st.markdown("---")
+                st.markdown("### 📈 Swing Trade Metrics")
+                
+                swing_col1, swing_col2, swing_col3, swing_col4 = st.columns(4)
+                
+                with swing_col1:
+                    st.markdown("**52-Week Range**")
+                    st.metric("52W High", f"₹{results.get('52w_high', 0):.2f}")
+                    distance_high = results.get('distance_from_52w_high', 0)
+                    st.metric("Distance from High", f"{distance_high:+.2f}%")
+                
+                with swing_col2:
+                    st.markdown("**52-Week Low**")
+                    st.metric("52W Low", f"₹{results.get('52w_low', 0):.2f}")
+                    distance_low = ((results['latest_price'] - results.get('52w_low', 0)) / results.get('52w_low', 1)) * 100
+                    st.metric("Distance from Low", f"{distance_low:+.2f}%")
+                
+                with swing_col3:
+                    st.markdown("**Long-term EMAs**")
+                    ema_100 = results.get('ema_100', 0)
+                    ema_200 = results.get('ema_200', 0)
+                    
+                    if ema_100:
+                        st.metric("EMA 100", f"₹{ema_100:.2f}")
+                    else:
+                        st.metric("EMA 100", "N/A")
+                    
+                    if ema_200:
+                        st.metric("EMA 200", f"₹{ema_200:.2f}")
+                    else:
+                        st.metric("EMA 200", "N/A")
+                
+                with swing_col4:
+                    st.markdown("**Moving Averages**")
+                    st.metric("MA 50", f"₹{results['moving_averages']['MA_50']:.2f}")
+                    st.metric("MA 200", f"₹{results['moving_averages']['MA_200']:.2f}")
+                
+                st.markdown("---")
+                st.markdown("### 📊 Trend Analysis")
+                
+                ma_50 = results['moving_averages']['MA_50']
+                ma_200 = results['moving_averages']['MA_200']
+                price = results['latest_price']
+                
+                if price > ma_50 > ma_200:
+                    st.success("🟢 **Strong Uptrend** - Price above MA50 above MA200")
+                elif price < ma_50 < ma_200:
+                    st.error("🔴 **Strong Downtrend** - Price below MA50 below MA200")
+                elif price > ma_50 and ma_50 < ma_200:
+                    st.warning("⚠️ **Mixed Signals** - Price above MA50 but MA50 below MA200")
+                else:
+                    st.info("⚪ **Consolidation** - No clear trend")
+                
+                st.markdown("---")
+
+        # TradingView (outside if/elif)
+        st.subheader("📈 TradingView Live Chart")
+        components.html(embed_tradingview_widget(st.session_state.get('current_ticker', 'RELIANCE.NS')), height=500)
 
     # ===========================================================================
     # === TAB 2: AI INSIGHTS (RESTORED) ========================================
