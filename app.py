@@ -111,6 +111,113 @@ class AlphaVantageAPI:
 
 
 
+# ==============================================================================
+# === ENHANCED ALPHA VANTAGE API ===============================================
+# ==============================================================================
+
+class AlphaVantageAPI:
+    """Fully dynamic Alpha Vantage integration"""
+    
+    def __init__(self, api_key=None):
+        self.api_key = api_key or ALPHA_VANTAGE_API_KEY
+        self.base_url = "https://www.alphavantage.co/query"
+        self._cache = {}
+    
+    def _make_request(self, params):
+        cache_key = str(sorted(params.items()))
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        
+        try:
+            params['apikey'] = self.api_key
+            response = requests.get(self.base_url, params=params, timeout=15)
+            data = response.json()
+            
+            if "Error Message" in data or "Note" in data:
+                return None
+            
+            self._cache[cache_key] = data
+            return data
+        except:
+            return None
+    
+    def get_listing_status(self, state='active'):
+        """Get ALL active stocks from Alpha Vantage"""
+        try:
+            params = {'function': 'LISTING_STATUS', 'state': state, 'apikey': self.api_key}
+            response = requests.get(self.base_url, params=params, timeout=15)
+            
+            if response.status_code == 200:
+                df = pd.read_csv(StringIO(response.text))
+                return df
+            return None
+        except:
+            return None
+    
+    def get_stocks_by_exchange(self, exchange_codes):
+        """Get stocks filtered by exchange"""
+        all_listings = self.get_listing_status()
+        
+        if all_listings is not None and not all_listings.empty:
+            filtered = all_listings[all_listings['exchange'].isin(exchange_codes)]
+            
+            stocks_dict = {}
+            for _, row in filtered.iterrows():
+                name = row['name']
+                symbol = row['symbol']
+                display_name = f"{name} ({symbol})"
+                stocks_dict[display_name] = symbol
+            
+            return stocks_dict
+        return {}
+    
+    def search_symbols(self, keywords):
+        """Universal stock search"""
+        params = {'function': 'SYMBOL_SEARCH', 'keywords': keywords}
+        data = self._make_request(params)
+        
+        if data and 'bestMatches' in data:
+            results = {}
+            for match in data['bestMatches']:
+                symbol = match.get('1. symbol', '')
+                name = match.get('2. name', '')
+                region = match.get('4. region', '')
+                
+                display_name = f"{name} ({symbol}) - {region}"
+                results[display_name] = symbol
+            return results
+        return {}
+    
+    def get_quote(self, symbol):
+        """Real-time quote"""
+        params = {'function': 'GLOBAL_QUOTE', 'symbol': symbol}
+        data = self._make_request(params)
+        
+        if data and 'Global Quote' in data:
+            q = data['Global Quote']
+            return {
+                'price': float(q.get('05. price', 0)),
+                'change': float(q.get('09. change', 0)),
+                'volume': int(q.get('06. volume', 0))
+            }
+        return None
+
+def check_market_status(market_config):
+    """Check if selected market is currently open"""
+    tz = pytz.timezone(market_config['timezone'])
+    now = datetime.now(tz)
+    
+    if now.weekday() > 4:  # Weekend
+        return {'status': 'CLOSED', 'reason': 'Weekend'}
+    
+    current_time = now.time()
+    
+    if market_config['market_open'] <= current_time <= market_config['market_close']:
+        return {'status': 'OPEN', 'time': now.strftime('%H:%M:%S %Z')}
+    else:
+        return {'status': 'CLOSED', 'reason': 'Outside Trading Hours'}
+
+
 
 # ==============================================================================
 # === DATABASE SETUP ===========================================================
@@ -647,69 +754,42 @@ class Backtester:
 # ==============================================================================
 # === STOCK CATEGORIES =========================================================
 # ==============================================================================
-
-STOCK_CATEGORIES = {
-    "NIFTY 50 Index": {
-        "ticker": "^NSEI",
-        "individual_stocks": {
-            "Reliance Industries": "RELIANCE.NS",
-            "Tata Consultancy Services": "TCS.NS",
-            "HDFC Bank": "HDFCBANK.NS",
-            "Infosys": "INFY.NS",
-            "ICICI Bank": "ICICIBANK.NS",
-            "Hindustan Unilever": "HINDUNILVR.NS",
-            "ITC": "ITC.NS",
-            "State Bank of India": "SBIN.NS",
-            "Bharti Airtel": "BHARTIARTL.NS",
-            "Kotak Mahindra Bank": "KOTAKBANK.NS",
-            "Larsen & Toubro": "LT.NS",
-            "Axis Bank": "AXISBANK.NS",
-            "Bajaj Finance": "BAJFINANCE.NS",
-            "Asian Paints": "ASIANPAINT.NS",
-            "Maruti Suzuki": "MARUTI.NS"
-        }
+# Dynamic market configuration - NO HARDCODING
+GLOBAL_MARKETS = {
+    "🇮🇳 India (NSE/BSE)": {
+        "timezone": "Asia/Kolkata",
+        "market_open": dt_time(9, 15),
+        "market_close": dt_time(15, 30),
+        "exchange_codes": ["NSE", "BSE"],
+        "suffix": ".NS",
+        "currency": "INR"
     },
-    "NIFTY Bank": {
-        "ticker": "^NSEBANK",
-        "individual_stocks": {
-            "HDFC Bank": "HDFCBANK.NS",
-            "ICICI Bank": "ICICIBANK.NS",
-            "State Bank of India": "SBIN.NS",
-            "Kotak Mahindra Bank": "KOTAKBANK.NS",
-            "Axis Bank": "AXISBANK.NS"
-        }
+    "🇺🇸 USA (NYSE/NASDAQ)": {
+        "timezone": "America/New_York",
+        "market_open": dt_time(9, 30),
+        "market_close": dt_time(16, 0),
+        "exchange_codes": ["NYSE", "NASDAQ"],
+        "suffix": "",
+        "currency": "USD"
     },
-    "NIFTY IT": {
-        "ticker": "^CNXIT",
-        "individual_stocks": {
-            "Tata Consultancy Services": "TCS.NS",
-            "Infosys": "INFY.NS",
-            "HCL Technologies": "HCLTECH.NS",
-            "Wipro": "WIPRO.NS",
-            "Tech Mahindra": "TECHM.NS"
-        }
+    "🇬🇧 UK (LSE)": {
+        "timezone": "Europe/London",
+        "market_open": dt_time(8, 0),
+        "market_close": dt_time(16, 30),
+        "exchange_codes": ["LSE"],
+        "suffix": ".L",
+        "currency": "GBP"
     },
-    "NIFTY Pharma": {
-        "ticker": "^CNXPHARMA",
-        "individual_stocks": {
-            "Sun Pharmaceutical": "SUNPHARMA.NS",
-            "Cipla": "CIPLA.NS",
-            "Dr. Reddy's": "DRREDDY.NS",
-            "Divi's Laboratories": "DIVISLAB.NS",
-            "Lupin": "LUPIN.NS"
-        }
-    },
-    "NIFTY Auto": {
-        "ticker": "^CNXAUTO",
-        "individual_stocks": {
-            "Maruti Suzuki": "MARUTI.NS",
-            "Mahindra & Mahindra": "M&M.NS",
-            "Tata Motors": "TATAMOTORS.NS",
-            "Bajaj Auto": "BAJAJ-AUTO.NS",
-            "Hero MotoCorp": "HEROMOTOCO.NS"
-        }
+    "🇯🇵 Japan (TSE)": {
+        "timezone": "Asia/Tokyo",
+        "market_open": dt_time(9, 0),
+        "market_close": dt_time(15, 0),
+        "exchange_codes": ["TSE"],
+        "suffix": ".T",
+        "currency": "JPY"
     }
 }
+
 
 # ==============================================================================
 # === HELPER FUNCTIONS =========================================================
@@ -1713,10 +1793,6 @@ def main():
         help="Select your trading style"
     )
     
-    # Market Status
-    market_status = "🟢 OPEN" if is_market_open() else "🔴 CLOSED"
-    st.sidebar.metric("Market Status", market_status)
-    
     # ========== PRE-MARKET SCREENER (RESTORED) ==========
     if trading_mode == "Intraday Trading":
         st.sidebar.subheader("🔍 Pre-Market Screener")
@@ -1790,13 +1866,72 @@ def main():
         
         with col1:
             # ========== STOCK SELECTION METHOD (RESTORED) ==========
-            st.subheader("📌 Select Stock")
+			# NEW DYNAMIC CODE:
+			# Market Selection (ADD BEFORE STOCK SELECTION)
+			selected_market = st.sidebar.selectbox(
+				"🌍 Select Market",
+				list(GLOBAL_MARKETS.keys()),
+				key="market_select"
+			)
+
+			market_config = GLOBAL_MARKETS[selected_market]
+
+			# Update market status display
+			market_status = check_market_status(market_config)
+
+			if market_status['status'] == 'OPEN':
+				st.sidebar.success(f"🟢 {selected_market} OPEN")
+			else:
+				st.sidebar.error(f"🔴 {selected_market} CLOSED")
+
+			# Dynamic Stock Selector
+			st.subheader(f"📈 Stock Selection - {selected_market}")
+
+			av = AlphaVantageAPI()
+
+			if not av.api_key:
+				st.warning("⚠️ Alpha Vantage API key required")
+				ticker_input = st.text_input("Enter Ticker", "AAPL")
+			else:
+				method = st.radio(
+					"Selection Method",
+					["🔍 Search", "📊 By Exchange", "⌨️ Direct"],
+					horizontal=True
+				)
+    
+    ticker_input = None
+    
+    if method == "🔍 Search":
+        search_query = st.text_input("Search Stock", placeholder="Apple, Tesla...")
+        
+        if search_query and len(search_query) >= 3:
+            with st.spinner("Searching..."):
+                results = av.search_symbols(search_query)
             
-            selection_method = st.radio(
-                "Selection Method",
-                ["Use Stock Categories", "Search by Name", "Enter Ticker Directly"],
-                horizontal=True
-            )
+            if results:
+                selected = st.selectbox("Select:", list(results.keys()))
+                ticker_input = results[selected]
+                
+                quote = av.get_quote(ticker_input)
+                if quote:
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Price", f"${quote['price']:.2f}")
+                    col2.metric("Change", f"${quote['change']:.2f}")
+                    col3.metric("Volume", f"{quote['volume']:,}")
+    
+    elif method == "📊 By Exchange":
+        if st.button("Load Stocks"):
+            with st.spinner("Loading..."):
+                stocks = av.get_stocks_by_exchange(market_config['exchange_codes'])
+                if stocks:
+                    st.session_state['loaded_stocks'] = stocks
+        
+        if 'loaded_stocks' in st.session_state:
+            selected = st.selectbox("Select:", list(st.session_state['loaded_stocks'].keys()))
+            ticker_input = st.session_state['loaded_stocks'][selected]
+    
+    else:
+        ticker_input = st.text_input("Ticker", "AAPL")
             
             ticker_input = None
             
