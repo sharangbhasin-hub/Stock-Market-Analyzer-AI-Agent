@@ -2162,7 +2162,7 @@ def main():
         st.markdown("---")
 
                 # Stop-Loss & Targets section
-                st.subheader("🎯 Stop-Loss & Targets")
+        st.subheader("🎯 Stop-Loss & Targets")
 
                 col1, col2, col3 = st.columns(3)
 
@@ -2191,6 +2191,54 @@ def main():
                     st.subheader("📰 Latest News")
                     for headline in results['news_headlines'][:5]:
                         st.write(f"• {headline}")
+
+                # ========== MACD ANALYSIS DISPLAY (ADD THIS) ==========
+                st.markdown("---")
+                st.markdown("### 📊 MACD (Moving Average Convergence Divergence)")
+                
+                macd_data = results.get('macd', {})
+                
+                macd_col1, macd_col2, macd_col3, macd_col4 = st.columns(4)
+                
+                with macd_col1:
+                    st.metric("MACD Line", f"{macd_data.get('line', 0):.2f}")
+                
+                with macd_col2:
+                    st.metric("Signal Line", f"{macd_data.get('signal', 0):.2f}")
+                
+                with macd_col3:
+                    histogram = macd_data.get('histogram', 0)
+                    st.metric("Histogram", f"{histogram:.2f}")
+                
+                with macd_col4:
+                    # Interpretation
+                    if histogram > 0:
+                        st.success("🟢 Bullish Momentum")
+                        st.caption("MACD above signal line")
+                    elif histogram < 0:
+                        st.error("🔴 Bearish Momentum")
+                        st.caption("MACD below signal line")
+                    else:
+                        st.info("⚪ Neutral")
+                
+                # Visual representation
+                macd_line = macd_data.get('line', 0)
+                signal_line = macd_data.get('signal', 0)
+                
+                if macd_line > signal_line:
+                    st.write("**Crossover Status:** ✅ Bullish Crossover (MACD above Signal)")
+                elif macd_line < signal_line:
+                    st.write("**Crossover Status:** ❌ Bearish Crossover (MACD below Signal)")
+                else:
+                    st.write("**Crossover Status:** ⚪ No Clear Crossover")
+                
+                st.caption("""
+                **💡 MACD Interpretation:**
+                - **Histogram > 0:** Bullish momentum (MACD above signal)
+                - **Histogram < 0:** Bearish momentum (MACD below signal)
+                - **Crossovers:** Strong buy/sell signals when MACD crosses signal line
+                """)
+
 
                 # ========== FIBONACCI ANALYSIS DISPLAY ==========
                 st.markdown("---")
@@ -2239,6 +2287,75 @@ def main():
                     - **Downtrend:** Price rallies to 0.382, 0.5, or 0.618 → Sell opportunity
                     - **Extension levels** (1.272, 1.618, 2.0) → Profit targets
                     """)
+            elif trading_mode == "Swing Trading":
+                st.subheader("📊 Swing Trading Analysis")
+                
+                # Main metrics
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
+                col2.metric("Signal", results['signal'])
+                col3.metric("RSI", f"{results['rsi']:.2f}")
+                
+                # Trend determination
+                ma_50 = results['moving_averages']['MA_50']
+                trend = "Bullish" if results['latest_price'] > ma_50 else "Bearish"
+                col4.metric("Trend", trend)
+                
+                st.markdown("---")
+                st.markdown("### 📈 Swing Trade Metrics")
+                
+                swing_col1, swing_col2, swing_col3, swing_col4 = st.columns(4)
+                
+                with swing_col1:
+                    st.markdown("**52-Week Range**")
+                    st.metric("52W High", f"₹{results.get('52w_high', 0):.2f}")
+                    distance_high = results.get('distance_from_52w_high', 0)
+                    st.metric("Distance from High", f"{distance_high:+.2f}%")
+                
+                with swing_col2:
+                    st.markdown("**52-Week Low**")
+                    st.metric("52W Low", f"₹{results.get('52w_low', 0):.2f}")
+                    distance_low = ((results['latest_price'] - results.get('52w_low', 0)) / results.get('52w_low', 1)) * 100
+                    st.metric("Distance from Low", f"{distance_low:+.2f}%")
+                
+                with swing_col3:
+                    st.markdown("**Long-term EMAs**")
+                    ema_100 = results.get('ema_100', 0)
+                    ema_200 = results.get('ema_200', 0)
+                    
+                    if ema_100:
+                        st.metric("EMA 100", f"₹{ema_100:.2f}")
+                    else:
+                        st.metric("EMA 100", "N/A")
+                    
+                    if ema_200:
+                        st.metric("EMA 200", f"₹{ema_200:.2f}")
+                    else:
+                        st.metric("EMA 200", "N/A")
+                
+                with swing_col4:
+                    st.markdown("**Moving Averages**")
+                    st.metric("MA 50", f"₹{results['moving_averages']['MA_50']:.2f}")
+                    st.metric("MA 200", f"₹{results['moving_averages']['MA_200']:.2f}")
+                
+                # Trend Analysis
+                st.markdown("---")
+                st.markdown("### 📊 Trend Analysis")
+                
+                ma_50 = results['moving_averages']['MA_50']
+                ma_200 = results['moving_averages']['MA_200']
+                price = results['latest_price']
+                
+                if price > ma_50 > ma_200:
+                    st.success("🟢 **Strong Uptrend** - Price above MA50 above MA200")
+                elif price < ma_50 < ma_200:
+                    st.error("🔴 **Strong Downtrend** - Price below MA50 below MA200")
+                elif price > ma_50 and ma_50 < ma_200:
+                    st.warning("⚠️ **Mixed Signals** - Price above MA50 but MA50 below MA200")
+                else:
+                    st.info("⚪ **Consolidation** - No clear trend")
+                
+                st.markdown("---")
 
 
             # TradingView Widget
