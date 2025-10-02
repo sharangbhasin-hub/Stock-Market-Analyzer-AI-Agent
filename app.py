@@ -2192,6 +2192,55 @@ def main():
                     for headline in results['news_headlines'][:5]:
                         st.write(f"• {headline}")
 
+                # ========== FIBONACCI ANALYSIS DISPLAY ==========
+                st.markdown("---")
+                if 'fibonacci' in results and results['fibonacci']:
+                    st.subheader("📐 Fibonacci Retracement & Extension Levels")
+                    
+                    fib_data = results['fibonacci']
+                    
+                    fib_col1, fib_col2 = st.columns(2)
+                    
+                    with fib_col1:
+                        st.markdown("### 📊 Trend & Levels")
+                        trend = fib_data.get('trend', 'N/A')
+                        
+                        if trend == 'uptrend':
+                            st.success(f"**Trend:** 🟢 {trend.upper()}")
+                        else:
+                            st.error(f"**Trend:** 🔴 {trend.upper()}")
+                        
+                        if 'fib_levels' in fib_data:
+                            st.write("**Fibonacci Levels:**")
+                            for level_name, level_price in list(fib_data['fib_levels'].items())[:7]:
+                                distance = level_price - results['latest_price']
+                                if abs(distance) / results['latest_price'] < 0.01:  # Within 1%
+                                    st.success(f"✅ **{level_name}:** ₹{level_price:.2f} ← Near Current Price")
+                                else:
+                                    st.write(f"• {level_name}: ₹{level_price:.2f}")
+                    
+                    with fib_col2:
+                        st.markdown("### 🎯 Nearest Fib Targets")
+                        
+                        if 'targets' in fib_data and fib_data['targets']:
+                            for target in fib_data['targets'][:3]:
+                                st.metric(
+                                    target['level'], 
+                                    f"₹{target['price']:.2f}",
+                                    f"+₹{target['distance']:.2f}"
+                                )
+                        else:
+                            st.info("No nearby Fibonacci targets identified")
+                    
+                    # Explanation
+                    st.caption("""
+                    **💡 How to use Fibonacci:**
+                    - **Uptrend:** Price retraces to 0.382, 0.5, or 0.618 → Buy opportunity
+                    - **Downtrend:** Price rallies to 0.382, 0.5, or 0.618 → Sell opportunity
+                    - **Extension levels** (1.272, 1.618, 2.0) → Profit targets
+                    """)
+
+
             # TradingView Widget
             st.subheader("📈 TradingView Live Chart")
             components.html(embed_tradingview_widget(st.session_state.get('current_ticker', 'RELIANCE.NS')), height=500)
