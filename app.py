@@ -2272,7 +2272,7 @@ def main():
                             target['level'], 
                             f"₹{target['price']:.2f}",
                             f"+₹{target['distance']:.2f}"
-                        )
+                )
                 else:
                     st.info("No nearby Fibonacci targets identified")
             
