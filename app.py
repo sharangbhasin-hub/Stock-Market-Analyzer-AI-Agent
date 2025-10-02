@@ -1961,6 +1961,167 @@ def main():
                 col4.metric("Position Size", f"{results.get('position_size', 0)} shares")
                 col5.metric("Capital Used", f"₹{results.get('capital_used', 0):,.0f}")
 
+                # ========== PATTERN DETECTION & CONFIRMATION ==========
+                st.markdown("---")
+                st.subheader("🎯 Pattern Detection & Trade Confirmation")
+                
+                # 5-Point Confirmation Checklist
+                if 'confirmation_checklist' in results:
+                    checklist = results['confirmation_checklist']
+                    
+                    st.markdown("### ✅ 5-Point Trade Confirmation Checklist")
+                    
+                    checklist_col1, checklist_col2 = st.columns(2)
+                    
+                    with checklist_col1:
+                        for key in ['1. At Key S/R Level', '2. Price Rejection', '3. Chart Pattern Confirmed']:
+                            st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
+                    
+                    with checklist_col2:
+                        for key in ['4. Candlestick Signal', '5. Indicator Alignment']:
+                            st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
+                    
+                    # Final Signal
+                    final_signal = checklist.get('FINAL_SIGNAL', 'HOLD')
+                    
+                    if final_signal == '🟢 BUY':
+                        st.success(f"### FINAL SIGNAL: {final_signal}")
+                        st.info("✅ 3+ bullish confirmations detected. Trade setup valid!")
+                    elif final_signal == '🔴 SELL':
+                        st.error(f"### FINAL SIGNAL: {final_signal}")
+                        st.info("✅ 3+ bearish confirmations detected. Trade setup valid!")
+                    else:
+                        st.warning(f"### FINAL SIGNAL: {final_signal}")
+                        st.info("⚠️ Insufficient confirmations. Wait for better setup.")
+                
+                st.markdown("---")
+                
+                # Candlestick Pattern Detection
+                st.markdown("### 🕯️ Candlestick Pattern Analysis")
+                
+                pattern_col1, pattern_col2, pattern_col3 = st.columns(3)
+                
+                with pattern_col1:
+                    st.markdown("**5-Min Pattern:**")
+                    candle_pattern = results.get('candlestick_pattern', 'No pattern')
+                    
+                    if 'Morning Star' in candle_pattern:
+                        st.success(f"✅ {candle_pattern}")
+                    elif 'Evening Star' in candle_pattern:
+                        st.error(f"✅ {candle_pattern}")
+                    else:
+                        st.info(f"ℹ️ {candle_pattern}")
+                
+                with pattern_col2:
+                    st.markdown("**Inside Bar Pattern:**")
+                    inside_bar = results.get('inside_bar', {})
+                    
+                    if inside_bar.get('detected', False):
+                        st.success("✅ Inside Bar Detected!")
+                        st.write(f"**Buy Trigger:** ₹{inside_bar.get('buy_trigger', 0):.2f}")
+                        st.write(f"**Sell Trigger:** ₹{inside_bar.get('sell_trigger', 0):.2f}")
+                        st.caption(inside_bar.get('message', ''))
+                    else:
+                        st.info("ℹ️ No Inside Bar")
+                
+                with pattern_col3:
+                    st.markdown("**Breakout/Retest:**")
+                    breakout_status = results.get('breakout_status', 'Not analyzed')
+                    
+                    if 'Confirmed' in breakout_status or '✅' in breakout_status:
+                        st.success(f"✅ {breakout_status}")
+                    elif 'Breakout Occurred' in breakout_status:
+                        st.warning(f"⚠️ {breakout_status}")
+                    else:
+                        st.info(f"ℹ️ {breakout_status}")
+                
+                # Technical Indicators Summary
+                st.markdown("---")
+                st.markdown("### 📊 Technical Indicators Summary")
+                
+                ind_col1, ind_col2, ind_col3, ind_col4 = st.columns(4)
+                
+                with ind_col1:
+                    st.markdown("**Bollinger Bands**")
+                    bb = results.get('bollinger_bands', {})
+                    st.write(f"Upper: ₹{bb.get('upper', 0):.2f}")
+                    st.write(f"Middle: ₹{bb.get('middle', 0):.2f}")
+                    st.write(f"Lower: ₹{bb.get('lower', 0):.2f}")
+                    
+                    # BB Signal
+                    current_price = results['latest_price']
+                    if current_price < bb.get('lower', 0):
+                        st.success("🟢 Oversold (Near Lower BB)")
+                    elif current_price > bb.get('upper', 0):
+                        st.error("🔴 Overbought (Near Upper BB)")
+                    else:
+                        st.info("⚪ Within Bands")
+                
+                with ind_col2:
+                    st.markdown("**Stochastic Momentum**")
+                    stoch = results.get('stochastic', {})
+                    st.write(f"%K: {stoch.get('k', 0):.2f}")
+                    st.write(f"%D: {stoch.get('d', 0):.2f}")
+                    
+                    crossover = stoch.get('crossover', 'none')
+                    if crossover == 'bullish':
+                        st.success("🟢 Bullish Crossover")
+                    elif crossover == 'bearish':
+                        st.error("🔴 Bearish Crossover")
+                    else:
+                        st.info("⚪ No Crossover")
+                
+                with ind_col3:
+                    st.markdown("**VWAP/VWMA**")
+                    st.write(f"VWAP: ₹{results.get('vwap', 0):.2f}")
+                    st.write(f"VWMA: ₹{results.get('vwma', 0):.2f}")
+                    
+                    if current_price > results.get('vwap', 0):
+                        st.success("🟢 Above VWAP (Bullish)")
+                    else:
+                        st.error("🔴 Below VWAP (Bearish)")
+                
+                with ind_col4:
+                    st.markdown("**SuperTrend**")
+                    supertrend = results.get('supertrend', {})
+                    st.write(f"Value: ₹{supertrend.get('value', 0):.2f}")
+                    
+                    trend = supertrend.get('trend', 'neutral')
+                    if trend == 'uptrend':
+                        st.success(f"🟢 {trend.upper()}")
+                    elif trend == 'downtrend':
+                        st.error(f"🔴 {trend.upper()}")
+                    else:
+                        st.info(f"⚪ {trend.upper()}")
+                
+                # Moving Averages
+                st.markdown("---")
+                st.markdown("### 📈 Moving Averages Analysis")
+                
+                ma_col1, ma_col2, ma_col3, ma_col4 = st.columns(4)
+                
+                mas = results.get('moving_averages', {})
+                
+                with ma_col1:
+                    st.metric("MA 20", f"₹{mas.get('MA_20', 0):.2f}")
+                
+                with ma_col2:
+                    st.metric("MA 50", f"₹{mas.get('MA_50', 0):.2f}")
+                
+                with ma_col3:
+                    st.metric("MA 200", f"₹{mas.get('MA_200', 0):.2f}")
+                
+                with ma_col4:
+                    # Trend based on MA position
+                    if current_price > mas.get('MA_50', 0) > mas.get('MA_200', 0):
+                        st.success("🟢 Strong Uptrend")
+                    elif current_price < mas.get('MA_50', 0) < mas.get('MA_200', 0):
+                        st.error("🔴 Strong Downtrend")
+                    else:
+                        st.warning("⚠️ Consolidation")
+                
+                st.markdown("---")
+
         # ========== DISPLAY CHARTS (ADD THIS) ==========
         st.markdown("---")
         st.subheader("📈 Multi-Timeframe Technical Charts")
