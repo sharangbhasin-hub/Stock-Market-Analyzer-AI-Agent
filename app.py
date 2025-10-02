@@ -2283,72 +2283,72 @@ def main():
             - **Extension levels** (1.272, 1.618, 2.0) → Profit targets
             """)
     
-            elif trading_mode == "Swing Trading":  # 12 spaces
-                st.subheader("📊 Swing Trading Analysis")  # 16 spaces
-                
-                col1, col2, col3, col4 = st.columns(4)  # 16 spaces
-                col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
-                col2.metric("Signal", results['signal'])
-                col3.metric("RSI", f"{results['rsi']:.2f}")
-                
-                ma_50 = results['moving_averages']['MA_50']
-                trend = "Bullish" if results['latest_price'] > ma_50 else "Bearish"
-                col4.metric("Trend", trend)
-                
-                st.markdown("---")
-                st.markdown("### 📈 Swing Trade Metrics")
-                
-                swing_col1, swing_col2, swing_col3, swing_col4 = st.columns(4)
-                
-                with swing_col1:
-                    st.markdown("**52-Week Range**")
-                    st.metric("52W High", f"₹{results.get('52w_high', 0):.2f}")
-                    distance_high = results.get('distance_from_52w_high', 0)
-                    st.metric("Distance from High", f"{distance_high:+.2f}%")
-                
-                with swing_col2:
-                    st.markdown("**52-Week Low**")
-                    st.metric("52W Low", f"₹{results.get('52w_low', 0):.2f}")
-                    distance_low = ((results['latest_price'] - results.get('52w_low', 0)) / results.get('52w_low', 1)) * 100
-                    st.metric("Distance from Low", f"{distance_low:+.2f}%")
-                
-                with swing_col3:
-                    st.markdown("**Long-term EMAs**")
-                    ema_100 = results.get('ema_100', 0)
-                    ema_200 = results.get('ema_200', 0)
-                    
-                    if ema_100:
-                        st.metric("EMA 100", f"₹{ema_100:.2f}")
-                    else:
-                        st.metric("EMA 100", "N/A")
-                    
-                    if ema_200:
-                        st.metric("EMA 200", f"₹{ema_200:.2f}")
-                    else:
-                        st.metric("EMA 200", "N/A")
-                
-                with swing_col4:
-                    st.markdown("**Moving Averages**")
-                    st.metric("MA 50", f"₹{results['moving_averages']['MA_50']:.2f}")
-                    st.metric("MA 200", f"₹{results['moving_averages']['MA_200']:.2f}")
-                
-                st.markdown("---")
-                st.markdown("### 📊 Trend Analysis")
-                
-                ma_50 = results['moving_averages']['MA_50']
-                ma_200 = results['moving_averages']['MA_200']
-                price = results['latest_price']
-                
-                if price > ma_50 > ma_200:
-                    st.success("🟢 **Strong Uptrend** - Price above MA50 above MA200")
-                elif price < ma_50 < ma_200:
-                    st.error("🔴 **Strong Downtrend** - Price below MA50 below MA200")
-                elif price > ma_50 and ma_50 < ma_200:
-                    st.warning("⚠️ **Mixed Signals** - Price above MA50 but MA50 below MA200")
-                else:
-                    st.info("⚪ **Consolidation** - No clear trend")
-                
-                st.markdown("---")
+    elif trading_mode == "Swing Trading":
+        st.subheader("📊 Swing Trading Analysis")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
+        col2.metric("Signal", results['signal'])
+        col3.metric("RSI", f"{results['rsi']:.2f}")
+        
+        ma_50 = results['moving_averages']['MA_50']
+        trend = "Bullish" if results['latest_price'] > ma_50 else "Bearish"
+        col4.metric("Trend", trend)
+        
+        st.markdown("---")
+        st.markdown("### 📈 Swing Trade Metrics")
+        
+        swing_col1, swing_col2, swing_col3, swing_col4 = st.columns(4)
+        
+        with swing_col1:
+            st.markdown("**52-Week Range**")
+            st.metric("52W High", f"₹{results.get('52w_high', 0):.2f}")
+            distance_high = results.get('distance_from_52w_high', 0)
+            st.metric("Distance from High", f"{distance_high:+.2f}%")
+        
+        with swing_col2:
+            st.markdown("**52-Week Low**")
+            st.metric("52W Low", f"₹{results.get('52w_low', 0):.2f}")
+            distance_low = ((results['latest_price'] - results.get('52w_low', 0)) / results.get('52w_low', 1)) * 100
+            st.metric("Distance from Low", f"{distance_low:+.2f}%")
+        
+        with swing_col3:
+            st.markdown("**Long-term EMAs**")
+            ema_100 = results.get('ema_100', 0)
+            ema_200 = results.get('ema_200', 0)
+            
+            if ema_100:
+                st.metric("EMA 100", f"₹{ema_100:.2f}")
+            else:
+                st.metric("EMA 100", "N/A")
+            
+            if ema_200:
+                st.metric("EMA 200", f"₹{ema_200:.2f}")
+            else:
+                st.metric("EMA 200", "N/A")
+        
+        with swing_col4:
+            st.markdown("**Moving Averages**")
+            st.metric("MA 50", f"₹{results['moving_averages']['MA_50']:.2f}")
+            st.metric("MA 200", f"₹{results['moving_averages']['MA_200']:.2f}")
+        
+        st.markdown("---")
+        st.markdown("### 📊 Trend Analysis")
+        
+        ma_50 = results['moving_averages']['MA_50']
+        ma_200 = results['moving_averages']['MA_200']
+        price = results['latest_price']
+        
+        if price > ma_50 > ma_200:
+            st.success("🟢 **Strong Uptrend** - Price above MA50 above MA200")
+        elif price < ma_50 < ma_200:
+            st.error("🔴 **Strong Downtrend** - Price below MA50 below MA200")
+        elif price > ma_50 and ma_50 < ma_200:
+            st.warning("⚠️ **Mixed Signals** - Price above MA50 but MA50 below MA200")
+        else:
+            st.info("⚪ **Consolidation** - No clear trend")
+        
+        st.markdown("---")
 
     # TradingView Widget (shown for both modes)
     st.subheader("📈 TradingView Live Chart")
