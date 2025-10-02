@@ -2349,9 +2349,6 @@ def main():
                 
                 st.markdown("---")
 
-        # TradingView (outside if/elif)
-        st.subheader("📈 TradingView Live Chart")
-        components.html(embed_tradingview_widget(st.session_state.get('current_ticker', 'RELIANCE.NS')), height=500)
 
     # ===========================================================================
     # === TAB 2: AI INSIGHTS (RESTORED) ========================================
