@@ -756,6 +756,15 @@ GLOBAL_MARKETS = {
 # ==============================================================================
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
+
+def fetchintradaydataticker(ticker, interval='5m', period='5d'):
+    stock = yf.Ticker(ticker)
+    hist = stock.history(period=period, interval=interval)
+    if hist.empty:
+        return None
+    hist.columns = [col.lower() for col in hist.columns]
+    return hist
+
 def analyze_macd_detailed(macd_data, daily_data):
     """
     Detailed MACD analysis following professional framework
@@ -1650,6 +1659,7 @@ class StockAnalyzer:
             if five_min_data is None:
                 five_min_data = fifteen_min_data.copy()
 
+            results['5m_data'] = five_min_data
             results['latest_price'] = daily_data['Close'].iloc[-1]
             results['rsi'] = self.compute_rsi(daily_data)
             results['macd'] = self.compute_macd(daily_data)
@@ -2108,8 +2118,8 @@ def main():
                 # Intraday data display
                 if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
                     latest_5m = results['5m_data'].iloc[-1]
-                    latest_close_5m = latest_5m.get('Close', 'N/A')
-                    latest_volume_5m = latest_5m.get('Volume', 'N/A')
+                    latest_close_5m = latest_5m.get('close', 'N/A')
+                    latest_volume_5m = latest_5m.get('volume', 'N/A')
             
                     st.markdown("### 📈 Latest Intraday Data (5-minute)")
                     st.write(f"Latest Close Price: ₹{latest_close_5m}")
