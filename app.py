@@ -2637,15 +2637,16 @@ def calculate_pattern_impact(self, pattern_data, current_price):
         bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
 
         # Add pattern signal boost
-        pattern_boost = results.get('pattern_impact', {}).get('signal_boost', 0)
+        pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
         
         # Adjust checks with pattern influence
-        if bullishchecks + pattern_boost >= 3:
+        if bullish_checks + pattern_boost >= 3:
             checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
-        elif bearishchecks - pattern_boost >= 3:
+        elif bearish_checks - pattern_boost >= 3:
             checklist['FINAL_SIGNAL'] = "🔴 SELL"
         else:
             checklist['FINAL_SIGNAL'] = "⚪ HOLD"
+
 
 
 
@@ -2660,11 +2661,11 @@ def calculate_pattern_impact(self, pattern_data, current_price):
         }
 
         try:
-            daily_data = fetch_stock_data(ticker, period="60d", interval="1d")
+            daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
             if daily_data is None:
                 return None
 
-            fifteen_min_data = fetch_intraday_data(ticker, interval="15m", period="5d")
+            fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
             if fifteen_min_data is None:
                 fifteen_min_data = daily_data.copy()
                 fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
@@ -2747,17 +2748,17 @@ def calculate_pattern_impact(self, pattern_data, current_price):
                 {
                     "level": "Target 1 (1:1.5)", 
                     "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
-                    "profitpotential": round(risk * 1.5 * target_mult * results['position_size'], 2)
+                    "profitpotential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
                 },
                 {
                     "level": "Target 2 (1:2)", 
                     "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
-                    "profitpotential": round(risk * 2.0 * target_mult * results['position_size'], 2)
+                    "profitpotential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
                 },
                 {
                     "level": "Target 3 (1:3)", 
                     "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
-                    "profitpotential": round(risk * 3.0 * target_mult * results['position_size'], 2)
+                    "profitpotential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
                 },
             ]
 
@@ -2786,16 +2787,16 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             st.error(f"Error in intraday analysis: {e}")
             return None
 
-    def analyze_for_swing(self, ticker):
+    def analyze_for_swing(self):
         """Swing trading analysis"""
         results = {
-            'ticker': ticker,
+            'ticker': self.ticker,
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'mode': 'swing'
         }
 
         try:
-            daily_data = self.fetch_stock_data(ticker, period="1y")
+            daily_data = self.fetch_stock_data(self.ticker, period="1y")
             if daily_data is None:
                 return None
 
