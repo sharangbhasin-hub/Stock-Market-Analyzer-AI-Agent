@@ -2649,185 +2649,138 @@ def calculate_pattern_impact(self, pattern_data, current_price):
         return checklist
 
     def analyze_for_intraday(self):
-        """Complete intraday analysis"""
-        
-        if not hasattr(self, 'ticker') or not self.ticker:
-            return {'error': 'No ticker provided', 'signal': 'HOLD', 'latest_price': 0}
-        
+        """Complete intraday analysis WITH STOP-LOSS"""
         results = {
             'ticker': self.ticker,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'market_open': is_market_open()
         }
-        
-        try:
-            results['market_open'] = is_market_open()
-        except:
-            results['market_open'] = False
-        
+
         try:
             daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
             if daily_data is None:
                 return None
-            
+
             fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
             if fifteen_min_data is None:
                 fifteen_min_data = daily_data.copy()
-            
-            five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
+                fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
+
+            five_min_data = fetch_intraday_data(ticker, interval="5m", period="5d")
             if five_min_data is None:
                 five_min_data = fifteen_min_data.copy()
-            
+
             results['5m_data'] = five_min_data
-            results['latest_price'] = float(daily_data['Close'].iloc[-1])
+            results['latest_price'] = daily_data['Close'].iloc[-1]
+            results['rsi'] = self.compute_rsi(daily_data)
+            results['macd'] = self.compute_macd(daily_data)
+            results['moving_averages'] = self.compute_moving_averages(daily_data)
+
+            results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
+            results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
+            five_min_data = self.compute_vwap(five_min_data)
+            results['vwap'] = five_min_data['vwap'].iloc[-1]
+            results['vwma'] = self.compute_vwma(five_min_data)
+            results['supertrend'] = self.compute_supertrend(five_min_data)
+
+            sr_levels = self.detect_support_resistance(fifteen_min_data)
+            results['resistance'] = sr_levels['resistance']
+            results['support'] = sr_levels['support']
+
+            # ========== CANDLESTICK PATTERN ANALYSIS ==========
+            pattern_data = self.detectcandlestickpatternstalib(five_min_data)
+            pattern_impact = self.calculatepatternimpact(pattern_data, results['latest_price'])
             
-            # Safe indicator calculations
-            try:
-                results['rsi'] = self.computersi(daily_data)
-            except:
-                results['rsi'] = 50
-            
-            try:
-                results['macd'] = self.computemacd(daily_data)
-            except:
-                results['macd'] = {'line': 0, 'signal': 0, 'histogram': 0}
-            
-            try:
-                results['moving_averages'] = self.computemovingaverages(daily_data)
-            except:
-                results['moving_averages'] = {}
-            
-            try:
-                results['bollinger_bands'] = self.computebollingerbands(five_min_data)
-            except:
-                results['bollinger_bands'] = {}
-            
-            try:
-                results['stochastic'] = self.computestochasticmomentum(five_min_data)
-            except:
-                results['stochastic'] = {}
-            
-            try:
-                five_min_data = self.computevwap(five_min_data)
-                results['vwap'] = float(five_min_data['vwap'].iloc[-1])
-            except:
-                results['vwap'] = results['latest_price']
-            
-            try:
-                results['vwma'] = self.computevwma(five_min_data)
-            except:
-                results['vwma'] = results['latest_price']
-            
-            try:
-                results['supertrend'] = self.computesupertrend(five_min_data)
-            except:
-                results['supertrend'] = {'trend': 'unknown', 'value': 0}
-            
-            try:
-                sr_levels = self.detectsupportresistance(fifteen_min_data)
-                results['resistance'] = sr_levels['resistance']
-                results['support'] = sr_levels['support']
-            except:
-                results['resistance'] = results['latest_price'] * 1.02
-                results['support'] = results['latest_price'] * 0.98
-            
-            # Candlestick patterns
-            try:
-                pattern_data = self.detectcandlestickpatternstalib(five_min_data)
-                pattern_impact = self.calculatepatternimpact(pattern_data, results['latest_price'])
-                results['candlestick_pattern'] = pattern_data['pattern']
-                results['pattern_type'] = pattern_data['type']
-                results['pattern_strength'] = pattern_data['strength']
-                results['pattern_confidence'] = pattern_data.get('confidence', 0)
-                results['pattern_category'] = pattern_data.get('category', 'none')
-                results['pattern_description'] = pattern_data['description']
-                results['pattern_impact'] = pattern_impact
-            except:
-                results['candlestick_pattern'] = 'None'
-                results['pattern_type'] = 'neutral'
-                results['pattern_strength'] = 0
-                results['pattern_confidence'] = 0
-                results['pattern_category'] = 'none'
-                results['pattern_description'] = 'No pattern'
-                results['pattern_impact'] = {
-                    'signal_boost': 0,
-                    'stop_loss_adjustment': 1.0,
-                    'target_multiplier': 1.0,
-                    'confidence_boost': 0
-                }
-            
-            # Stop loss
-            try:
-                atr = self.calculateatr(five_min_data, period=14)
-                results['atr'] = atr
-            except:
-                atr = results['latest_price'] * 0.02
-                results['atr'] = atr
-            
+            # Store pattern information
+            results['candlestick_pattern'] = pattern_data['pattern']
+            results['pattern_type'] = pattern_data['type']
+            results['pattern_strength'] = pattern_data['strength']
+            results['pattern_confidence'] = pattern_data.get('confidence', 0)
+            results['pattern_category'] = pattern_data.get('category', 'none')
+            results['pattern_description'] = pattern_data['description']
+            results['pattern_impact'] = pattern_impact
+
+
+            # ============ STOP-LOSS CALCULATION ============
+            atr = self.calculate_atr(five_min_data, period=14)
+            results['atr'] = atr
+
+            # Calculate base stop-loss
             if results.get('support', 0) > 0:
-                base_stop_loss = results['support'] * 0.995
+                base_stop_loss = results.get('support', 0) * 0.995
             else:
                 base_stop_loss = results['latest_price'] * 0.98
             
+            # Apply pattern adjustment
             pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
             stop_loss_support = base_stop_loss * pattern_adjustment
+            
+            # Store both for reference
             results['base_stoploss'] = base_stop_loss
             results['stoploss'] = stop_loss_support
+
             stop_loss_atr = results['latest_price'] - (atr * 1.5)
             results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
-            results['trailing_stop_vwap'] = results.get('vwap', results['latest_price'])
-            
-            # Position size
-            max_capital = 12500
+            results['trailing_stop_vwap'] = results.get('vwap', 0)
+
+            # ============ POSITION SIZE ============
+            max_capital_per_trade = 12500
             risk_per_share = abs(results['latest_price'] - results['stop_loss'])
+
             if risk_per_share > 0:
-                max_qty = int(max_capital / results['latest_price'])
-                risk_qty = int((max_capital * 0.02) / risk_per_share)
-                results['position_size'] = min(max_qty, risk_qty, 100)
+                max_quantity = int(max_capital_per_trade / results['latest_price'])
+                risk_based_quantity = int((max_capital_per_trade * 0.02) / risk_per_share)
+                results['position_size'] = min(max_quantity, risk_based_quantity, 100)
             else:
                 results['position_size'] = 1
-            
-            # Targets
+
+            # ============ TARGETS ============
             risk_amount = risk_per_share
+
+            # Get pattern target multiplier
             target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
-            results['targets'] = [
-                {"level": "Target 1", "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2)},
-                {"level": "Target 2", "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2)},
-                {"level": "Target 3", "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2)}
-            ]
             
+            results['targets'] = [
+                {
+                    "level": "Target 1 (1:1.5)", 
+                    "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
+                    "profitpotential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
+                },
+                {
+                    "level": "Target 2 (1:2)", 
+                    "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
+                    "profitpotential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
+                },
+                {
+                    "level": "Target 3 (1:3)", 
+                    "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
+                    "profitpotential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
+                },
+            ]
+
+
+            if results['supertrend']['trend'] == 'uptrend':
+                results['supertrend_target'] = results['supertrend']['value']
+
             results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
             results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
             results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
-            
-            try:
-                results['inside_bar'] = self.detectinsidebarpattern(fifteen_min_data)
-            except:
-                results['inside_bar'] = False
-            
-            try:
-                results['breakout_status'] = self.detectbreakoutretest(five_min_data, results['resistance'])
-            except:
-                results['breakout_status'] = 'unknown'
-            
+
+            results['inside_bar'] = self.detect_inside_bar_pattern(fifteen_min_data)
+            results['breakout_status'] = self.detect_breakout_retest(five_min_data, sr_levels['resistance'])
+
+            results['5m_data'] = five_min_data
             results['15m_data'] = fifteen_min_data
             results['daily_data'] = daily_data
-            
-            try:
-                results['confirmation_checklist'] = self.runconfirmationchecklist(results)
-                results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
-            except:
-                results['signal'] = 'HOLD'
-                results['confirmation_checklist'] = {}
-            
-            try:
-                results['currency'] = get_currency_symbol(self.ticker, None)
-            except:
-                results['currency'] = '$'
-            
+
+            results['confirmation_checklist'] = self.run_confirmation_checklist(results)
+            results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
+
+            results['currency'] = get_currency_symbol(self.ticker, None)
             return results
-            
+
         except Exception as e:
-            st.error(f"Analysis error: {str(e)}")
+            st.error(f"Error in intraday analysis: {e}")
             return None
 
 
