@@ -902,7 +902,7 @@ Provide a concise 2-3 sentence overview blending technical posture, recent news/
 }
 
 **4. Qualitative Context: News & Sentiment**
-- Sentiment: {sentiment.get('sentiment', 'Neutral')}
+- Sentiment: {sentiment.get('sentiment', 'Neutral') if isinstance(sentiment, dict) else 'Neutral'}
 - Sentiment Score: {sentiment.get('score', 0):.2f}
 - Top Headlines: {'; '.join(news_headlines[:3]) if news_headlines else 'No recent news found.'}
 
