@@ -1097,7 +1097,7 @@ def run_premarket_screener(market_name, market_config):
     """Clean pre-market screener with comprehensive fallbacks"""
     
     # Fetch tickers with source tracking
-    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHAVANTAGEAPIKEY)
+    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
     
     if not all_tickers:
         st.error("❌ Unable to fetch stock list")
@@ -1192,7 +1192,7 @@ def run_premarket_screener(market_name, market_config):
     """Clean pre-market screener with minimal UI"""
     
     # Fetch tickers
-    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHAVANTAGEAPIKEY)
+    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
     
     if not all_tickers:
         st.error("❌ Unable to fetch stock list")
