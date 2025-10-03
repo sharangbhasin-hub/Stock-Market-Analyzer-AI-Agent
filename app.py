@@ -2114,8 +2114,8 @@ def main():
                 st.markdown("### 📈 Latest Intraday Data (5-minute)")
                 st.write(f"Latest Close Price: ₹{latest_close_5m}")
                 st.write(f"Latest Volume: {int(latest_volume_5m) if isinstance(latest_volume_5m, (int, float)) else latest_volume_5m}")
-            else:
-                st.write("Intraday data (5-minute) not available.")
+                else:
+                    st.write("Intraday data (5-minute) not available.")
 
 
                 # ========== PATTERN DETECTION & CONFIRMATION ==========
