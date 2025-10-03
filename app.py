@@ -978,7 +978,7 @@ def get_dynamic_tickers_with_av(market_name, av_api):
         st.error(f"Error fetching tickers: {e}")
         return []
 
-@st.cache_data(ttl=3600)
+
 def run_premarket_screener(market_name, market_config):
     """Enhanced pre-market screener with Alpha Vantage integration"""
     
