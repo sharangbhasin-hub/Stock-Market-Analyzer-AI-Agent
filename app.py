@@ -917,64 +917,99 @@ def run_premarket_screener(market_name, market_config):
     try:
         screened_list = {}
         
+        # Define symbols based on market
         if market_name == "India (NSE/BSE)":
-            # NSE stocks
-            url = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
-            df_all_stocks = pd.read_csv(url)
-            nse_symbols = [f"{symbol}{market_config['suffix']}" for symbol in df_all_stocks['SYMBOL']]
-            symbols_to_scan = nse_symbols[:100]  # Scan top 100
+            # Top NSE stocks
+            symbols_to_scan = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
+                              'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS', 'LT.NS',
+                              'ITC.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS', 'TITAN.NS',
+                              'SUNPHARMA.NS', 'ULTRACEMCO.NS', 'BAJFINANCE.NS', 'WIPRO.NS', 'HCLTECH.NS']
+            min_price = 50  # Lower threshold for India
+            min_volume = 50000
             
         elif market_name == "USA (NYSE/NASDAQ)":
-            # Popular US stocks
             symbols_to_scan = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 
-                              'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V']
+                              'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V',
+                              'MA', 'PYPL', 'ADBE', 'CRM', 'CSCO', 'PEP', 'KO']
+            min_price = 10
+            min_volume = 100000
             
         elif market_name == "UK (LSE)":
-            # Popular UK stocks
-            symbols_to_scan = [f"{s}.L" for s in ['BARC', 'HSBA', 'BP', 'SHEL', 'VOD', 
-                                                   'AZN', 'GLEN', 'RIO', 'LSEG', 'LLOY']]
+            symbols_to_scan = ['BARC.L', 'HSBA.L', 'BP.L', 'SHEL.L', 'VOD.L', 
+                              'AZN.L', 'GLEN.L', 'RIO.L', 'LSEG.L', 'LLOY.L',
+                              'GSK.L', 'ULVR.L', 'DGE.L', 'NG.L', 'REL.L']
+            min_price = 1
+            min_volume = 100000
             
         elif market_name == "Japan (TSE)":
-            # Popular Japanese stocks
-            symbols_to_scan = [f"{s}.T" for s in ['7203', '6758', '9984', '6861', '8306', 
-                                                   '7267', '6098', '9432', '8035', '4063']]
+            symbols_to_scan = ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T',
+                              '7267.T', '6098.T', '9432.T', '8035.T', '4063.T']
+            min_price = 100
+            min_volume = 50000
         else:
+            st.warning(f"Market {market_name} not supported yet")
             return {}
         
-        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks from {market_name}...")
+        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks...")
         
-        # Download data
+        # Download data for all symbols
         tickers_str = " ".join(symbols_to_scan)
         data = yf.download(tickers_str, period="5d", group_by='ticker', auto_adjust=True, progress=False)
         
         progress_bar = st.progress(0)
+        scanned_count = 0
+        
         for i, ticker in enumerate(symbols_to_scan):
             try:
-                stock_data = data[ticker] if len(symbols_to_scan) > 1 else data
-                if not stock_data.empty:
-                    last_day = stock_data.iloc[-1]
-                    price = last_day['Close']
-                    volume = last_day['Volume']
-                    
-                    # Screening criteria
-                    if price > 100 and volume > 100000:
-                        screened_list[ticker] = {
-                            'price': price,
-                            'volume': volume,
-                            'change_pct': ((last_day['Close'] - stock_data.iloc[-2]['Close']) / 
-                                          stock_data.iloc[-2]['Close'] * 100) if len(stock_data) > 1 else 0
-                        }
-            except Exception:
+                # Handle single vs multiple ticker data structure
+                if len(symbols_to_scan) > 1:
+                    stock_data = data[ticker]
+                else:
+                    stock_data = data
+                
+                if stock_data.empty:
+                    continue
+                
+                # Get latest data
+                last_day = stock_data.iloc[-1]
+                prev_day = stock_data.iloc[-2] if len(stock_data) > 1 else last_day
+                
+                price = last_day['Close']
+                volume = last_day['Volume']
+                
+                # Calculate change
+                change_pct = ((price - prev_day['Close']) / prev_day['Close'] * 100)
+                
+                # Screening criteria - more flexible
+                if price > min_price and volume > min_volume:
+                    screened_list[ticker] = {
+                        'price': float(price),
+                        'volume': int(volume),
+                        'change_pct': float(change_pct)
+                    }
+                    scanned_count += 1
+                
+            except Exception as e:
+                st.write(f"⚠️ Skipping {ticker}: {str(e)}")
                 continue
             
             progress_bar.progress((i + 1) / len(symbols_to_scan))
         
-        st.success(f"✅ Found {len(screened_list)} stocks meeting criteria")
+        progress_bar.empty()
+        
+        if screened_list:
+            st.success(f"✅ Found {len(screened_list)} stocks meeting criteria (Price > {min_price}, Volume > {min_volume:,})")
+        else:
+            st.warning(f"⚠️ No stocks found. Try adjusting criteria or check market hours.")
+        
         return screened_list
         
     except Exception as e:
-        st.error(f"❌ Pre-market scan error: {e}")
+        st.error(f"❌ Pre-market scan error: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
         return {}
+
 
 @st.cache_data
 def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
