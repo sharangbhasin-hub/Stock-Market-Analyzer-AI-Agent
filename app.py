@@ -756,6 +756,52 @@ GLOBAL_MARKETS = {
 # ==============================================================================
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
+def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
+    ma_50 = results['moving_averages']['MA_50']
+    price = results['latest_price']
+    trend = 'Uptrend' if price > ma_50 else 'Downtrend'
+    macd = results['macd']
+    macd_signal = 'Bullish' if macd['line'] > macd['signal'] else 'Bearish'
+    rsi = results['rsi']
+    rsi_signal = 'Overbought' if rsi > 70 else 'Oversold' if rsi < 30 else 'Neutral'
+    
+    prompt = f"""
+🎯 **COMPREHENSIVE ANALYSIS FOR {ticker}**
+
+**1. Overall Summary/Snapshot**
+
+Provide a concise 2-3 sentence overview blending technical posture, recent news/sentiment, and the primary quantitative indicator trend (RSI, MACD, MA).
+
+**2. Quantitative Snapshot:**
+- Current Price: ₹{price:.2f}
+- Signal: {results.get('signal', 'HOLD')}
+- RSI: {rsi:.2f} ({rsi_signal})
+- Trend: {trend}
+- Position Size: {results.get('position_size', 0)} shares
+- Capital Required: ₹{results.get('capital_used', 0):,.0f}
+
+**3. Detailed Technical Analysis**
+- MACD: Line={macd['line']:.2f}, Signal={macd['signal']:.2f}, Histogram={macd['histogram']:.2f} → {macd_signal}
+- Price vs MA50: {price:.2f} vs {ma_50:.2f} ({'Above' if price > ma_50 else 'Below'})
+- Key Levels: Resistance=₹{results['resistance']:.2f}, Support=₹{results['support']:.2f}
+- Technical Posture: {'Strong Bullish' if price > ma_50 > results['moving_averages']['MA_200'] else 'Strong Bearish' if price < ma_50 < results['moving_averages']['MA_200'] else 'Mixed/Consolidating'}
+
+**4. Qualitative Context: News & Sentiment**
+- Sentiment: {sentiment.get('sentiment', 'Neutral')}
+- Sentiment Score: {sentiment.get('score', 0):.2f}
+- Top Headlines: {'; '.join(news_headlines[:3]) if news_headlines else 'No recent news found.'}
+
+**5. Integrated Outlook & Analyst View**
+- Does technical posture align with current sentiment and news flow?
+- Discuss divergences (e.g., bullish technicals vs. negative news).
+- Key upcoming events or catalysts from news.
+- Key risks (technical breakdown, bearish sentiment, etc.).
+- Provide actionable view: recommend BUY/SELL/HOLD with confidence; mention critical levels for stops and targets.
+
+Respond with structured, actionable paragraphs as in a premium research note.
+"""
+    return prompt
+
 
 @st.cache_data(ttl=3600)
 def run_pre_market_screener():
@@ -2369,29 +2415,12 @@ def main():
 
             if st.button("🧠 Generate AI Analysis", type="primary"):
                 with st.spinner(f"Generating insights with {ai_model}..."):
-                    # Prepare comprehensive prompt
-                    prompt = f"""
-                    You are an expert trading analyst. Analyze this stock data and provide comprehensive insights:
-                    
-                    **Stock:** {results['ticker']}
-                    **Current Price:** ₹{results['latest_price']:.2f}
-                    **Signal:** {results.get('signal', 'N/A')}
-                    **RSI:** {results['rsi']:.2f}
-                    **MACD:** {results['macd']}
-                    **Moving Averages:** {results['moving_averages']}
-                    **Support:** ₹{results.get('support', 0):.2f}
-                    **Resistance:** ₹{results.get('resistance', 0):.2f}
-                    **News Sentiment:** {results.get('sentiment', {}).get('sentiment', 'N/A')}
-                    
-                    Provide:
-                    1. **Technical Analysis Summary** - Interpret the indicators
-                    2. **Risk Assessment** - Evaluate the trade risk
-                    3. **Entry/Exit Strategy** - Recommend specific levels
-                    4. **Market Outlook** - Short-term and medium-term view
-                    5. **Risk Management Tips** - Position sizing and stops
-                    
-                    Be specific with price levels and actionable recommendations.
-                    """
+                    prompt = generate_comprehensive_analysis(
+                        ticker,
+                        results,
+                        results.get('sentiment', {}),
+                        results.get('news_headlines', [])
+                    )
 
                     # Generate AI response
                     if ai_model == "Google Gemini":
