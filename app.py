@@ -2648,151 +2648,188 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             checklist['FINAL_SIGNAL'] = "⚪ HOLD"
         return checklist
 
-def analyze_for_intraday(self):
-    """Complete intraday analysis WITH STOP-LOSS - DEBUG VERSION"""
-    
-    # Validate ticker
-    if not hasattr(self, 'ticker') or not self.ticker:
-        st.error("❌ No ticker set in analyzer")
-        return None
-    
-    st.info(f"🔍 Analyzing {self.ticker}...")
-    
-    results = {
-        'ticker': self.ticker,
-        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        'market_open': is_market_open()
-    }
-
-    try:
-        # Step 1: Fetch data
-        st.write("📊 Step 1: Fetching stock data...")
+    def analyze_for_intraday(self):
+        """Complete intraday analysis"""
+        
+        if not hasattr(self, 'ticker') or not self.ticker:
+            return {'error': 'No ticker provided', 'signal': 'HOLD', 'latest_price': 0}
+        
+        results = {
+            'ticker': self.ticker,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        try:
+            results['market_open'] = is_market_open()
+        except:
+            results['market_open'] = False
+        
         try:
             daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
             if daily_data is None:
-                st.error("Failed to fetch daily data")
                 return None
-            st.success(f"✅ Daily data fetched: {len(daily_data)} days")
-        except Exception as e:
-            st.error(f"❌ Error fetching daily data: {str(e)}")
-            return None
-
-        # Step 2: Fetch intraday data
-        st.write("📊 Step 2: Fetching 15min data...")
-        try:
+            
             fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
             if fifteen_min_data is None:
                 fifteen_min_data = daily_data.copy()
-                fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
-            st.success("✅ 15min data ready")
-        except Exception as e:
-            st.error(f"❌ Error with 15min data: {str(e)}")
-            fifteen_min_data = daily_data.copy()
-
-        # Step 3: Fetch 5min data
-        st.write("📊 Step 3: Fetching 5min data...")
-        try:
+            
             five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
             if five_min_data is None:
                 five_min_data = fifteen_min_data.copy()
-            st.success("✅ 5min data ready")
+            
+            results['5m_data'] = five_min_data
+            results['latest_price'] = float(daily_data['Close'].iloc[-1])
+            
+            # Safe indicator calculations
+            try:
+                results['rsi'] = self.computersi(daily_data)
+            except:
+                results['rsi'] = 50
+            
+            try:
+                results['macd'] = self.computemacd(daily_data)
+            except:
+                results['macd'] = {'line': 0, 'signal': 0, 'histogram': 0}
+            
+            try:
+                results['moving_averages'] = self.computemovingaverages(daily_data)
+            except:
+                results['moving_averages'] = {}
+            
+            try:
+                results['bollinger_bands'] = self.computebollingerbands(five_min_data)
+            except:
+                results['bollinger_bands'] = {}
+            
+            try:
+                results['stochastic'] = self.computestochasticmomentum(five_min_data)
+            except:
+                results['stochastic'] = {}
+            
+            try:
+                five_min_data = self.computevwap(five_min_data)
+                results['vwap'] = float(five_min_data['vwap'].iloc[-1])
+            except:
+                results['vwap'] = results['latest_price']
+            
+            try:
+                results['vwma'] = self.computevwma(five_min_data)
+            except:
+                results['vwma'] = results['latest_price']
+            
+            try:
+                results['supertrend'] = self.computesupertrend(five_min_data)
+            except:
+                results['supertrend'] = {'trend': 'unknown', 'value': 0}
+            
+            try:
+                sr_levels = self.detectsupportresistance(fifteen_min_data)
+                results['resistance'] = sr_levels['resistance']
+                results['support'] = sr_levels['support']
+            except:
+                results['resistance'] = results['latest_price'] * 1.02
+                results['support'] = results['latest_price'] * 0.98
+            
+            # Candlestick patterns
+            try:
+                pattern_data = self.detectcandlestickpatternstalib(five_min_data)
+                pattern_impact = self.calculatepatternimpact(pattern_data, results['latest_price'])
+                results['candlestick_pattern'] = pattern_data['pattern']
+                results['pattern_type'] = pattern_data['type']
+                results['pattern_strength'] = pattern_data['strength']
+                results['pattern_confidence'] = pattern_data.get('confidence', 0)
+                results['pattern_category'] = pattern_data.get('category', 'none')
+                results['pattern_description'] = pattern_data['description']
+                results['pattern_impact'] = pattern_impact
+            except:
+                results['candlestick_pattern'] = 'None'
+                results['pattern_type'] = 'neutral'
+                results['pattern_strength'] = 0
+                results['pattern_confidence'] = 0
+                results['pattern_category'] = 'none'
+                results['pattern_description'] = 'No pattern'
+                results['pattern_impact'] = {
+                    'signal_boost': 0,
+                    'stop_loss_adjustment': 1.0,
+                    'target_multiplier': 1.0,
+                    'confidence_boost': 0
+                }
+            
+            # Stop loss
+            try:
+                atr = self.calculateatr(five_min_data, period=14)
+                results['atr'] = atr
+            except:
+                atr = results['latest_price'] * 0.02
+                results['atr'] = atr
+            
+            if results.get('support', 0) > 0:
+                base_stop_loss = results['support'] * 0.995
+            else:
+                base_stop_loss = results['latest_price'] * 0.98
+            
+            pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
+            stop_loss_support = base_stop_loss * pattern_adjustment
+            results['base_stoploss'] = base_stop_loss
+            results['stoploss'] = stop_loss_support
+            stop_loss_atr = results['latest_price'] - (atr * 1.5)
+            results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
+            results['trailing_stop_vwap'] = results.get('vwap', results['latest_price'])
+            
+            # Position size
+            max_capital = 12500
+            risk_per_share = abs(results['latest_price'] - results['stop_loss'])
+            if risk_per_share > 0:
+                max_qty = int(max_capital / results['latest_price'])
+                risk_qty = int((max_capital * 0.02) / risk_per_share)
+                results['position_size'] = min(max_qty, risk_qty, 100)
+            else:
+                results['position_size'] = 1
+            
+            # Targets
+            risk_amount = risk_per_share
+            target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
+            results['targets'] = [
+                {"level": "Target 1", "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2)},
+                {"level": "Target 2", "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2)},
+                {"level": "Target 3", "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2)}
+            ]
+            
+            results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
+            results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
+            results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
+            
+            try:
+                results['inside_bar'] = self.detectinsidebarpattern(fifteen_min_data)
+            except:
+                results['inside_bar'] = False
+            
+            try:
+                results['breakout_status'] = self.detectbreakoutretest(five_min_data, results['resistance'])
+            except:
+                results['breakout_status'] = 'unknown'
+            
+            results['15m_data'] = fifteen_min_data
+            results['daily_data'] = daily_data
+            
+            try:
+                results['confirmation_checklist'] = self.runconfirmationchecklist(results)
+                results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
+            except:
+                results['signal'] = 'HOLD'
+                results['confirmation_checklist'] = {}
+            
+            try:
+                results['currency'] = get_currency_symbol(self.ticker, None)
+            except:
+                results['currency'] = '$'
+            
+            return results
+            
         except Exception as e:
-            st.error(f"❌ Error with 5min data: {str(e)}")
-            five_min_data = fifteen_min_data.copy()
-
-        results['5m_data'] = five_min_data
-        results['latest_price'] = daily_data['Close'].iloc[-1]
-        st.write(f"💰 Latest price: {results['latest_price']}")
-
-        # Step 4: Calculate indicators
-        st.write("📈 Step 4: Calculating RSI...")
-        try:
-            results['rsi'] = self.compute_rsi(daily_data)
-            st.success(f"✅ RSI: {results['rsi']}")
-        except AttributeError as e:
-            st.error(f"❌ RSI ERROR - Method doesn't exist: {str(e)}")
-            st.error(f"Available methods starting with 'compute': {[m for m in dir(self) if 'compute' in m.lower()]}")
+            st.error(f"Analysis error: {str(e)}")
             return None
-        except Exception as e:
-            st.error(f"❌ RSI ERROR: {str(e)}")
-            results['rsi'] = 50
 
-        st.write("📈 Step 5: Calculating MACD...")
-        try:
-            results['macd'] = self.compute_macd(daily_data)
-            st.success("✅ MACD calculated")
-        except AttributeError as e:
-            st.error(f"❌ MACD ERROR - Method doesn't exist: {str(e)}")
-            return None
-        except Exception as e:
-            st.error(f"❌ MACD ERROR: {str(e)}")
-            results['macd'] = {'line': 0, 'signal': 0, 'histogram': 0}
-
-        st.write("📈 Step 6: Calculating Moving Averages...")
-        try:
-            results['moving_averages'] = self.compute_moving_averages(daily_data)
-            st.success("✅ MAs calculated")
-        except AttributeError as e:
-            st.error(f"❌ MA ERROR - Method doesn't exist: {str(e)}")
-            return None
-        except Exception as e:
-            st.error(f"❌ MA ERROR: {str(e)}")
-            results['moving_averages'] = {}
-
-        st.write("📈 Step 7: Calculating Bollinger Bands...")
-        try:
-            results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
-            st.success("✅ BB calculated")
-        except AttributeError as e:
-            st.error(f"❌ BB ERROR - Method doesn't exist: {str(e)}")
-            return None
-        except Exception as e:
-            st.error(f"❌ BB ERROR: {str(e)}")
-            results['bollinger_bands'] = {}
-
-        st.write("📈 Step 8: Calculating Stochastic...")
-        try:
-            results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
-            st.success("✅ Stochastic calculated")
-        except AttributeError as e:
-            st.error(f"❌ STOCHASTIC ERROR - Method doesn't exist: {str(e)}")
-            return None
-        except Exception as e:
-            st.error(f"❌ STOCHASTIC ERROR: {str(e)}")
-            results['stochastic'] = {}
-
-        st.write("📈 Step 9: Calculating VWAP...")
-        try:
-            five_min_data = self.compute_vwap(five_min_data)
-            results['vwap'] = five_min_data['vwap'].iloc[-1]
-            st.success(f"✅ VWAP: {results['vwap']}")
-        except AttributeError as e:
-            st.error(f"❌ VWAP ERROR - Method doesn't exist: {str(e)}")
-            st.error(f"🔍 Looking for method 'compute_vwap' or 'computevwap'")
-            st.error(f"Available compute methods: {[m for m in dir(self) if 'vwap' in m.lower()]}")
-            return None
-        except Exception as e:
-            st.error(f"❌ VWAP ERROR: {str(e)}")
-            results['vwap'] = results['latest_price']
-
-        st.success("✅ All indicators calculated successfully!")
-        
-        # Continue with simplified version for now
-        results['signal'] = 'HOLD'
-        results['stop_loss'] = results['latest_price'] * 0.98
-        results['position_size'] = 1
-        results['targets'] = []
-        results['candlestick_pattern'] = 'Analysis Incomplete'
-        results['pattern_type'] = 'neutral'
-        results['pattern_strength'] = 0
-        
-        return results
-
-    except Exception as e:
-        st.error(f"💥 CRITICAL ERROR in analyze_for_intraday: {str(e)}")
-        import traceback
-        st.error(f"📋 Full traceback:\n{traceback.format_exc()}")
-        return None
 
 
     def analyze_for_swing(self):
