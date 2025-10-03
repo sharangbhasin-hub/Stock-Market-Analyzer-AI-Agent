@@ -856,6 +856,17 @@ def analyze_macd_detailed(macd_data, daily_data):
     return analysis
 
 def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
+    # Safety checks for all inputs
+    if not isinstance(analysis_results, dict):
+        analysis_results = {}
+    if not isinstance(news_headlines, list):
+        news_headlines = []
+    
+    # Get sentiment safely
+    sentiment = analysis_results.get('sentiment', {})
+    if not isinstance(sentiment, dict):
+        sentiment = {'sentiment': 'Neutral', 'score': 0, 'explanation': 'No sentiment data available'}
+        
     ma_50 = results['moving_averages']['MA_50']
     price = results['latest_price']
     trend = 'Uptrend' if price > ma_50 else 'Downtrend'
