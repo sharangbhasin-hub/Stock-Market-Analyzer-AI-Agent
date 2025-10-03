@@ -1721,7 +1721,7 @@ def detectcandlestickpatternstalib(self, data):
     
     # Return strongest pattern
     if patternsfound:
-        patternsfound.sortkeylambda x: xstrength, x'confidence', reverseTrue
+        patternsfound.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
         return patternsfound0
     else:
         return {
