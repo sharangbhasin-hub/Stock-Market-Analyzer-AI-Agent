@@ -58,6 +58,7 @@ NEWSAPI_KEY = os.getenv("NEWSAPI_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY")
 
+    
 # Broker API Configuration
 KITE_API_KEY = os.getenv("KITE_API_KEY")
 KITE_API_SECRET = os.getenv("KITE_API_SECRET")
@@ -1113,7 +1114,7 @@ def run_premarket_screener(market_name, market_config):
     
     # Step 1: Fetch tickers dynamically
     with st.spinner(f"📡 Fetching ticker list for {market_name}..."):
-        all_tickers = get_dynamic_tickers(market_name, ALPHAVANTAGE_API_KEY)
+        all_tickers = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
     
     if not all_tickers:
         st.error("❌ No tickers available")
