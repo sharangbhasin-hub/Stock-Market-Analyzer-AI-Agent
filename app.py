@@ -2467,7 +2467,7 @@ def main():
                     if st.button(f"🔄 Load {selected_market} Stocks", type="primary"):
                         with st.spinner(f"Fetching stocks from {selected_market}..."):
                             # Use the same dynamic fetcher as pre-market scanner
-                            all_tickers, source, errors = get_dynamic_tickers(selected_market, ALPHAVANTAGEAPIKEY)
+                            all_tickers, source, errors = get_dynamic_tickers(selected_market, ALPHA_VANTAGE_API_KEY)
                             
                             if all_tickers:
                                 # Fetch additional details for better display (optional)
