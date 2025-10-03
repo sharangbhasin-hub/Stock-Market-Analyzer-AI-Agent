@@ -2598,6 +2598,22 @@ def main():
                     st.session_state["analysis_history"] = []
                 st.session_state["analysis_history"].append(st.session_state["last_analysis_time"])
 
+                import pytz
+                
+                # Show last analysis run timestamp
+                if "last_analysis_time" in st.session_state:
+                    last_run = st.session_state["last_analysis_time"]
+                    local_time = last_run.astimezone(pytz.timezone('Asia/Kolkata'))
+                    st.markdown(f"🕒 **Last analysis run:** {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                
+                # Show recent analysis history
+                if "analysis_history" in st.session_state and st.session_state["analysis_history"]:
+                    st.subheader("🕑 Analysis Run History (Last 5 times)")
+                    for idx, ts in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
+                        local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
+                        st.markdown(f"{idx}. {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+
+
     # ===========================================================================
     # === TAB 3-6: OPTIONS, BACKTESTING, PORTFOLIO, LIVE TRADING
     # ===========================================================================
