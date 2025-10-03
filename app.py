@@ -2105,17 +2105,17 @@ def main():
                 col4.metric("Position Size", f"{results.get('position_size', 0)} shares")
                 col5.metric("Capital Used", f"₹{results.get('capital_used', 0):,.0f}")
 
-            # Intraday data display
-            if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
-                latest_5m = results['5m_data'].iloc[-1]
-                latest_close_5m = latest_5m.get('Close', 'N/A')
-                latest_volume_5m = latest_5m.get('Volume', 'N/A')
-        
-                st.markdown("### 📈 Latest Intraday Data (5-minute)")
-                st.write(f"Latest Close Price: ₹{latest_close_5m}")
-                st.write(f"Latest Volume: {int(latest_volume_5m) if isinstance(latest_volume_5m, (int, float)) else latest_volume_5m}")
-            else:
-                st.write("Intraday data (5-minute) not available.")
+                # Intraday data display
+                if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
+                    latest_5m = results['5m_data'].iloc[-1]
+                    latest_close_5m = latest_5m.get('Close', 'N/A')
+                    latest_volume_5m = latest_5m.get('Volume', 'N/A')
+            
+                    st.markdown("### 📈 Latest Intraday Data (5-minute)")
+                    st.write(f"Latest Close Price: ₹{latest_close_5m}")
+                    st.write(f"Latest Volume: {int(latest_volume_5m) if isinstance(latest_volume_5m, (int, float)) else latest_volume_5m}")
+                else:
+                    st.write("Intraday data (5-minute) not available.")
 
 
                 # ========== PATTERN DETECTION & CONFIRMATION ==========
