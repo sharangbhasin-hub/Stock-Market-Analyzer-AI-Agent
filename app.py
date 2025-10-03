@@ -2423,25 +2423,16 @@ def main():
                                 q_col3.metric("Volume", f"{quote['volume']:,}")
 
                 elif method == "📊 By Exchange":
-                    if st.button(f"Load {selected_market} Stocks"):
-                        with st.spinner(f"Loading {selected_market} stocks..."):
+                    if st.button("Load Stocks"):
+                        with st.spinner("Loading..."):
                             stocks = av.get_stocks_by_exchange(market_config['exchange_codes'])
-                            if stocks:
-                                st.session_state['loaded_stocks'] = stocks
-                
-                    if 'loaded_stocks' in st.sessionstate:
+                    if stocks:
+                        st.session_state['loaded_stocks'] = stocks
+                    if 'loaded_stocks' in st.session_state:
                         selected = st.selectbox("Select:", list(st.session_state['loaded_stocks'].keys()))
                         ticker_input = st.session_state['loaded_stocks'][selected]
-                
-                else:  # Direct
-                    placeholder_map = {
-                        "India (NSE/BSE)": "RELIANCE.NS",
-                        "USA (NYSE/NASDAQ)": "AAPL",
-                        "UK (LSE)": "BARC.L",
-                        "Japan (TSE)": "7203.T"
-                    }
-                    placeholder = placeholder_map.get(selected_market, "AAPL")
-                    ticker_input = st.text_input("Enter Ticker Symbol", placeholder)
+                else:
+                    ticker_input = st.text_input("Enter Ticker Symbol", "AAPL")
 
             # ANALYSIS BUTTON
             if ticker_input and st.button("📊 Analyze with Full Suite", type="primary"):
