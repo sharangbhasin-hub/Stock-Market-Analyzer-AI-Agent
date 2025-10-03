@@ -2075,7 +2075,7 @@ class StockAnalyzer:
 
             stop_loss_atr = results['latest_price'] - (atr * 1.5)
             results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
-            results['trailing_stop_vwap'] = results['vwap']
+            results['trailing_stop_vwap'] = results.get('vwap', 0)
 
             # ============ POSITION SIZE ============
             max_capital_per_trade = 12500
