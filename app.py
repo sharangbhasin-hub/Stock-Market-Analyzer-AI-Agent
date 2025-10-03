@@ -829,6 +829,7 @@ def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
     ma_50 = results['moving_averages']['MA_50']
     price = results['latest_price']
     trend = 'Uptrend' if price > ma_50 else 'Downtrend'
+    
     macd = results['macd']
     macd_signal = 'Bullish' if macd['line'] > macd['signal'] else 'Bearish'
     rsi = results['rsi']
@@ -2568,7 +2569,13 @@ def main():
                         ai_response = get_ai_analysis_openrouter(prompt, model_name)
 
                     st.session_state['ai_analysis'] = ai_response
+                    quick_summary = ai_response.split('\n')[0:5]  # or some better parsing
+                    st.session_state['ai_summary'] = "\n".join(quick_summary)
                     st.success("✅ AI Analysis Generated!")
+
+            if 'ai_summary' in st.session_state:
+                st.subheader("📌 Summary Highlights")
+                st.write(st.session_state['ai_summary'])
 
             # Display AI analysis
             if 'ai_analysis' in st.session_state:
