@@ -2061,8 +2061,8 @@ class StockAnalyzer:
             results['supertrend'] = self.compute_supertrend(five_min_data)
 
             sr_levels = self.detect_support_resistance(fifteen_min_data)
-            results.get('resistance', 0) = sr_levels['resistance']
-            results.get('support', 0) = sr_levels['support']
+            results['resistance'] = sr_levels['resistance']
+            results['support'] = sr_levels['support']
 
             # ============ STOP-LOSS CALCULATION ============
             atr = self.calculate_atr(five_min_data, period=14)
