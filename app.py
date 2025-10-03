@@ -1968,6 +1968,23 @@ def main():
     # ===========================================================================
 
     st.sidebar.header("⚙️ Configuration")
+    
+    # Market Selection
+    selected_market = st.sidebar.selectbox(
+        "🌍 Select Market",
+        list(GLOBAL_MARKETS.keys()),
+        key="market_select"
+    )
+
+    market_config = GLOBAL_MARKETS[selected_market]
+
+    # Update market status display
+    market_status = check_market_status(market_config)
+
+    if market_status['status'] == 'OPEN':
+        st.sidebar.success(f"🟢 {selected_market} OPEN")
+    else:
+        st.sidebar.error(f"🔴 {selected_market} CLOSED")
 
     # Trading Mode
     trading_mode = st.sidebar.radio(
@@ -1979,14 +1996,28 @@ def main():
     # ========== PRE-MARKET SCREENER (RESTORED) ==========
     if trading_mode == "Intraday Trading":
         st.sidebar.subheader("🔍 Pre-Market Screener")
-        st.sidebar.info("Scan NSE stocks: Price > ₹100, Volume > 100K")
-
-        if st.sidebar.button("🚀 Run Pre-Market Scan"):
-            with st.spinner("Scanning market..."):
-                screened_stocks = run_pre_market_screener()
+        st.sidebar.info(f"Scan {selected_market} stocks: Price > 100, Volume > 100K")
+        
+        if st.sidebar.button("▶️ Run Pre-Market Scan"):
+            with st.spinner(f"Scanning {selected_market} market..."):
+                screened_stocks = run_premarket_screener(selected_market, market_config)
                 if screened_stocks:
                     st.session_state['screened_stocks'] = screened_stocks
                     st.sidebar.success(f"✅ Found {len(screened_stocks)} stocks")
+   
+        if 'screened_stocks' in st.session_state and st.session_state['screened_stocks']:
+            st.sidebar.markdown("#### 📋 Screened Stocks")
+            stock_names = [f"{ticker} - ₹{data['price']:.2f} ({data['change_pct']:+.2f}%)" 
+                          for ticker, data in list(st.session_state['screened_stocks'].items())[:20]]
+            
+            selected_screened = st.sidebar.selectbox(
+                "Select from screened stocks:",
+                options=list(st.session_state['screened_stocks'].keys()),
+                format_func=lambda x: f"{x} - ₹{st.session_state['screened_stocks'][x]['price']:.2f}"
+            )
+            
+            if st.sidebar.button("📊 Analyze Selected"):
+                st.session_state['auto_analyze_ticker'] = selected_screened
 
         # Display screened stocks
         if 'screened_stocks' in st.session_state:
@@ -2048,22 +2079,6 @@ def main():
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            # Market Selection
-            selected_market = st.sidebar.selectbox(
-                "🌍 Select Market",
-                list(GLOBAL_MARKETS.keys()),
-                key="market_select"
-            )
-
-            market_config = GLOBAL_MARKETS[selected_market]
-
-            # Update market status display
-            market_status = check_market_status(market_config)
-
-            if market_status['status'] == 'OPEN':
-                st.sidebar.success(f"🟢 {selected_market} OPEN")
-            else:
-                st.sidebar.error(f"🔴 {selected_market} CLOSED")
 
             # Dynamic Stock Selector
             st.subheader(f"📈 Stock Selection - {selected_market}")
