@@ -917,47 +917,46 @@ def run_premarket_screener(market_name, market_config):
     try:
         screened_list = {}
         
-        # Define symbols based on market
-        if market_name == "India (NSE/BSE)":
+        # Define symbols based on market (use 'in' instead of exact match)
+        if "India" in market_name or "NSE" in market_name:
             # Top NSE stocks
             symbols_to_scan = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
                               'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS', 'LT.NS',
                               'ITC.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS', 'TITAN.NS',
                               'SUNPHARMA.NS', 'ULTRACEMCO.NS', 'BAJFINANCE.NS', 'WIPRO.NS', 'HCLTECH.NS']
-            min_price = 50  # Lower threshold for India
+            min_price = 50
             min_volume = 50000
             
-        elif market_name == "USA (NYSE/NASDAQ)":
+        elif "USA" in market_name or "NYSE" in market_name or "NASDAQ" in market_name:
             symbols_to_scan = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 
                               'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V',
                               'MA', 'PYPL', 'ADBE', 'CRM', 'CSCO', 'PEP', 'KO']
             min_price = 10
             min_volume = 100000
             
-        elif market_name == "UK (LSE)":
+        elif "UK" in market_name or "LSE" in market_name:
             symbols_to_scan = ['BARC.L', 'HSBA.L', 'BP.L', 'SHEL.L', 'VOD.L', 
                               'AZN.L', 'GLEN.L', 'RIO.L', 'LSEG.L', 'LLOY.L',
                               'GSK.L', 'ULVR.L', 'DGE.L', 'NG.L', 'REL.L']
             min_price = 1
             min_volume = 100000
             
-        elif market_name == "Japan (TSE)":
+        elif "Japan" in market_name or "TSE" in market_name:
             symbols_to_scan = ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T',
                               '7267.T', '6098.T', '9432.T', '8035.T', '4063.T']
             min_price = 100
             min_volume = 50000
         else:
-            st.warning(f"Market {market_name} not supported yet")
+            st.warning(f"Market {market_name} not configured yet")
             return {}
         
-        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks...")
+        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks from {market_name}...")
         
         # Download data for all symbols
         tickers_str = " ".join(symbols_to_scan)
         data = yf.download(tickers_str, period="5d", group_by='ticker', auto_adjust=True, progress=False)
         
         progress_bar = st.progress(0)
-        scanned_count = 0
         
         for i, ticker in enumerate(symbols_to_scan):
             try:
@@ -980,17 +979,15 @@ def run_premarket_screener(market_name, market_config):
                 # Calculate change
                 change_pct = ((price - prev_day['Close']) / prev_day['Close'] * 100)
                 
-                # Screening criteria - more flexible
+                # Screening criteria
                 if price > min_price and volume > min_volume:
                     screened_list[ticker] = {
                         'price': float(price),
                         'volume': int(volume),
                         'change_pct': float(change_pct)
                     }
-                    scanned_count += 1
                 
             except Exception as e:
-                st.write(f"⚠️ Skipping {ticker}: {str(e)}")
                 continue
             
             progress_bar.progress((i + 1) / len(symbols_to_scan))
@@ -998,18 +995,15 @@ def run_premarket_screener(market_name, market_config):
         progress_bar.empty()
         
         if screened_list:
-            st.success(f"✅ Found {len(screened_list)} stocks meeting criteria (Price > {min_price}, Volume > {min_volume:,})")
+            st.success(f"✅ Found {len(screened_list)} stocks (Price > {min_price}, Volume > {min_volume:,})")
         else:
-            st.warning(f"⚠️ No stocks found. Try adjusting criteria or check market hours.")
+            st.warning(f"⚠️ No stocks found. Criteria: Price > {min_price}, Volume > {min_volume:,}")
         
         return screened_list
         
     except Exception as e:
-        st.error(f"❌ Pre-market scan error: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
+        st.error(f"❌ Scan error: {str(e)}")
         return {}
-
 
 @st.cache_data
 def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
