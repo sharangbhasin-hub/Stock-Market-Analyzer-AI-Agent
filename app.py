@@ -1595,7 +1595,7 @@ class StockAnalyzer:
         self.fib_calc = FibonacciCalculator()
         self.risk_manager = RiskManager()
 
-def detectcandlestickpatternstalibself, data:
+def detectcandlestickpatternstalib(self, data):
     """
     Comprehensive candlestick pattern detection - Pure Python
     """
