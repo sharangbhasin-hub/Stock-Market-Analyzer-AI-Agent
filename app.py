@@ -863,7 +863,7 @@ def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
         news_headlines = []
     
     # Get sentiment safely
-    sentiment = analysis_results.get('sentiment', {})
+    sentiment = results.get('sentiment', {})
     if not isinstance(sentiment, dict):
         sentiment = {'sentiment': 'Neutral', 'score': 0, 'explanation': 'No sentiment data available'}
         
