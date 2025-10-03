@@ -910,7 +910,7 @@ Respond with structured, actionable paragraphs as in a premium research note.
     return prompt
 
 @st.cache_data(ttl=3600)
-def run_pre_market_screener(market_name, market_config):
+def run_premarket_screener(market_name, market_config):
     """Pre-market screener for selected market"""
     st.write(f"🔍 Running Pre-Market Screener for {market_name}...")
     
