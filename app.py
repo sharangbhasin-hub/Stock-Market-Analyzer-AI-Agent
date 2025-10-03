@@ -2332,9 +2332,9 @@ def main():
                 format_func=lambda x: f"{x} - ${st.session_state['screened_stocks'][x]['price']:.2f} ({st.session_state['screened_stocks'][x]['change_pct']:+.2f}%)"
             )
             
-            if st.sidebar.button("📊 Analyze Selected Stock"):
-                st.session_state['auto_analyze_ticker'] = selected_screened
-                st.rerun()
+          #  if st.sidebar.button("📊 Analyze Selected Stock"):
+           #     st.session_state['auto_analyze_ticker'] = selected_screened
+            #    st.rerun()
 
     # ========== AI MODEL SELECTION (RESTORED) ==========
     st.sidebar.subheader("🤖 AI Analysis")
