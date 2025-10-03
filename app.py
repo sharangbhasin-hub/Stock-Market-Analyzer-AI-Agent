@@ -909,25 +909,45 @@ Respond with structured, actionable paragraphs as in a premium research note.
 """
     return prompt
 
-
 @st.cache_data(ttl=3600)
-def run_pre_market_screener():
-    """Pre-market screener"""
-    st.write("🔍 Running Pre-Market Screener...")
+def run_pre_market_screener(market_name, market_config):
+    """Pre-market screener for selected market"""
+    st.write(f"🔍 Running Pre-Market Screener for {market_name}...")
+    
     try:
-        url = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
-        df_all_stocks = pd.read_csv(url)
-        nse_symbols = [f"{symbol}.NS" for symbol in df_all_stocks['SYMBOL']]
-
-        symbols_to_scan = nse_symbols[:100]
-        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks...")
-
+        screened_list = {}
+        
+        if market_name == "India (NSE/BSE)":
+            # NSE stocks
+            url = "https://archives.nseindia.com/content/equities/EQUITY_L.csv"
+            df_all_stocks = pd.read_csv(url)
+            nse_symbols = [f"{symbol}{market_config['suffix']}" for symbol in df_all_stocks['SYMBOL']]
+            symbols_to_scan = nse_symbols[:100]  # Scan top 100
+            
+        elif market_name == "USA (NYSE/NASDAQ)":
+            # Popular US stocks
+            symbols_to_scan = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 
+                              'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V']
+            
+        elif market_name == "UK (LSE)":
+            # Popular UK stocks
+            symbols_to_scan = [f"{s}.L" for s in ['BARC', 'HSBA', 'BP', 'SHEL', 'VOD', 
+                                                   'AZN', 'GLEN', 'RIO', 'LSEG', 'LLOY']]
+            
+        elif market_name == "Japan (TSE)":
+            # Popular Japanese stocks
+            symbols_to_scan = [f"{s}.T" for s in ['7203', '6758', '9984', '6861', '8306', 
+                                                   '7267', '6098', '9432', '8035', '4063']]
+        else:
+            return {}
+        
+        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks from {market_name}...")
+        
+        # Download data
         tickers_str = " ".join(symbols_to_scan)
         data = yf.download(tickers_str, period="5d", group_by='ticker', auto_adjust=True, progress=False)
-
-        screened_list = {}
+        
         progress_bar = st.progress(0)
-
         for i, ticker in enumerate(symbols_to_scan):
             try:
                 stock_data = data[ticker] if len(symbols_to_scan) > 1 else data
@@ -935,20 +955,23 @@ def run_pre_market_screener():
                     last_day = stock_data.iloc[-1]
                     price = last_day['Close']
                     volume = last_day['Volume']
-
+                    
+                    # Screening criteria
                     if price > 100 and volume > 100000:
                         screened_list[ticker] = {
                             'price': price,
                             'volume': volume,
-                            'change_pct': ((last_day['Close'] - stock_data.iloc[-2]['Close']) / stock_data.iloc[-2]['Close'] * 100) if len(stock_data) > 1 else 0
+                            'change_pct': ((last_day['Close'] - stock_data.iloc[-2]['Close']) / 
+                                          stock_data.iloc[-2]['Close'] * 100) if len(stock_data) > 1 else 0
                         }
             except Exception:
                 continue
+            
             progress_bar.progress((i + 1) / len(symbols_to_scan))
-
+        
         st.success(f"✅ Found {len(screened_list)} stocks meeting criteria")
         return screened_list
-
+        
     except Exception as e:
         st.error(f"❌ Pre-market scan error: {e}")
         return {}
