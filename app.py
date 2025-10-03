@@ -1000,7 +1000,7 @@ def get_dynamic_tickers(market_name, api_key=None):
             
             # Method 2: GitHub Community List
             try:
-                url = "https://raw.githubusercontent.com/BennyThadikaran/eod2/main/src/eod2_data/EQUITY_L.csv"
+                url = "https://raw.githubusercontent.com/BennyThadikaran/eod2_data/main/EQUITY_L.csv"
                 response = requests.get(url, timeout=10)
                 response.raise_for_status()
                 
