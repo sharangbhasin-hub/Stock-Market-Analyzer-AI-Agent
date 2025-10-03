@@ -2556,9 +2556,9 @@ def main():
                 with st.spinner(f"Generating insights with {ai_model}..."):
                     progress_bar = st.progress(0)
                     # Simulate progress (replace or remove sleep for real progress updates)
-                    for i in range(10):
+                    for i in range(30):
                         time.sleep(0.1)  # Simulate waiting
-                        progress_bar.progress((i + 1) * 10)
+                        progress_bar.progress(i + 1)
             
                     prompt = generate_comprehensive_analysis(
                         ticker,
@@ -2592,6 +2592,11 @@ def main():
                     file_name=f"ai_analysis_{results['ticker']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                     mime="text/plain"
                 )
+
+                st.session_state["last_analysis_time"] = datetime.now()
+                if "analysis_history" not in st.session_state:
+                    st.session_state["analysis_history"] = []
+                st.session_state["analysis_history"].append(st.session_state["last_analysis_time"])
 
     # ===========================================================================
     # === TAB 3-6: OPTIONS, BACKTESTING, PORTFOLIO, LIVE TRADING
