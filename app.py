@@ -25,15 +25,8 @@ import streamlit.components.v1 as components
 import pytz
 import sqlite3
 from io import StringIO
-import talib
 
-# Check if TA-Lib is available
-try:
-    import talib
-    TALIB_AVAILABLE = True
-except ImportError:
-    TALIB_AVAILABLE = False
-    st.warning("⚠️ TA-Lib not available. Using basic pattern detection.")
+TALIB_AVAILABLE = True
 
 # Optional imports
 try:
@@ -1886,8 +1879,8 @@ class StockAnalyzer:
 
 def detect_candlestick_patterns_talib(self, data):
     """
-    Professional candlestick pattern detection using TA-Lib
-    Detects 60+ patterns automatically with industry-standard accuracy
+    Comprehensive candlestick pattern detection - Pure Python (No TA-Lib needed)
+    Detects 15+ high-probability patterns with professional accuracy
     """
     
     if len(data) < 5:
@@ -1896,92 +1889,281 @@ def detect_candlestick_patterns_talib(self, data):
             'type': 'neutral',
             'strength': 0,
             'confidence': 0,
+            'category': 'none',
             'description': 'Need at least 5 candles for pattern detection'
         }
     
-    # Extract OHLC data as numpy arrays (required by TA-Lib)
-    open_prices = data['Open'].values
-    high_prices = data['High'].values
-    low_prices = data['Low'].values
-    close_prices = data['Close'].values
-    
     patterns_found = []
     
-    # Define TA-Lib patterns with metadata
-    talib_patterns = {
-        # BULLISH REVERSAL PATTERNS (High Priority)
-        'CDLHAMMER': {'name': 'Hammer', 'type': 'bullish', 'strength': 85, 'category': 'reversal'},
-        'CDLINVERTEDHAMMER': {'name': 'Inverted Hammer', 'type': 'bullish', 'strength': 75, 'category': 'reversal'},
-        'CDLENGULFING': {'name': 'Bullish Engulfing', 'type': 'bullish', 'strength': 90, 'category': 'reversal'},
-        'CDLMORNINGSTAR': {'name': 'Morning Star', 'type': 'bullish', 'strength': 95, 'category': 'reversal'},
-        'CDLPIERCING': {'name': 'Piercing Pattern', 'type': 'bullish', 'strength': 80, 'category': 'reversal'},
-        'CDLMORNINGDOJISTAR': {'name': 'Morning Doji Star', 'type': 'bullish', 'strength': 85, 'category': 'reversal'},
-        
-        # BULLISH CONTINUATION PATTERNS
-        'CDL3WHITESOLDIERS': {'name': 'Three White Soldiers', 'type': 'bullish', 'strength': 92, 'category': 'continuation'},
-        'CDLRISEFALL3METHODS': {'name': 'Rising Three Methods', 'type': 'bullish', 'strength': 80, 'category': 'continuation'},
-        
-        # BULLISH OTHER
-        'CDLHARAMI': {'name': 'Bullish Harami', 'type': 'bullish', 'strength': 70, 'category': 'reversal'},
-        'CDLDRAGONFLYDOJI': {'name': 'Dragonfly Doji', 'type': 'bullish', 'strength': 70, 'category': 'reversal'},
-        'CDLMARUBOZU': {'name': 'Marubozu', 'type': 'bullish', 'strength': 75, 'category': 'continuation'},
-        
-        # BEARISH REVERSAL PATTERNS (High Priority)
-        'CDLSHOOTINGSTAR': {'name': 'Shooting Star', 'type': 'bearish', 'strength': 85, 'category': 'reversal'},
-        'CDLEVENINGSTAR': {'name': 'Evening Star', 'type': 'bearish', 'strength': 95, 'category': 'reversal'},
-        'CDLDARKCLOUDCOVER': {'name': 'Dark Cloud Cover', 'type': 'bearish', 'strength': 80, 'category': 'reversal'},
-        'CDLHANGINGMAN': {'name': 'Hanging Man', 'type': 'bearish', 'strength': 75, 'category': 'reversal'},
-        'CDLEVENINGDOJISTAR': {'name': 'Evening Doji Star', 'type': 'bearish', 'strength': 85, 'category': 'reversal'},
-        
-        # BEARISH CONTINUATION PATTERNS
-        'CDL3BLACKCROWS': {'name': 'Three Black Crows', 'type': 'bearish', 'strength': 92, 'category': 'continuation'},
-        'CDLIDENTICAL3CROWS': {'name': 'Identical Three Crows', 'type': 'bearish', 'strength': 88, 'category': 'continuation'},
-        
-        # BEARISH OTHER
-        'CDLGRAVESTONEDOJI': {'name': 'Gravestone Doji', 'type': 'bearish', 'strength': 70, 'category': 'reversal'},
-        
-        # NEUTRAL/INDECISION PATTERNS
-        'CDLDOJI': {'name': 'Doji', 'type': 'neutral', 'strength': 50, 'category': 'indecision'},
-        'CDLSPINNINGTOP': {'name': 'Spinning Top', 'type': 'neutral', 'strength': 40, 'category': 'indecision'},
-    }
+    # Get last 5 candles for pattern analysis
+    c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
     
-    # Check each pattern
-    for pattern_func, info in talib_patterns.items():
-        try:
-            # Call TA-Lib pattern function
-            pattern_result = getattr(talib, pattern_func)(open_prices, high_prices, low_prices, close_prices)
-            
-            # Check if pattern detected in last candle (non-zero value)
-            if pattern_result[-1] != 0:
-                # TA-Lib returns +100 (bullish), -100 (bearish), or 0 (none)
-                talib_confidence = abs(pattern_result[-1])
-                
-                # Determine actual type from TA-Lib result
-                if pattern_result[-1] > 0:
-                    actual_type = 'bullish'
-                elif pattern_result[-1] < 0:
-                    actual_type = 'bearish'
-                else:
-                    actual_type = info['type']
-                
-                # Override for explicitly neutral patterns
-                if info['type'] == 'neutral':
-                    actual_type = 'neutral'
-                
-                patterns_found.append({
-                    'pattern': info['name'],
-                    'type': actual_type,
-                    'strength': info['strength'],
-                    'confidence': talib_confidence,
-                    'category': info['category'],
-                    'description': self.get_pattern_description(info['name'], actual_type, info['category'])
-                })
-        except Exception as e:
-            # Skip if pattern detection fails
-            continue
+    # Current candle (most recent)
+    curr_open = c5['Open']
+    curr_high = c5['High']
+    curr_low = c5['Low']
+    curr_close = c5['Close']
+    curr_body = abs(curr_close - curr_open)
+    curr_range = curr_high - curr_low
     
-    # Return strongest pattern (sorted by strength, then confidence)
+    # Previous candle
+    prev_open = c4['Open']
+    prev_high = c4['High']
+    prev_low = c4['Low']
+    prev_close = c4['Close']
+    prev_body = abs(prev_close - prev_open)
+    prev_range = prev_high - prev_low
+    
+    # Helper variables
+    curr_is_green = curr_close > curr_open
+    curr_is_red = curr_close < curr_open
+    prev_is_green = prev_close > prev_open
+    prev_is_red = prev_close < prev_open
+    
+    lower_shadow = min(curr_open, curr_close) - curr_low
+    upper_shadow = curr_high - max(curr_open, curr_close)
+    
+    # ==================== BULLISH PATTERNS ====================
+    
+    # 1. HAMMER (Bullish Reversal) - Strong at support
+    if (lower_shadow > curr_body * 2 and 
+        upper_shadow < curr_body * 0.3 and
+        curr_is_green and
+        curr_range > 0):
+        patterns_found.append({
+            'pattern': 'Hammer',
+            'type': 'bullish',
+            'strength': 85,
+            'confidence': 85,
+            'category': 'reversal',
+            'description': 'Strong bullish reversal at support - Buyers regained control after selling pressure'
+        })
+    
+    # 2. INVERTED HAMMER (Bullish Reversal)
+    elif (upper_shadow > curr_body * 2 and 
+          lower_shadow < curr_body * 0.3 and
+          curr_range > 0):
+        patterns_found.append({
+            'pattern': 'Inverted Hammer',
+            'type': 'bullish',
+            'strength': 75,
+            'confidence': 75,
+            'category': 'reversal',
+            'description': 'Potential bullish reversal - Wait for next candle confirmation'
+        })
+    
+    # 3. BULLISH ENGULFING (Very Strong)
+    if (prev_is_red and curr_is_green and
+        curr_open < prev_close and
+        curr_close > prev_open and
+        curr_body > prev_body * 1.3):
+        patterns_found.append({
+            'pattern': 'Bullish Engulfing',
+            'type': 'bullish',
+            'strength': 90,
+            'confidence': 90,
+            'category': 'reversal',
+            'description': 'Very strong bullish reversal - Large buying pressure overwhelmed sellers'
+        })
+    
+    # 4. MORNING STAR (3-Candle Bullish Reversal)
+    if (c3['Close'] < c3['Open'] and  # First red
+        abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
+        curr_is_green and
+        curr_close > (c3['Open'] + c3['Close']) / 2):
+        patterns_found.append({
+            'pattern': 'Morning Star',
+            'type': 'bullish',
+            'strength': 95,
+            'confidence': 95,
+            'category': 'reversal',
+            'description': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern'
+        })
+    
+    # 5. PIERCING PATTERN
+    if (prev_is_red and curr_is_green and
+        curr_open < prev_low and
+        curr_close > (prev_open + prev_close) / 2 and
+        curr_close < prev_open):
+        patterns_found.append({
+            'pattern': 'Piercing Pattern',
+            'type': 'bullish',
+            'strength': 80,
+            'confidence': 80,
+            'category': 'reversal',
+            'description': 'Bullish reversal - Buyers pushing through resistance'
+        })
+    
+    # 6. THREE WHITE SOLDIERS (Bullish Continuation)
+    if (c3['Close'] > c3['Open'] and
+        c4['Close'] > c4['Open'] and
+        curr_is_green and
+        c4['Close'] > c3['Close'] and
+        curr_close > c4['Close']):
+        patterns_found.append({
+            'pattern': 'Three White Soldiers',
+            'type': 'bullish',
+            'strength': 92,
+            'confidence': 90,
+            'category': 'continuation',
+            'description': 'Strong bullish continuation - Steady upward momentum'
+        })
+    
+    # 7. BULLISH HARAMI
+    if (prev_is_red and curr_is_green and
+        curr_open > prev_close and
+        curr_close < prev_open and
+        curr_body < prev_body * 0.5):
+        patterns_found.append({
+            'pattern': 'Bullish Harami',
+            'type': 'bullish',
+            'strength': 70,
+            'confidence': 70,
+            'category': 'reversal',
+            'description': 'Bullish reversal - Needs confirmation from next candle'
+        })
+    
+    # 8. DRAGONFLY DOJI (Bullish at support)
+    if (curr_body < curr_range * 0.1 and
+        lower_shadow > upper_shadow * 2 and
+        curr_range > 0):
+        patterns_found.append({
+            'pattern': 'Dragonfly Doji',
+            'type': 'bullish',
+            'strength': 70,
+            'confidence': 75,
+            'category': 'reversal',
+            'description': 'Bullish reversal at support - Sellers tried but failed'
+        })
+    
+    # ==================== BEARISH PATTERNS ====================
+    
+    # 9. SHOOTING STAR (Bearish Reversal)
+    if (upper_shadow > curr_body * 2 and 
+        lower_shadow < curr_body * 0.3 and
+        curr_is_red and
+        curr_range > 0):
+        patterns_found.append({
+            'pattern': 'Shooting Star',
+            'type': 'bearish',
+            'strength': 85,
+            'confidence': 85,
+            'category': 'reversal',
+            'description': 'Strong bearish reversal at resistance - Sellers regained control'
+        })
+    
+    # 10. HANGING MAN (Bearish at resistance)
+    elif (lower_shadow > curr_body * 2 and 
+          upper_shadow < curr_body * 0.3 and
+          curr_is_red and
+          curr_range > 0):
+        patterns_found.append({
+            'pattern': 'Hanging Man',
+            'type': 'bearish',
+            'strength': 75,
+            'confidence': 75,
+            'category': 'reversal',
+            'description': 'Bearish reversal at resistance - Warning sign of trend change'
+        })
+    
+    # 11. BEARISH ENGULFING
+    if (prev_is_green and curr_is_red and
+        curr_open > prev_close and
+        curr_close < prev_open and
+        curr_body > prev_body * 1.3):
+        patterns_found.append({
+            'pattern': 'Bearish Engulfing',
+            'type': 'bearish',
+            'strength': 90,
+            'confidence': 90,
+            'category': 'reversal',
+            'description': 'Very strong bearish reversal - Large selling pressure overwhelmed buyers'
+        })
+    
+    # 12. EVENING STAR (3-Candle Bearish Reversal)
+    if (c3['Close'] > c3['Open'] and  # First green
+        abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
+        curr_is_red and
+        curr_close < (c3['Open'] + c3['Close']) / 2):
+        patterns_found.append({
+            'pattern': 'Evening Star',
+            'type': 'bearish',
+            'strength': 95,
+            'confidence': 95,
+            'category': 'reversal',
+            'description': 'Extremely strong bearish reversal - Classic 3-candle top pattern'
+        })
+    
+    # 13. DARK CLOUD COVER
+    if (prev_is_green and curr_is_red and
+        curr_open > prev_high and
+        curr_close < (prev_open + prev_close) / 2 and
+        curr_close > prev_open):
+        patterns_found.append({
+            'pattern': 'Dark Cloud Cover',
+            'type': 'bearish',
+            'strength': 80,
+            'confidence': 80,
+            'category': 'reversal',
+            'description': 'Bearish reversal - Selling pressure increasing significantly'
+        })
+    
+    # 14. THREE BLACK CROWS (Bearish Continuation)
+    if (c3['Close'] < c3['Open'] and
+        c4['Close'] < c4['Open'] and
+        curr_is_red and
+        c4['Close'] < c3['Close'] and
+        curr_close < c4['Close']):
+        patterns_found.append({
+            'pattern': 'Three Black Crows',
+            'type': 'bearish',
+            'strength': 92,
+            'confidence': 90,
+            'category': 'continuation',
+            'description': 'Strong bearish continuation - Steady downward momentum'
+        })
+    
+    # 15. GRAVESTONE DOJI (Bearish at resistance)
+    if (curr_body < curr_range * 0.1 and
+        upper_shadow > lower_shadow * 2 and
+        curr_range > 0):
+        patterns_found.append({
+            'pattern': 'Gravestone Doji',
+            'type': 'bearish',
+            'strength': 70,
+            'confidence': 75,
+            'category': 'reversal',
+            'description': 'Bearish reversal at resistance - Buyers tried but failed'
+        })
+    
+    # ==================== NEUTRAL PATTERNS ====================
+    
+    # 16. DOJI (Indecision)
+    if curr_body < curr_range * 0.1 and curr_range > 0:
+        patterns_found.append({
+            'pattern': 'Doji',
+            'type': 'neutral',
+            'strength': 50,
+            'confidence': 70,
+            'category': 'indecision',
+            'description': 'Market indecision - Potential trend reversal point, wait for confirmation'
+        })
+    
+    # 17. SPINNING TOP
+    if (curr_body > curr_range * 0.1 and curr_body < curr_range * 0.3 and
+        upper_shadow > curr_body and lower_shadow > curr_body):
+        patterns_found.append({
+            'pattern': 'Spinning Top',
+            'type': 'neutral',
+            'strength': 40,
+            'confidence': 60,
+            'category': 'indecision',
+            'description': 'Indecision between buyers and sellers - Wait for clear direction'
+        })
+    
+    # Return strongest pattern
     if patterns_found:
+        # Sort by strength, then confidence
         patterns_found.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
         return patterns_found[0]
     else:
@@ -2249,12 +2431,18 @@ def calculate_pattern_impact(self, pattern_data, current_price):
         bullish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and ("Bullish" in str(v) or "Breakout" in str(v)))
         bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
 
-        if bullish_checks >= 3:
-            checklist["FINAL_SIGNAL"] = "🟢 BUY"
-        elif bearish_checks >= 3:
-            checklist["FINAL_SIGNAL"] = "🔴 SELL"
+        # Add pattern signal boost
+        pattern_boost = results.get('pattern_impact', {}).get('signal_boost', 0)
+        
+        # Adjust checks with pattern influence
+        if bullishchecks + pattern_boost >= 3:
+            checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
+        elif bearishchecks - pattern_boost >= 3:
+            checklist['FINAL_SIGNAL'] = "🔴 SELL"
         else:
-            checklist["FINAL_SIGNAL"] = "⚪ HOLD"
+            checklist['FINAL_SIGNAL'] = "⚪ HOLD"
+
+
 
         return checklist
 
@@ -2297,19 +2485,19 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             results['resistance'] = sr_levels['resistance']
             results['support'] = sr_levels['support']
 
-            # ========== CANDLESTICK PATTERN ANALYSIS (TA-LIB) ==========
-            if TALIB_AVAILABLE:
-                pattern_data = self.detect_candlestick_patterns_talib(five_min_data)
-            else:
-                # Fallback to basic detection if TA-Lib not available
-                pattern_data = {
-                    'pattern': 'TA-Lib Not Available',
-                    'type': 'neutral',
-                    'strength': 0,
-                    'confidence': 0,
-                    'category': 'none',
-                    'description': 'Install TA-Lib for advanced pattern detection'
-                }
+            # ========== CANDLESTICK PATTERN ANALYSIS ==========
+            pattern_data = self.detect_candlestick_patterns_talib(five_min_data)
+            pattern_impact = self.calculate_pattern_impact(pattern_data, results['latest_price'])
+            
+            # Store pattern information
+            results['candlestick_pattern'] = pattern_data['pattern']
+            results['pattern_type'] = pattern_data['type']
+            results['pattern_strength'] = pattern_data['strength']
+            results['pattern_confidence'] = pattern_data.get('confidence', 0)
+            results['pattern_category'] = pattern_data.get('category', 'none')
+            results['pattern_description'] = pattern_data['description']
+            results['pattern_impact'] = pattern_impact
+
             
             pattern_impact = self.calculate_pattern_impact(pattern_data, latest_price)
             
@@ -2326,10 +2514,19 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             atr = self.calculate_atr(five_min_data, period=14)
             results['atr'] = atr
 
+            # Calculate base stop-loss
             if results.get('support', 0) > 0:
-                stop_loss_support = results.get('support', 0) * 0.995
+                base_stop_loss = results.get('support', 0) * 0.995
             else:
-                stop_loss_support = results['latest_price'] * 0.98
+                base_stop_loss = results['latest_price'] * 0.98
+            
+            # Apply pattern adjustment
+            pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
+            stop_loss_support = base_stop_loss * pattern_adjustment
+            
+            # Store both for reference
+            results['base_stoploss'] = base_stop_loss
+            results['stoploss'] = stop_loss_support
 
             stop_loss_atr = results['latest_price'] - (atr * 1.5)
             results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
@@ -2349,23 +2546,27 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             # ============ TARGETS ============
             risk_amount = risk_per_share
 
+            # Get pattern target multiplier
+            target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
+            
             results['targets'] = [
                 {
-                    'level': 'Target 1 (1:1.5)',
-                    'price': round(results['latest_price'] + (risk_amount * 1.5), 2),
-                    'profit_potential': round(risk_amount * 1.5 * results['position_size'], 2)
+                    "level": "Target 1 (1:1.5)", 
+                    "price": round(results['latest_price'] + risk * 1.5 * target_mult, 2),
+                    "profitpotential": round(risk * 1.5 * target_mult * results['position_size'], 2)
                 },
                 {
-                    'level': 'Target 2 (1:2)',
-                    'price': round(results['latest_price'] + (risk_amount * 2.0), 2),
-                    'profit_potential': round(risk_amount * 2.0 * results['position_size'], 2)
+                    "level": "Target 2 (1:2)", 
+                    "price": round(results['latest_price'] + risk * 2.0 * target_mult, 2),
+                    "profitpotential": round(risk * 2.0 * target_mult * results['position_size'], 2)
                 },
                 {
-                    'level': 'Target 3 (1:3)',
-                    'price': round(results['latest_price'] + (risk_amount * 3.0), 2),
-                    'profit_potential': round(risk_amount * 3.0 * results['position_size'], 2)
-                }
+                    "level": "Target 3 (1:3)", 
+                    "price": round(results['latest_price'] + risk * 3.0 * target_mult, 2),
+                    "profitpotential": round(risk * 3.0 * target_mult * results['position_size'], 2)
+                },
             ]
+
 
             if results['supertrend']['trend'] == 'uptrend':
                 results['supertrend_target'] = results['supertrend']['value']
@@ -2978,47 +3179,69 @@ def main():
                         st.warning(f"### FINAL SIGNAL: {final_signal}")
                         st.info("⚠️ Insufficient confirmations. Wait for better setup.")
                 
+                # ========== CANDLESTICK PATTERN SECTION ==========
                 st.markdown("---")
-                
-                # Candlestick Pattern Detection
                 st.markdown("### 🕯️ Candlestick Pattern Analysis")
                 
-                pattern_col1, pattern_col2, pattern_col3 = st.columns(3)
+                pattern_name = results.get('candlestick_pattern', 'None')
+                pattern_type = results.get('pattern_type', 'neutral')
+                pattern_strength = results.get('pattern_strength', 0)
+                pattern_confidence = results.get('pattern_confidence', 0)
+                pattern_description = results.get('pattern_description', 'No pattern detected')
+                pattern_category = results.get('pattern_category', 'none')
+                
+                pattern_col1, pattern_col2, pattern_col3, pattern_col4 = st.columns(4)
                 
                 with pattern_col1:
-                    st.markdown("**5-Min Pattern:**")
-                    candle_pattern = results.get('candlestick_pattern', 'No pattern')
-                    
-                    if 'Morning Star' in candle_pattern:
-                        st.success(f"✅ {candle_pattern}")
-                    elif 'Evening Star' in candle_pattern:
-                        st.error(f"✅ {candle_pattern}")
+                    if pattern_type == 'bullish':
+                        st.success(f"**{pattern_name}**")
+                        st.caption("📈 Bullish Signal")
+                    elif pattern_type == 'bearish':
+                        st.error(f"**{pattern_name}**")
+                        st.caption("📉 Bearish Signal")
                     else:
-                        st.info(f"ℹ️ {candle_pattern}")
+                        st.info(f"**{pattern_name}**")
+                        st.caption("➡️ Neutral")
                 
                 with pattern_col2:
-                    st.markdown("**Inside Bar Pattern:**")
-                    inside_bar = results.get('inside_bar', {})
-                    
-                    if inside_bar.get('detected', False):
-                        st.success("✅ Inside Bar Detected!")
-                        st.write(f"**Buy Trigger:** {currency}{inside_bar.get('buy_trigger', 0):.2f}")
-                        st.write(f"**Sell Trigger:** {currency}{inside_bar.get('sell_trigger', 0):.2f}")
-                        st.caption(inside_bar.get('message', ''))
-                    else:
-                        st.info("ℹ️ No Inside Bar")
+                    st.metric("Strength", f"{pattern_strength}/100")
                 
                 with pattern_col3:
-                    st.markdown("**Breakout/Retest:**")
-                    breakout_status = results.get('breakout_status', 'Not analyzed')
-                    
-                    if 'Confirmed' in breakout_status or '✅' in breakout_status:
-                        st.success(f"✅ {breakout_status}")
-                    elif 'Breakout Occurred' in breakout_status:
-                        st.warning(f"⚠️ {breakout_status}")
-                    else:
-                        st.info(f"ℹ️ {breakout_status}")
+                    st.metric("Confidence", f"{pattern_confidence}%")
                 
+                with pattern_col4:
+                    st.metric("Type", pattern_category.title())
+                
+                # Description
+                st.info(f"💡 **Pattern Insight:** {pattern_description}")
+                
+                # Show trading impact if significant
+                if pattern_strength >= 70:
+                    impact = results.get('pattern_impact', {})
+                    signal_boost = impact.get('signal_boost', 0)
+                    target_mult = impact.get('target_multiplier', 1.0)
+                    sl_adj = impact.get('stop_loss_adjustment', 1.0)
+                    
+                    impact_parts = []
+                    
+                    if signal_boost > 0:
+                        impact_parts.append(f"✅ Added +{signal_boost:.1f} points to BUY signal")
+                    elif signal_boost < 0:
+                        impact_parts.append(f"⚠️ Added {signal_boost:.1f} points (caution)")
+                    
+                    if target_mult > 1.1:
+                        impact_parts.append(f"📈 Targets increased by {(target_mult-1)*100:.0f}%")
+                    elif target_mult < 0.9:
+                        impact_parts.append(f"📉 Targets reduced by {(1-target_mult)*100:.0f}%")
+                    
+                    if sl_adj < 0.99:
+                        impact_parts.append(f"🎯 Stop-loss tightened by {(1-sl_adj)*100:.1f}%")
+                    elif sl_adj > 1.01:
+                        impact_parts.append(f"🛡️ Stop-loss widened by {(sl_adj-1)*100:.1f}%")
+                    
+                    if impact_parts:
+                        st.success(f"🎯 **Trading Impact:**\n" + "\n".join(f"- {part}" for part in impact_parts))
+
                 # Technical Indicators Summary
                 st.markdown("---")
                 st.markdown("### 📊 Technical Indicators Summary")
