@@ -756,6 +756,75 @@ GLOBAL_MARKETS = {
 # ==============================================================================
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
+def analyze_macd_detailed(macd_data, daily_data):
+    """
+    Detailed MACD analysis following professional framework
+    Based on Prompt 2 - Technical Analysis Expert
+    """
+    analysis = {
+        'crossover': '',
+        'crossover_type': '',
+        'histogram_state': '',
+        'momentum': '',
+        'centerline_status': '',
+        'divergence_potential': '',
+        'overall_signal': '',
+        'strength': ''
+    }
+    
+    macd_line = macd_data.get('line', 0)
+    signal_line = macd_data.get('signal', 0)
+    histogram = macd_data.get('histogram', 0)
+    
+    # 1. MACD Line and Signal Line Analysis
+    if macd_line > signal_line:
+        analysis['crossover'] = '🟢 Bullish Crossover'
+        analysis['crossover_type'] = 'MACD line is above Signal line'
+        spread = abs(macd_line - signal_line)
+        if spread > 0.5:
+            analysis['strength'] = 'Strong bullish momentum (wide spread)'
+        else:
+            analysis['strength'] = 'Moderate bullish momentum (narrow spread)'
+    else:
+        analysis['crossover'] = '🔴 Bearish Crossover'
+        analysis['crossover_type'] = 'MACD line is below Signal line'
+        spread = abs(macd_line - signal_line)
+        if spread > 0.5:
+            analysis['strength'] = 'Strong bearish momentum (wide spread)'
+        else:
+            analysis['strength'] = 'Moderate bearish momentum (narrow spread)'
+    
+    # 2. Histogram Analysis
+    if histogram > 0:
+        analysis['histogram_state'] = 'Positive (above zero)'
+        analysis['momentum'] = 'Bullish momentum present'
+    elif histogram < 0:
+        analysis['histogram_state'] = 'Negative (below zero)'
+        analysis['momentum'] = 'Bearish momentum present'
+    else:
+        analysis['histogram_state'] = 'At zero line'
+        analysis['momentum'] = 'Momentum transition point'
+    
+    # 3. Centerline (Zero Line) Analysis
+    if macd_line > 0:
+        analysis['centerline_status'] = '✅ Above zero line - Long-term bullish trend'
+    elif macd_line < 0:
+        analysis['centerline_status'] = '❌ Below zero line - Long-term bearish trend'
+    else:
+        analysis['centerline_status'] = '⚠️ At zero line - Trend reversal potential'
+    
+    # 4. Overall Signal
+    if macd_line > signal_line and histogram > 0:
+        analysis['overall_signal'] = '🟢 STRONG BUY - Bullish alignment'
+    elif macd_line < signal_line and histogram < 0:
+        analysis['overall_signal'] = '🔴 STRONG SELL - Bearish alignment'
+    elif macd_line > signal_line and histogram < 0:
+        analysis['overall_signal'] = '⚠️ WEAK BUY - Momentum weakening'
+    else:
+        analysis['overall_signal'] = '⚠️ WEAK SELL - Momentum weakening'
+    
+    return analysis
+
 def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
     ma_50 = results['moving_averages']['MA_50']
     price = results['latest_price']
@@ -2308,6 +2377,46 @@ def main():
                 - **Histogram < 0:** Bearish momentum (MACD below signal)
                 - **Crossovers:** Strong buy/sell signals when MACD crosses signal line
                 """)
+                
+                macd_analysis = analyze_macd_detailed(results.get('macd', {}), results.get('daily_data'))
+                
+                st.markdown("#### 🔍 Detailed MACD Interpretation")
+                detail_col1, detail_col2 = st.columns(2)
+                
+                with detail_col1:
+                    st.write(f"**Crossover Status:** {macd_analysis['crossover']}")
+                    st.caption(macd_analysis['crossover_type'])
+                    
+                    st.write(f"**Histogram State:** {macd_analysis['histogram_state']}")
+                    st.caption(macd_analysis['momentum'])
+                
+                with detail_col2:
+                    st.write(f"**Centerline Status:** {macd_analysis['centerline_status']}")
+                    
+                    st.write(f"**Overall Signal:** {macd_analysis['overall_signal']}")
+                    st.caption(f"Strength: {macd_analysis['strength']}")
+                
+                with st.expander("📚 Understanding MACD Signals"):
+                    st.markdown("""
+                    **MACD Components:**
+                    - **MACD Line:** 12-day EMA minus 26-day EMA
+                    - **Signal Line:** 9-day EMA of MACD line
+                    - **Histogram:** MACD line minus Signal line
+                    
+                    **Key Signals:**
+                    - **Bullish Crossover:** MACD crosses above Signal → Buy signal
+                    - **Bearish Crossover:** MACD crosses below Signal → Sell signal
+                    - **Zero Line Cross:** MACD crosses zero → Trend change
+                    - **Divergence:** Price makes new high/low but MACD doesn't → Reversal warning
+                    
+                    **How to Trade:**
+                    1. Wait for clear crossover
+                    2. Confirm with other indicators (RSI, Volume)
+                    3. Watch for divergences
+                    4. Use histogram for momentum strength
+                    """)
+                
+                st.markdown("---")
 
                 # Fibonacci
                 st.markdown("---")
