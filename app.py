@@ -1993,12 +1993,7 @@ def main():
     st.sidebar.header("⚙️ Configuration")
     
     # Market Selection
-    selected_market = st.sidebar.selectbox(
-        "🌍 Select Market",
-        list(GLOBAL_MARKETS.keys()),
-        key="market_select"
-    )
-
+    selected_market = st.sidebar.selectbox("🌍 Select Market", list(GLOBAL_MARKETS.keys()), key="market_select")
     market_config = GLOBAL_MARKETS[selected_market]
 
     # Update market status display
