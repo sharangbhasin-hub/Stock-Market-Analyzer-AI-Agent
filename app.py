@@ -2554,6 +2554,12 @@ def main():
 
             if st.button("🧠 Generate AI Analysis", type="primary"):
                 with st.spinner(f"Generating insights with {ai_model}..."):
+                    progress_bar = st.progress(0)
+                    # Simulate progress (replace or remove sleep for real progress updates)
+                    for i in range(10):
+                        time.sleep(0.1)  # Simulate waiting
+                        progress_bar.progress((i + 1) * 10)
+            
                     prompt = generate_comprehensive_analysis(
                         ticker,
                         results,
@@ -2570,6 +2576,8 @@ def main():
 
                     st.session_state['ai_analysis'] = ai_response
                     st.success("✅ AI Analysis Generated!")
+
+                    progress_bar.empty()
 
             # Display AI analysis
             if 'ai_analysis' in st.session_state:
