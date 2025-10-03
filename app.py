@@ -1595,6 +1595,200 @@ class StockAnalyzer:
         self.fib_calc = FibonacciCalculator()
         self.risk_manager = RiskManager()
 
+def detectcandlestickpatternstalibself, data:
+    """
+    Comprehensive candlestick pattern detection - Pure Python
+    """
+    
+    if lendata < 5:
+        return {
+            'pattern': 'Insufficient Data',
+            'type': 'neutral',
+            'strength': 0,
+            'confidence': 0,
+            'category': 'none',
+            'description': 'Need at least 5 candles'
+        }
+    
+    patternsfound = []
+    
+    # Get last 5 candles
+    c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
+    
+    # Current candle
+    curropen = c5['Open'] if 'Open' in c5.index else c5['open']
+    currhigh = c5['High'] if 'High' in c5.index else c5['high']
+    currlow = c5['Low'] if 'Low' in c5.index else c5['low']
+    currclose = c5['Close'] if 'Close' in c5.index else c5['close']
+    currbody = abscurrclose - curropen
+    currrange = currhigh - currlow
+    
+    # Previous candle
+    prevopen = c4['Open'] if 'Open' in c4.index else c4['open']
+    prevclose = c4['Close'] if 'Close' in c4.index else c4['close']
+    prevbody = absprevclose - prevopen
+    
+    currisgreen = currclose > curropen
+    currisred = currclose < curropen
+    previsgreen = prevclose > prevopen
+    previsred = prevclose < prevopen
+    
+    lowershadow = mincurropen, currclose - currlow
+    uppershadow = currhigh - maxcurropen, currclose
+    
+    # BULLISH PATTERNS
+    
+    # 1. HAMMER
+    if lowershadow > currbody * 2 and uppershadow < currbody * 0.3 and currisgreen and currrange > 0:
+        patternsfound.append{
+            'pattern': 'Hammer',
+            'type': 'bullish',
+            'strength': 85,
+            'confidence': 85,
+            'category': 'reversal',
+            'description': 'Strong bullish reversal at support - Buyers regained control'
+        }
+    
+    # 2. BULLISH ENGULFING
+    if previsred and currisgreen and curropen < prevclose and currclose > prevopen and currbody > prevbody * 1.3:
+        patternsfound.append{
+            'pattern': 'Bullish Engulfing',
+            'type': 'bullish',
+            'strength': 90,
+            'confidence': 90,
+            'category': 'reversal',
+            'description': 'Very strong bullish reversal - Large buying pressure'
+        }
+    
+    # 3. MORNING STAR
+    if c3['Close'] < c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisgreen and currclose > c3['Open'] + c3['Close'] / 2:
+        patternsfound.append{
+            'pattern': 'Morning Star',
+            'type': 'bullish',
+            'strength': 95,
+            'confidence': 95,
+            'category': 'reversal',
+            'description': 'Extremely strong bullish reversal - 3-candle bottom pattern'
+        }
+    
+    # BEARISH PATTERNS
+    
+    # 4. SHOOTING STAR
+    if uppershadow > currbody * 2 and lowershadow < currbody * 0.3 and currisred and currrange > 0:
+        patternsfound.append{
+            'pattern': 'Shooting Star',
+            'type': 'bearish',
+            'strength': 85,
+            'confidence': 85,
+            'category': 'reversal',
+            'description': 'Strong bearish reversal at resistance - Sellers regained control'
+        }
+    
+    # 5. BEARISH ENGULFING
+    if previsgreen and currisred and curropen > prevclose and currclose < prevopen and currbody > prevbody * 1.3:
+        patternsfound.append{
+            'pattern': 'Bearish Engulfing',
+            'type': 'bearish',
+            'strength': 90,
+            'confidence': 90,
+            'category': 'reversal',
+            'description': 'Very strong bearish reversal - Large selling pressure'
+        }
+    
+    # 6. EVENING STAR
+    if c3['Close'] > c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisred and currclose < c3['Open'] + c3['Close'] / 2:
+        patternsfound.append{
+            'pattern': 'Evening Star',
+            'type': 'bearish',
+            'strength': 95,
+            'confidence': 95,
+            'category': 'reversal',
+            'description': 'Extremely strong bearish reversal - 3-candle top pattern'
+        }
+    
+    # NEUTRAL
+    
+    # 7. DOJI
+    if currbody < currrange * 0.1 and currrange > 0:
+        patternsfound.append{
+            'pattern': 'Doji',
+            'type': 'neutral',
+            'strength': 50,
+            'confidence': 70,
+            'category': 'indecision',
+            'description': 'Market indecision - Wait for confirmation'
+        }
+    
+    # Return strongest pattern
+    if patternsfound:
+        patternsfound.sortkeylambda x: xstrength, x'confidence', reverseTrue
+        return patternsfound0
+    else:
+        return {
+            'pattern': 'No Significant Pattern',
+            'type': 'neutral',
+            'strength': 0,
+            'confidence': 0,
+            'category': 'none',
+            'description': 'No clear pattern detected'
+        }
+
+def calculatepatternimpactself, patterndata, currentprice:
+    """Calculate pattern impact on trading decisions"""
+    
+    patterntype = patterndatatype
+    strength = patterndatastrength
+    
+    impact = {
+        'signalboost': 0,
+        'stoplossadjustment': 1.0,
+        'targetmultiplier': 1.0,
+        'confidenceboost': 0,
+        'riskadjustment': 1.0
+    }
+    
+    # Very strong patterns strength >= 90
+    if strength >= 90:
+        if patterntype == 'bullish':
+            impactsignalboost = 2
+            impactstoplossadjustment = 0.97
+            impacttargetmultiplier = 1.4
+            impactconfidenceboost = 20
+        elif patterntype == 'bearish':
+            impactsignalboost = -2
+            impactstoplossadjustment = 1.03
+            impacttargetmultiplier = 0.7
+            impactconfidenceboost = -20
+    
+    # Strong patterns
+    elif strength >= 80:
+        if patterntype == 'bullish':
+            impactsignalboost = 1.5
+            impactstoplossadjustment = 0.98
+            impacttargetmultiplier = 1.25
+            impactconfidenceboost = 15
+        elif patterntype == 'bearish':
+            impactsignalboost = -1.5
+            impactstoplossadjustment = 1.02
+            impacttargetmultiplier = 0.8
+            impactconfidenceboost = -15
+    
+    # Medium patterns
+    elif strength >= 70:
+        if patterntype == 'bullish':
+            impactsignalboost = 1
+            impactstoplossadjustment = 0.99
+            impacttargetmultiplier = 1.15
+            impactconfidenceboost = 10
+        elif patterntype == 'bearish':
+            impactsignalboost = -1
+            impactstoplossadjustment = 1.01
+            impacttargetmultiplier = 0.9
+            impactconfidenceboost = -10
+    
+    return impact
+
+
     def setup_sentiment_analyzer(self):
         """Initialize sentiment analysis"""
         try:
