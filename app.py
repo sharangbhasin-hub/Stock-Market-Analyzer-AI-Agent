@@ -2929,9 +2929,8 @@ def main():
                         "🇬🇧 UK (LSE)": "£",
                         "🇯🇵 Japan (TSE)": "¥"
                     }
-                    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
 
-                    
+
                     if st.button(f"🔄 Load {selected_market} Stocks", type="primary"):
                         with st.spinner(f"Loading..."):
                             # Use the same dynamic fetcher
@@ -3053,7 +3052,7 @@ def main():
                     else:
                         st.warning("⚠️ No stocks in scanner. Run 'Pre-Market Scan' from sidebar first.")
                         st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
-
+                    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
 
             # ANALYSIS BUTTON
             if ticker_input and st.button("📊 Analyze with Full Suite", type="primary"):
