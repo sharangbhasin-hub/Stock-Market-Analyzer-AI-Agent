@@ -24,6 +24,7 @@ from plotly.subplots import make_subplots
 import streamlit.components.v1 as components
 import pytz
 import sqlite3
+from io import StringIO
 
 # Optional imports
 try:
@@ -76,7 +77,6 @@ if GOOGLE_API_KEY:
 # ==============================================================================
 # === ENHANCED ALPHA VANTAGE API ===============================================
 # ==============================================================================
-from io import StringIO
 
 class AlphaVantageAPI:
     """Fully dynamic Alpha Vantage integration"""
@@ -85,7 +85,27 @@ class AlphaVantageAPI:
         self.api_key = api_key or ALPHA_VANTAGE_API_KEY
         self.base_url = "https://www.alphavantage.co/query"
         self._cache = {}
-
+        
+    def get_all_stocks_listing(self):
+        """Get complete US stock listing"""
+        try:
+            params = {
+                'function': 'LISTING_STATUS',
+                'state': 'active',
+                'apikey': self.api_key
+            }
+            response = requests.get(self.base_url, params=params, timeout=15)
+            
+            if response.status_code == 200:
+                df = pd.read_csv(StringIO(response.text))
+                # Filter active stocks
+                if not df.empty:
+                    return df['symbol'].tolist()
+            return []
+        except Exception as e:
+            st.error(f"Alpha Vantage listing error: {e}")
+            return []
+            
     def _make_request(self, params):
         cache_key = str(sorted(params.items()))
         if cache_key in self._cache:
@@ -909,101 +929,163 @@ Respond with structured, actionable paragraphs as in a premium research note.
 """
     return prompt
 
-@st.cache_data(ttl=3600)
-def run_premarket_screener(market_name, market_config):
-    """Pre-market screener for selected market"""
-    st.write(f"🔍 Running Pre-Market Screener for {market_name}...")
+@st.cache_data(ttl=86400)
+def get_dynamic_tickers_with_av(market_name, av_api):
+    """Fetch tickers using existing AlphaVantageAPI class"""
     
     try:
+        if "USA" in market_name:
+            # Use Alpha Vantage for complete US listing
+            st.info("📡 Fetching US stocks from Alpha Vantage...")
+            tickers = av_api.get_all_stocks_listing()
+            
+            if tickers:
+                st.success(f"✅ Loaded {len(tickers)} US stocks from Alpha Vantage")
+                return tickers[:500]  # Top 500
+            else:
+                st.warning("⚠️ Falling back to curated US list")
+                return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX']
+            
+        elif "India" in market_name:
+            # NSE stocks - curated list (Alpha Vantage has limited NSE support)
+            st.info("📡 Loading NSE stocks...")
+            nse_stocks = [
+                'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
+                'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS', 'LT.NS',
+                'ITC.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS', 'TITAN.NS',
+                'SUNPHARMA.NS', 'ULTRACEMCO.NS', 'BAJFINANCE.NS', 'WIPRO.NS', 'HCLTECH.NS',
+                'NESTLEIND.NS', 'TATAMOTORS.NS', 'TATASTEEL.NS', 'POWERGRID.NS', 'NTPC.NS'
+            ]
+            st.success(f"✅ Loaded {len(nse_stocks)} NSE stocks")
+            return nse_stocks
+            
+        elif "UK" in market_name:
+            st.info("📡 Loading LSE stocks...")
+            lse_stocks = ['BARC.L', 'HSBA.L', 'BP.L', 'SHEL.L', 'VOD.L', 'AZN.L', 
+                         'GLEN.L', 'RIO.L', 'LSEG.L', 'LLOY.L', 'GSK.L', 'ULVR.L']
+            st.success(f"✅ Loaded {len(lse_stocks)} LSE stocks")
+            return lse_stocks
+            
+        elif "Japan" in market_name:
+            st.info("📡 Loading TSE stocks...")
+            tse_stocks = ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T',
+                         '7267.T', '6098.T', '9432.T', '8035.T', '4063.T']
+            st.success(f"✅ Loaded {len(tse_stocks)} TSE stocks")
+            return tse_stocks
+            
+        return []
+    except Exception as e:
+        st.error(f"Error fetching tickers: {e}")
+        return []
+
+@st.cache_data(ttl=3600)
+def run_premarket_screener(market_name, market_config):
+    """Enhanced pre-market screener with Alpha Vantage integration"""
+    
+    st.write(f"### 🔍 Dynamic Scanner - {market_name}")
+    
+    # Initialize Alpha Vantage
+    av = AlphaVantageAPI()
+    
+    # Fetch tickers
+    with st.spinner(f"📡 Fetching ticker list..."):
+        all_tickers = get_dynamic_tickers_with_av(market_name, av)
+    
+    if not all_tickers:
+        st.error("❌ No tickers available")
+        return {}
+    
+    # User filters
+    with st.expander("⚙️ Scanner Settings", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            min_price = st.number_input("Min Price", value=10.0, min_value=0.1)
+            min_volume = st.number_input("Min Volume", value=100000, min_value=1000)
+        
+        with col2:
+            change_min = st.number_input("Min % Change", value=-100.0)
+            change_max = st.number_input("Max % Change", value=100.0)
+        
+        with col3:
+            max_results = st.slider("Max Results", 10, 100, 50)
+    
+    # Run scan
+    if st.button("🚀 Run Scan", type="primary"):
         screened_list = {}
         
-        # Define symbols based on market (use 'in' instead of exact match)
-        if "India" in market_name or "NSE" in market_name:
-            # Top NSE stocks
-            symbols_to_scan = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
-                              'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS', 'LT.NS',
-                              'ITC.NS', 'AXISBANK.NS', 'ASIANPAINT.NS', 'MARUTI.NS', 'TITAN.NS',
-                              'SUNPHARMA.NS', 'ULTRACEMCO.NS', 'BAJFINANCE.NS', 'WIPRO.NS', 'HCLTECH.NS']
-            min_price = 50
-            min_volume = 50000
-            
-        elif "USA" in market_name or "NYSE" in market_name or "NASDAQ" in market_name:
-            symbols_to_scan = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 
-                              'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V',
-                              'MA', 'PYPL', 'ADBE', 'CRM', 'CSCO', 'PEP', 'KO']
-            min_price = 10
-            min_volume = 100000
-            
-        elif "UK" in market_name or "LSE" in market_name:
-            symbols_to_scan = ['BARC.L', 'HSBA.L', 'BP.L', 'SHEL.L', 'VOD.L', 
-                              'AZN.L', 'GLEN.L', 'RIO.L', 'LSEG.L', 'LLOY.L',
-                              'GSK.L', 'ULVR.L', 'DGE.L', 'NG.L', 'REL.L']
-            min_price = 1
-            min_volume = 100000
-            
-        elif "Japan" in market_name or "TSE" in market_name:
-            symbols_to_scan = ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T',
-                              '7267.T', '6098.T', '9432.T', '8035.T', '4063.T']
-            min_price = 100
-            min_volume = 50000
-        else:
-            st.warning(f"Market {market_name} not configured yet")
-            return {}
-        
-        st.write(f"📊 Scanning {len(symbols_to_scan)} stocks from {market_name}...")
-        
-        # Download data for all symbols
-        tickers_str = " ".join(symbols_to_scan)
-        data = yf.download(tickers_str, period="5d", group_by='ticker', auto_adjust=True, progress=False)
-        
+        st.write(f"📊 Scanning {len(all_tickers)} stocks...")
         progress_bar = st.progress(0)
         
-        for i, ticker in enumerate(symbols_to_scan):
+        # Batch processing
+        batch_size = 50
+        for batch_idx in range(0, len(all_tickers), batch_size):
+            batch_tickers = all_tickers[batch_idx:batch_idx + batch_size]
+            
             try:
-                # Handle single vs multiple ticker data structure
-                if len(symbols_to_scan) > 1:
-                    stock_data = data[ticker]
-                else:
-                    stock_data = data
+                data = yf.download(" ".join(batch_tickers), period="5d", 
+                                 group_by='ticker', auto_adjust=True, progress=False)
                 
-                if stock_data.empty:
-                    continue
+                for ticker in batch_tickers:
+                    try:
+                        stock_data = data[ticker] if len(batch_tickers) > 1 else data
+                        
+                        if stock_data.empty or len(stock_data) < 2:
+                            continue
+                        
+                        last_day = stock_data.iloc[-1]
+                        prev_day = stock_data.iloc[-2]
+                        
+                        price = float(last_day['Close'])
+                        volume = int(last_day['Volume'])
+                        change_pct = float((price - prev_day['Close']) / prev_day['Close'] * 100)
+                        
+                        if (price >= min_price and volume >= min_volume and 
+                            change_min <= change_pct <= change_max):
+                            
+                            screened_list[ticker] = {
+                                'price': price,
+                                'volume': volume,
+                                'change_pct': change_pct
+                            }
+                            
+                            if len(screened_list) >= max_results:
+                                break
+                    except:
+                        continue
                 
-                # Get latest data
-                last_day = stock_data.iloc[-1]
-                prev_day = stock_data.iloc[-2] if len(stock_data) > 1 else last_day
-                
-                price = last_day['Close']
-                volume = last_day['Volume']
-                
-                # Calculate change
-                change_pct = ((price - prev_day['Close']) / prev_day['Close'] * 100)
-                
-                # Screening criteria
-                if price > min_price and volume > min_volume:
-                    screened_list[ticker] = {
-                        'price': float(price),
-                        'volume': int(volume),
-                        'change_pct': float(change_pct)
-                    }
-                
-            except Exception as e:
+                if len(screened_list) >= max_results:
+                    break
+                    
+            except:
                 continue
             
-            progress_bar.progress((i + 1) / len(symbols_to_scan))
+            progress_bar.progress(min((batch_idx + batch_size) / len(all_tickers), 1.0))
         
         progress_bar.empty()
         
         if screened_list:
-            st.success(f"✅ Found {len(screened_list)} stocks (Price > {min_price}, Volume > {min_volume:,})")
+            st.success(f"✅ Found {len(screened_list)} stocks")
+            
+            # Display results
+            df_results = pd.DataFrame(screened_list).T
+            df_results = df_results.sort_values('change_pct', ascending=False)
+            
+            st.dataframe(df_results.style.format({
+                'price': '{:.2f}',
+                'volume': '{:,.0f}',
+                'change_pct': '{:+.2f}%'
+            }), use_container_width=True)
+            
+            # Store in session state
+            st.session_state['screened_stocks'] = screened_list
+            
+            return screened_list
         else:
-            st.warning(f"⚠️ No stocks found. Criteria: Price > {min_price}, Volume > {min_volume:,}")
-        
-        return screened_list
-        
-    except Exception as e:
-        st.error(f"❌ Scan error: {str(e)}")
-        return {}
+            st.warning("⚠️ No stocks found matching criteria")
+            return {}
+    
+    return {}
 
 @st.cache_data
 def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
@@ -2043,34 +2125,24 @@ def main():
     # ========== PRE-MARKET SCREENER (RESTORED) ==========
     if trading_mode == "Intraday Trading":
         st.sidebar.subheader("🔍 Pre-Market Screener")
-        st.sidebar.info(f"Scan {selected_market} stocks: Price > 100, Volume > 100K")
+        st.sidebar.info(f"Scan {selected_market} stocks")
         
         if st.sidebar.button("▶️ Run Pre-Market Scan"):
             with st.spinner(f"Scanning {selected_market} market..."):
                 screened_stocks = run_premarket_screener(selected_market, market_config)
-                if screened_stocks:
-                    st.session_state['screened_stocks'] = screened_stocks
-                    st.sidebar.success(f"✅ Found {len(screened_stocks)} stocks")
-   
+        
+        # Display dropdown
         if 'screened_stocks' in st.session_state and st.session_state['screened_stocks']:
             st.sidebar.markdown("#### 📋 Screened Stocks")
-            stock_names = [f"{ticker} - ₹{data['price']:.2f} ({data['change_pct']:+.2f}%)" 
-                          for ticker, data in list(st.session_state['screened_stocks'].items())[:20]]
-            
             selected_screened = st.sidebar.selectbox(
-                "Select from screened stocks:",
+                "Select stock to analyze:",
                 options=list(st.session_state['screened_stocks'].keys()),
-                format_func=lambda x: f"{x} - ₹{st.session_state['screened_stocks'][x]['price']:.2f}"
+                format_func=lambda x: f"{x} - ${st.session_state['screened_stocks'][x]['price']:.2f} ({st.session_state['screened_stocks'][x]['change_pct']:+.2f}%)"
             )
             
-            if st.sidebar.button("📊 Analyze Selected"):
+            if st.sidebar.button("📊 Analyze Selected Stock"):
                 st.session_state['auto_analyze_ticker'] = selected_screened
-
-        # Display screened stocks
-        if 'screened_stocks' in st.session_state:
-            st.sidebar.write("**📊 Top Screened Stocks:**")
-            for ticker, data in list(st.session_state['screened_stocks'].items())[:10]:
-                st.sidebar.write(f"• {ticker}: ₹{data['price']:.2f} ({data['change_pct']:+.2f}%)")
+                st.rerun()
 
     # ========== AI MODEL SELECTION (RESTORED) ==========
     st.sidebar.subheader("🤖 AI Analysis")
