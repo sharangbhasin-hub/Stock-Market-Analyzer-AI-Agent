@@ -1248,6 +1248,75 @@ class StockAnalyzer:
             except:
                 self.sentiment_analyzer = None
 
+    def analyze_sentiment_detailed(self, headlines):
+    """Analyze sentiment with per-article breakdown"""
+    if not headlines or not self.sentiment_analyzer:
+        return {
+            'overall_sentiment': 'Neutral',
+            'overall_score': 0.0,
+            'articles': []
+        }
+    
+    try:
+        article_sentiments = []
+        sentiment_scores = []
+        
+        for headline in headlines:
+            if len(headline) > 15:
+                result = self.sentiment_analyzer(headline[:512])
+                
+                # Handle FinBERT output (returns all scores)
+                if isinstance(result[0], list):
+                    sentiment_dict = {item['label']: item['score'] for item in result[0]}
+                    score = sentiment_dict.get('positive', 0) - sentiment_dict.get('negative', 0)
+                    label = 'Positive' if score > 0.1 else 'Negative' if score < -0.1 else 'Neutral'
+                    
+                    article_sentiments.append({
+                        'headline': headline,
+                        'sentiment': label,
+                        'score': round(score, 3),
+                        'positive': round(sentiment_dict.get('positive', 0), 3),
+                        'negative': round(sentiment_dict.get('negative', 0), 3),
+                        'neutral': round(sentiment_dict.get('neutral', 0), 3)
+                    })
+                    sentiment_scores.append(score)
+                else:
+                    # Handle standard sentiment analyzer
+                    score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
+                    
+                    article_sentiments.append({
+                        'headline': headline,
+                        'sentiment': result[0]['label'],
+                        'score': round(score, 3),
+                        'confidence': round(result[0]['score'], 3)
+                    })
+                    sentiment_scores.append(score)
+        
+        # Calculate overall metrics
+        if sentiment_scores:
+            avg_sentiment = np.mean(sentiment_scores)
+            overall = 'Positive' if avg_sentiment > 0.1 else 'Negative' if avg_sentiment < -0.1 else 'Neutral'
+        else:
+            avg_sentiment = 0.0
+            overall = 'Neutral'
+        
+        return {
+            'overall_sentiment': overall,
+            'overall_score': round(avg_sentiment, 3),
+            'articles': article_sentiments,
+            'total_articles': len(article_sentiments),
+            'positive_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Positive', 'POSITIVE']),
+            'negative_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Negative', 'NEGATIVE']),
+            'neutral_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Neutral', 'NEUTRAL'])
+        }
+    except Exception as e:
+        return {
+            'overall_sentiment': 'Neutral',
+            'overall_score': 0.0,
+            'articles': [],
+            'error': str(e)
+        }
+
     def fetch_stock_data(self, ticker, period="60d"):
         """Fetch stock data"""
         try:
@@ -2057,9 +2126,11 @@ def main():
 
                         # Fetch news and sentiment
                         headlines = analyzer.scrape_news_headlines(ticker_input)
-                        sentiment_results = analyzer.analyze_sentiment(headlines)
+                        sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)  # Use new method
                         results['news_headlines'] = headlines
-                        results['sentiment'] = sentiment_results
+                        results['sentiment'] = sentiment_detailed['overall_sentiment']
+                        results['sentiment_score'] = sentiment_detailed['overall_score']
+                        results['sentiment_detailed'] = sentiment_detailed  # Store full breakdown
 
                         st.session_state['analysis_results'] = results
                         st.session_state['current_ticker'] = ticker_input
@@ -2356,6 +2427,48 @@ def main():
                     st.subheader("📰 Latest News")
                     for headline in results['news_headlines'][:5]:
                         st.write(f"• {headline}")
+
+                # Detailed sentiment breakdown
+                if 'sentiment_detailed' in results and results['sentiment_detailed'].get('articles'):
+                    st.markdown("---")
+                    st.subheader("🎯 News Sentiment Breakdown")
+                    
+                    sentiment_data = results['sentiment_detailed']
+                    
+                    # Summary metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("Overall", sentiment_data['overall_sentiment'])
+                    col2.metric("Score", f"{sentiment_data['overall_score']:.3f}")
+                    col3.metric("✅ Positive", sentiment_data.get('positive_count', 0))
+                    col4.metric("❌ Negative", sentiment_data.get('negative_count', 0))
+                    
+                    st.markdown("#### 📊 Per-Article Sentiment Details")
+                    
+                    # Create a dataframe for better display
+                    articles_df = pd.DataFrame(sentiment_data['articles'])
+                    
+                    for i, article in enumerate(sentiment_data['articles'], 1):
+                        with st.expander(f"Article {i}: {article['headline'][:70]}..."):
+                            # Sentiment badge
+                            if article['sentiment'] in ['Positive', 'POSITIVE']:
+                                st.success(f"✅ {article['sentiment']}")
+                            elif article['sentiment'] in ['Negative', 'NEGATIVE']:
+                                st.error(f"❌ {article['sentiment']}")
+                            else:
+                                st.info(f"➖ {article['sentiment']}")
+                            
+                            # Show scores
+                            st.write(f"**Composite Score:** {article['score']:.3f}")
+                            
+                            if 'positive' in article:
+                                col1, col2, col3 = st.columns(3)
+                                col1.metric("Positive", f"{article['positive']:.3f}")
+                                col2.metric("Negative", f"{article['negative']:.3f}")
+                                col3.metric("Neutral", f"{article['neutral']:.3f}")
+                            elif 'confidence' in article:
+                                st.metric("Confidence", f"{article['confidence']:.3f}")
+                            
+                            st.caption(f"**Full Headline:** {article['headline']}")
 
                 # MACD
                 st.markdown("---")
