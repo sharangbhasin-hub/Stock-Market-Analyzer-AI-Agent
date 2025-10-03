@@ -1733,58 +1733,58 @@ def detectcandlestickpatternstalib(self, data):
             'description': 'No clear pattern detected'
         }
 
-def calculatepatternimpactself, patterndata, currentprice:
+def calculatepatternimpact(self, patterndata, currentprice):
     """Calculate pattern impact on trading decisions"""
     
-    patterntype = patterndatatype
-    strength = patterndatastrength
+    patterntype = patterndata['type']
+    strength = patterndata['strength']
     
     impact = {
-        'signalboost': 0,
-        'stoplossadjustment': 1.0,
-        'targetmultiplier': 1.0,
-        'confidenceboost': 0,
-        'riskadjustment': 1.0
+        'signal_boost': 0,
+        'stop_loss_adjustment': 1.0,
+        'target_multiplier': 1.0,
+        'confidence_boost': 0,
+        'risk_adjustment': 1.0
     }
     
-    # Very strong patterns strength >= 90
+    # Very strong patterns (strength >= 90)
     if strength >= 90:
         if patterntype == 'bullish':
-            impactsignalboost = 2
-            impactstoplossadjustment = 0.97
-            impacttargetmultiplier = 1.4
-            impactconfidenceboost = 20
+            impact['signal_boost'] = 2
+            impact['stop_loss_adjustment'] = 0.97
+            impact['target_multiplier'] = 1.4
+            impact['confidence_boost'] = 20
         elif patterntype == 'bearish':
-            impactsignalboost = -2
-            impactstoplossadjustment = 1.03
-            impacttargetmultiplier = 0.7
-            impactconfidenceboost = -20
+            impact['signal_boost'] = -2
+            impact['stop_loss_adjustment'] = 1.03
+            impact['target_multiplier'] = 0.7
+            impact['confidence_boost'] = -20
     
-    # Strong patterns
+    # Strong patterns (80-89)
     elif strength >= 80:
         if patterntype == 'bullish':
-            impactsignalboost = 1.5
-            impactstoplossadjustment = 0.98
-            impacttargetmultiplier = 1.25
-            impactconfidenceboost = 15
+            impact['signal_boost'] = 1.5
+            impact['stop_loss_adjustment'] = 0.98
+            impact['target_multiplier'] = 1.25
+            impact['confidence_boost'] = 15
         elif patterntype == 'bearish':
-            impactsignalboost = -1.5
-            impactstoplossadjustment = 1.02
-            impacttargetmultiplier = 0.8
-            impactconfidenceboost = -15
+            impact['signal_boost'] = -1.5
+            impact['stop_loss_adjustment'] = 1.02
+            impact['target_multiplier'] = 0.8
+            impact['confidence_boost'] = -15
     
-    # Medium patterns
+    # Medium patterns (70-79)
     elif strength >= 70:
         if patterntype == 'bullish':
-            impactsignalboost = 1
-            impactstoplossadjustment = 0.99
-            impacttargetmultiplier = 1.15
-            impactconfidenceboost = 10
+            impact['signal_boost'] = 1
+            impact['stop_loss_adjustment'] = 0.99
+            impact['target_multiplier'] = 1.15
+            impact['confidence_boost'] = 10
         elif patterntype == 'bearish':
-            impactsignalboost = -1
-            impactstoplossadjustment = 1.01
-            impacttargetmultiplier = 0.9
-            impactconfidenceboost = -10
+            impact['signal_boost'] = -1
+            impact['stop_loss_adjustment'] = 1.01
+            impact['target_multiplier'] = 0.9
+            impact['confidence_boost'] = -10
     
     return impact
 
