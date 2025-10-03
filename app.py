@@ -2462,35 +2462,37 @@ def main():
                 
                 # ============= METHOD 2: BY EXCHANGE =============
                 elif method == "By Exchange":
-                    st.info(f"📊 Load stocks dynamically from {selected_market}")
+                    # Get market-specific currency symbol
+                    currency_map = {
+                        "🇮🇳 India (NSE/BSE)": "₹",
+                        "🇺🇸 USA (NYSE/NASDAQ)": "$",
+                        "🇬🇧 UK (LSE)": "£",
+                        "🇯🇵 Japan (TSE)": "¥"
+                    }
+                    currency = currency_map.get(selected_market, "$")
                     
                     if st.button(f"🔄 Load {selected_market} Stocks", type="primary"):
-                        with st.spinner(f"Fetching stocks from {selected_market}..."):
-                            # Use the same dynamic fetcher as pre-market scanner
-                            all_tickers, source, errors = get_dynamic_tickers(selected_market, ALPHA_VANTAGE_API_KEY)
+                        with st.spinner(f"Loading..."):
+                            # Use the same dynamic fetcher
+                            all_tickers, source, errors = get_dynamic_tickers(selected_market, ALPHAVANTAGEAPIKEY)
                             
                             if all_tickers:
-                                # Fetch additional details for better display (optional)
                                 stocks_dict = {}
                                 progress_bar = st.progress(0)
-                                status = st.empty()
                                 
-                                # Process in batches for display
+                                # Process in batches
                                 batch_size = 20
                                 processed = 0
                                 
-                                for i in range(0, min(len(all_tickers), 100), batch_size):  # Limit to 100 stocks
+                                for i in range(0, min(len(all_tickers), 100), batch_size):
                                     batch = all_tickers[i:i+batch_size]
-                                    status.text(f"Loading stock details... {processed}/{min(len(all_tickers), 100)}")
                                     
                                     try:
-                                        # Quick fetch for stock info
                                         data = yf.download(" ".join(batch), period="1d", 
                                                          group_by='ticker', progress=False)
                                         
                                         for ticker in batch:
                                             try:
-                                                # Get basic info
                                                 if len(batch) > 1:
                                                     stock_data = data[ticker]
                                                 else:
@@ -2498,65 +2500,53 @@ def main():
                                                 
                                                 if not stock_data.empty:
                                                     last_price = stock_data['Close'].iloc[-1]
-                                                    # Format display name with price
-                                                    display_name = f"{ticker} - ${last_price:.2f}"
+                                                    # Format with market-specific currency
+                                                    display_name = f"{ticker} - {currency}{last_price:.2f}"
                                                     stocks_dict[display_name] = ticker
                                                 else:
-                                                    # No data available, add ticker only
                                                     stocks_dict[ticker] = ticker
                                             except:
-                                                # If error, just add ticker
                                                 stocks_dict[ticker] = ticker
                                         
                                         processed += len(batch)
                                         progress_bar.progress(processed / min(len(all_tickers), 100))
                                     
                                     except:
-                                        # If batch fails, add tickers without prices
                                         for ticker in batch:
                                             stocks_dict[ticker] = ticker
                                         processed += len(batch)
                                 
                                 progress_bar.empty()
-                                status.empty()
                                 
                                 # Store in session state
                                 st.session_state['loaded_stocks'] = stocks_dict
                                 st.session_state['loaded_stocks_source'] = source
                                 
-                                st.success(f"✅ Loaded {len(stocks_dict)} stocks from **{source}**")
+                                # Single success message
+                                st.success(f"✅ Loaded {len(stocks_dict)} stocks from {source}")
                                 
-                                # Show source info if there were fallbacks
+                                # Errors in collapsible (only if exist)
                                 if errors:
-                                    with st.expander(f"ℹ️ Source: {source} - Click for details"):
-                                        st.info(f"Successfully loaded from: **{source}**")
-                                        if errors:
-                                            st.caption("Failed sources:")
-                                            for err in errors:
-                                                st.caption(f"  • {err}")
+                                    with st.expander(f"ℹ️ View source details"):
+                                        for err in errors:
+                                            st.caption(f"• {err}")
                             else:
-                                st.error(f"❌ Failed to load stocks from {selected_market}")
+                                st.error(f"❌ Failed to load stocks")
                                 if errors:
-                                    with st.expander("🔍 View Error Details"):
+                                    with st.expander("🔍 Error Details"):
                                         for err in errors:
                                             st.text(err)
                     
-                    # Display loaded stocks
+                    # Display loaded stocks (CLEAN)
                     if 'loaded_stocks' in st.session_state and st.session_state['loaded_stocks']:
-                        source_info = st.session_state.get('loaded_stocks_source', 'Unknown')
-                        st.caption(f"📋 Showing {len(st.session_state['loaded_stocks'])} stocks from: {source_info}")
-                        
                         selected = st.selectbox(
-                            f"Select stock from {selected_market}:",
-                            list(st.session_state['loaded_stocks'].keys())
+                            f"Select stock:",
+                            list(st.session_state['loaded_stocks'].keys()),
+                            label_visibility="collapsed"
                         )
                         ticker_input = st.session_state['loaded_stocks'][selected]
-                        
-                        # Show quick info
-                        st.caption(f"Selected: **{ticker_input}**")
                     else:
-                        st.info("👆 Click 'Load Stocks' button to see available stocks")
-
+                        st.info("👆 Click button above to load stocks")
                 
                 # ============= METHOD 3: DIRECT =============
                 elif method == "Direct":
