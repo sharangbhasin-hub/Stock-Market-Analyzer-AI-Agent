@@ -2894,7 +2894,11 @@ def main():
                     st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
                     vwap_value = results.get('vwap', results.get('latest_price', 0))
                     if vwap_value > 0:
-                        st.info(f"**VWAP Trailing:** ₹{vwap_value:.2f}"\n\nTrail stop to VWAP. Exit if closes below.")
+                        st.info(
+                            f"**VWAP Trailing:** ₹{vwap_value:.2f}\n\n"
+                            "Trail stop to VWAP. Exit if closes below."
+                        )
+
                 
                 with col2:
                     st.markdown("### 🎯 Profit Targets")
