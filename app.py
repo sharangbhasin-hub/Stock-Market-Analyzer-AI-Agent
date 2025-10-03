@@ -2388,51 +2388,143 @@ def main():
 
     with tab1:
         col1, col2 = st.columns([2, 1])
-
+        
         with col1:
-
-            # Dynamic Stock Selector
             st.subheader(f"📈 Stock Selection - {selected_market}")
-
+            
+            # Initialize AlphaVantage
             av = AlphaVantageAPI()
             ticker_input = None
-
+            
+            # Check if auto-analyze from pre-market scanner
+            if 'auto_analyze_ticker' in st.session_state:
+                ticker_input = st.session_state['auto_analyze_ticker']
+                st.info(f"Auto-analyzing from scanner: **{ticker_input}**")
+                del st.session_state['auto_analyze_ticker']
+            
             if not av.api_key:
-                st.warning("⚠️ Alpha Vantage API key not configured for dynamic search. Please enter ticker directly.")
-                ticker_input = st.text_input("Enter Ticker", "AAPL")
+                st.warning("⚠️ Alpha Vantage API key not configured. Using Direct entry.")
+                # Market-aware placeholder
+                placeholder_map = {
+                    "🇮🇳 India (NSE/BSE)": "RELIANCE.NS",
+                    "🇺🇸 USA (NYSE/NASDAQ)": "AAPL",
+                    "🇬🇧 UK (LSE)": "BARC.L",
+                    "🇯🇵 Japan (TSE)": "7203.T"
+                }
+                placeholder = placeholder_map.get(selected_market, "AAPL")
+                ticker_input = st.text_input("Enter Ticker", placeholder)
             else:
-                method = st.radio(
-                    "Selection Method",
-                    ["🔍 Search", "📊 By Exchange", "⌨️ Direct"],
-                    horizontal=True
-                )
-
-                if method == "🔍 Search":
-                    search_query = st.text_input("Search Stock", placeholder="Apple, Tesla...")
+                # Selection methods - INCLUDING "From Scanner"
+                method_options = ["Search", "By Exchange", "Direct", "From Scanner"]
+                method = st.radio("Selection Method", method_options, horizontal=True)
+                
+                # ============= METHOD 1: SEARCH =============
+                if method == "Search":
+                    search_query = st.text_input(
+                        f"🔍 Search {selected_market} Stock", 
+                        placeholder="Apple, Tesla, Reliance..."
+                    )
                     if search_query and len(search_query) >= 3:
                         with st.spinner("Searching..."):
                             results = av.search_symbols(search_query)
-                        if results:
-                            selected = st.selectbox("Select:", list(results.keys()))
-                            ticker_input = results[selected]
-                            quote = av.get_quote(ticker_input)
-                            if quote:
-                                q_col1, q_col2, q_col3 = st.columns(3)
-                                q_col1.metric("Price", f"${quote['price']:.2f}")
-                                q_col2.metric("Change", f"${quote['change']:.2f}")
-                                q_col3.metric("Volume", f"{quote['volume']:,}")
-
-                elif method == "📊 By Exchange":
-                    if st.button("Load Stocks"):
-                        with st.spinner("Loading..."):
+                            if results:
+                                # Filter results by selected market
+                                filtered_results = {}
+                                for name, symbol in results.items():
+                                    # Market-specific filtering
+                                    if "India" in selected_market and (".NS" in symbol or ".BO" in symbol):
+                                        filtered_results[name] = symbol
+                                    elif "USA" in selected_market and not any(suffix in symbol for suffix in [".NS", ".BO", ".L", ".T"]):
+                                        filtered_results[name] = symbol
+                                    elif "UK" in selected_market and ".L" in symbol:
+                                        filtered_results[name] = symbol
+                                    elif "Japan" in selected_market and ".T" in symbol:
+                                        filtered_results[name] = symbol
+                                
+                                if filtered_results:
+                                    selected = st.selectbox(
+                                        f"Select from {selected_market}:", 
+                                        list(filtered_results.keys())
+                                    )
+                                    ticker_input = filtered_results[selected]
+                                    
+                                    # Get quote
+                                    quote = av.get_quote(ticker_input)
+                                    if quote:
+                                        q_col1, q_col2, q_col3 = st.columns(3)
+                                        q_col1.metric("Price", f"${quote['price']:.2f}")
+                                        q_col2.metric("Change", f"{quote['change']:.2f}")
+                                        q_col3.metric("Volume", f"{quote['volume']:,}")
+                                else:
+                                    st.warning(f"No results found for {selected_market}. Try different keywords.")
+                            else:
+                                st.warning("No results found. Try different keywords.")
+                
+                # ============= METHOD 2: BY EXCHANGE =============
+                elif method == "By Exchange":
+                    st.info(f"Loading stocks from {selected_market}...")
+                    
+                    if st.button(f"📊 Load {selected_market} Stocks"):
+                        with st.spinner(f"Fetching {selected_market} stocks..."):
                             stocks = av.get_stocks_by_exchange(market_config['exchange_codes'])
-                    if stocks:
-                        st.session_state['loaded_stocks'] = stocks
+                            if stocks:
+                                st.session_state['loaded_stocks'] = stocks
+                                st.success(f"✅ Loaded {len(stocks)} stocks")
+                            else:
+                                st.error(f"Failed to load stocks from {selected_market}")
+                    
                     if 'loaded_stocks' in st.session_state:
-                        selected = st.selectbox("Select:", list(st.session_state['loaded_stocks'].keys()))
+                        selected = st.selectbox(
+                            f"Select from {selected_market}:", 
+                            list(st.session_state['loaded_stocks'].keys())
+                        )
                         ticker_input = st.session_state['loaded_stocks'][selected]
-                else:
-                    ticker_input = st.text_input("Enter Ticker Symbol", "AAPL")
+                
+                # ============= METHOD 3: DIRECT =============
+                elif method == "Direct":
+                    # Market-aware placeholders
+                    placeholder_map = {
+                        "🇮🇳 India (NSE/BSE)": "RELIANCE.NS",
+                        "🇺🇸 USA (NYSE/NASDAQ)": "AAPL",
+                        "🇬🇧 UK (LSE)": "BARC.L",
+                        "🇯🇵 Japan (TSE)": "7203.T"
+                    }
+                    placeholder = placeholder_map.get(selected_market, "AAPL")
+                    
+                    ticker_input = st.text_input(
+                        f"Enter Ticker Symbol for {selected_market}", 
+                        placeholder,
+                        help=f"Format: {placeholder}"
+                    )
+                
+                # ============= METHOD 4: FROM SCANNER (NEW) =============
+                elif method == "From Scanner":
+                    if 'screened_stocks' in st.session_state and st.session_state['screened_stocks']:
+                        st.success(f"✅ {len(st.session_state['screened_stocks'])} stocks available from pre-market scanner")
+                        
+                        # Create formatted options
+                        stock_options = {}
+                        for ticker, data in st.session_state['screened_stocks'].items():
+                            display_name = f"{ticker} - ${data['price']:.2f} ({data['change_pct']:+.2f}%)"
+                            stock_options[display_name] = ticker
+                        
+                        selected_display = st.selectbox(
+                            f"Select from {selected_market} Scanner Results:",
+                            list(stock_options.keys())
+                        )
+                        ticker_input = stock_options[selected_display]
+                        
+                        # Show stock details
+                        if ticker_input in st.session_state['screened_stocks']:
+                            stock_data = st.session_state['screened_stocks'][ticker_input]
+                            detail_col1, detail_col2, detail_col3 = st.columns(3)
+                            detail_col1.metric("Price", f"${stock_data['price']:.2f}")
+                            detail_col2.metric("Volume", f"{stock_data['volume']:,}")
+                            detail_col3.metric("Change", f"{stock_data['change_pct']:+.2f}%")
+                    else:
+                        st.warning("⚠️ No stocks in scanner. Run 'Pre-Market Scan' from sidebar first.")
+                        st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
+
 
             # ANALYSIS BUTTON
             if ticker_input and st.button("📊 Analyze with Full Suite", type="primary"):
