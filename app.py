@@ -2056,7 +2056,7 @@ class StockAnalyzer:
             results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
             results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
             five_min_data = self.compute_vwap(five_min_data)
-            results.get('vwap', 0) = five_min_data['vwap'].iloc[-1]
+            results['vwap'] = five_min_data['vwap'].iloc[-1]
             results['vwma'] = self.compute_vwma(five_min_data)
             results['supertrend'] = self.compute_supertrend(five_min_data)
 
