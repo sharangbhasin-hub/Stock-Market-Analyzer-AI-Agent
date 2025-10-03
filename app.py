@@ -2666,7 +2666,7 @@ def calculate_pattern_impact(self, pattern_data, current_price):
                 fifteen_min_data = daily_data.copy()
                 fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
 
-            five_min_data = fetch_intraday_data(ticker, interval="5m", period="5d")
+            five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
             if five_min_data is None:
                 five_min_data = fifteen_min_data.copy()
 
