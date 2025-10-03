@@ -414,7 +414,7 @@ def send_multi_channel_alert(ticker, signal, price, channels=['email']):
     
     Ticker: {ticker}
     Signal: {signal}
-    Price: ₹{price:.2f}
+    Price: {currency}{price:.2f}
     Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
     """
 
@@ -778,6 +778,29 @@ GLOBAL_MARKETS = {
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
 
+def get_currency_symbol(ticker, selected_market=None):
+    """Get currency symbol based on ticker suffix or selected market"""
+    
+    # Check ticker suffix first
+    if '.NS' in ticker or '.BO' in ticker:
+        return '{currency}'  # Indian Rupee
+    elif '.L' in ticker:
+        return '£'  # British Pound
+    elif '.T' in ticker:
+        return '¥'  # Japanese Yen
+    
+    # Check selected market as fallback
+    if selected_market:
+        if 'India' in selected_market:
+            return '{currency}'
+        elif 'UK' in selected_market:
+            return '£'
+        elif 'Japan' in selected_market:
+            return '¥'
+    
+    # Default to USD
+    return '$'
+    
 def fetchintradaydataticker(ticker, interval='5m', period='5d'):
     stock = yf.Ticker(ticker)
     hist = stock.history(period=period, interval=interval)
@@ -884,12 +907,12 @@ def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
 Provide a concise 2-3 sentence overview blending technical posture, recent news/sentiment, and the primary quantitative indicator trend (RSI, MACD, MA).
 
 **2. Quantitative Snapshot:**
-- Current Price: ₹{price:.2f}
+- Current Price: {currency}{price:.2f}
 - Signal: {results.get('signal', 'HOLD')}
 - RSI: {rsi:.2f} ({rsi_signal})
 - Trend: {trend}
 - Position Size: {results.get('position_size', 0)} shares
-- Capital Required: ₹{results.get('capital_used', 0):,.0f}
+- Capital Required: {currency}{results.get('capital_used', 0):,.0f}
 
 **3. Detailed Technical Analysis**
 **MACD Analysis:**
@@ -903,8 +926,8 @@ Provide a concise 2-3 sentence overview blending technical posture, recent news/
 - MA50 vs MA200: {ma_50:.2f} vs {results['moving_averages']['MA_200']:.2f}
 
 **Key Levels:**
-- Resistance: ₹{results.get('resistance', 0):.2f} (+{((results.get('resistance', 0) - price) / price * 100):.2f}%)
-- Support: ₹{results.get('support', 0):.2f} ({((price - results.get('support', 0)) / price * 100):.2f}%)
+- Resistance: {currency}{results.get('resistance', 0):.2f} (+{((results.get('resistance', 0) - price) / price * 100):.2f}%)
+- Support: {currency}{results.get('support', 0):.2f} ({((price - results.get('support', 0)) / price * 100):.2f}%)
 
 **Technical Posture:** {
     'Strong Bullish' if price > ma_50 > results['moving_averages']['MA_200']
@@ -1548,7 +1571,7 @@ def analyze_portfolio(tickers_list):
 
                 portfolio_results.append({
                     'Ticker': ticker,
-                    'Price': f"₹{latest_price:.2f}",
+                    'Price': f"{currency}{latest_price:.2f}",
                     'RSI': f"{rsi:.2f}",
                     'Signal': signal
                 })
@@ -2138,6 +2161,7 @@ class StockAnalyzer:
             results['confirmation_checklist'] = self.run_confirmation_checklist(results)
             results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
 
+            results['currency'] = get_currency_symbol(self.ticker)
             return results
 
         except Exception as e:
@@ -2363,7 +2387,7 @@ def main():
 
     # Capital & Risk
     st.sidebar.subheader("💰 Capital & Risk")
-    total_capital = st.sidebar.number_input("Total Capital (₹)", value=100000, step=10000)
+    total_capital = st.sidebar.number_input("Total Capital ({currency})", value=100000, step=10000)
     risk_per_trade = st.sidebar.slider("Risk Per Trade (%)", 1, 5, 2) / 100
 
     # Notification Settings
@@ -2475,7 +2499,7 @@ def main():
                 elif method == "By Exchange":
                     # Get market-specific currency symbol
                     currency_map = {
-                        "🇮🇳 India (NSE/BSE)": "₹",
+                        "🇮🇳 India (NSE/BSE)": "{currency}",
                         "🇺🇸 USA (NYSE/NASDAQ)": "$",
                         "🇬🇧 UK (LSE)": "£",
                         "🇯🇵 Japan (TSE)": "¥"
@@ -2654,7 +2678,8 @@ def main():
         with col2:
             if 'analysis_results' in st.session_state:
                 results = st.session_state['analysis_results']
-                st.metric("Price", f"₹{results['latest_price']:.2f}")
+                currency = results.get('currency', '{currency}')
+                st.metric("Price", f"{currency}{results['latest_price']:.2f}")
                 st.metric("Signal", results.get('signal', 'HOLD'))
                 st.metric("RSI", f"{results['rsi']:.2f}")
 
@@ -2676,11 +2701,11 @@ def main():
                 st.subheader("📊 Intraday Trading Dashboard")
 
                 col1, col2, col3, col4, col5 = st.columns(5)
-                col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
+                col1.metric("Current Price", f"{currency}{results['latest_price']:.2f}")
                 col2.metric("Signal", results['signal'])
                 col3.metric("RSI", f"{results['rsi']:.2f}")
                 col4.metric("Position Size", f"{results.get('position_size', 0)} shares")
-                col5.metric("Capital Used", f"₹{results.get('capital_used', 0):,.0f}")
+                col5.metric("Capital Used", f"{currency}{results.get('capital_used', 0):,.0f}")
 
                 # Intraday data display
                 if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
@@ -2689,7 +2714,7 @@ def main():
                     latest_volume_5m = latest_5m.get('volume', 'N/A')
             
                     st.markdown("### 📈 Latest Intraday Data (5-minute)")
-                    st.write(f"Latest Close Price: ₹{latest_close_5m}")
+                    st.write(f"Latest Close Price: {currency}{latest_close_5m}")
                     st.write(f"Latest Volume: {int(latest_volume_5m) if isinstance(latest_volume_5m, (int, float)) else latest_volume_5m}")
                 else:
                     st.write("Intraday data (5-minute) not available.")
@@ -2752,8 +2777,8 @@ def main():
                     
                     if inside_bar.get('detected', False):
                         st.success("✅ Inside Bar Detected!")
-                        st.write(f"**Buy Trigger:** ₹{inside_bar.get('buy_trigger', 0):.2f}")
-                        st.write(f"**Sell Trigger:** ₹{inside_bar.get('sell_trigger', 0):.2f}")
+                        st.write(f"**Buy Trigger:** {currency}{inside_bar.get('buy_trigger', 0):.2f}")
+                        st.write(f"**Sell Trigger:** {currency}{inside_bar.get('sell_trigger', 0):.2f}")
                         st.caption(inside_bar.get('message', ''))
                     else:
                         st.info("ℹ️ No Inside Bar")
@@ -2778,9 +2803,9 @@ def main():
                 with ind_col1:
                     st.markdown("**Bollinger Bands**")
                     bb = results.get('bollinger_bands', {})
-                    st.write(f"Upper: ₹{bb.get('upper', 0):.2f}")
-                    st.write(f"Middle: ₹{bb.get('middle', 0):.2f}")
-                    st.write(f"Lower: ₹{bb.get('lower', 0):.2f}")
+                    st.write(f"Upper: {currency}{bb.get('upper', 0):.2f}")
+                    st.write(f"Middle: {currency}{bb.get('middle', 0):.2f}")
+                    st.write(f"Lower: {currency}{bb.get('lower', 0):.2f}")
                     
                     # BB Signal
                     current_price = results['latest_price']
@@ -2807,8 +2832,8 @@ def main():
                 
                 with ind_col3:
                     st.markdown("**VWAP/VWMA**")
-                    st.write(f"VWAP: ₹{results.get('vwap', 0):.2f}")
-                    st.write(f"VWMA: ₹{results.get('vwma', 0):.2f}")
+                    st.write(f"VWAP: {currency}{results.get('vwap', 0):.2f}")
+                    st.write(f"VWMA: {currency}{results.get('vwma', 0):.2f}")
                     
                     if current_price > results.get('vwap', 0):
                         st.success("🟢 Above VWAP (Bullish)")
@@ -2818,7 +2843,7 @@ def main():
                 with ind_col4:
                     st.markdown("**SuperTrend**")
                     supertrend = results.get('supertrend', {})
-                    st.write(f"Value: ₹{supertrend.get('value', 0):.2f}")
+                    st.write(f"Value: {currency}{supertrend.get('value', 0):.2f}")
                     
                     trend = supertrend.get('trend', 'neutral')
                     if trend == 'uptrend':
@@ -2837,13 +2862,13 @@ def main():
                 mas = results.get('moving_averages', {})
                 
                 with ma_col1:
-                    st.metric("MA 20", f"₹{mas.get('MA_20', 0):.2f}")
+                    st.metric("MA 20", f"{currency}{mas.get('MA_20', 0):.2f}")
                 
                 with ma_col2:
-                    st.metric("MA 50", f"₹{mas.get('MA_50', 0):.2f}")
+                    st.metric("MA 50", f"{currency}{mas.get('MA_50', 0):.2f}")
                 
                 with ma_col3:
-                    st.metric("MA 200", f"₹{mas.get('MA_200', 0):.2f}")
+                    st.metric("MA 200", f"{currency}{mas.get('MA_200', 0):.2f}")
                 
                 with ma_col4:
                     # Trend based on MA position
@@ -2899,14 +2924,14 @@ def main():
                 
                 with col1:
                     st.markdown("### 🛑 Stop-Loss")
-                    st.metric("Stop-Loss Price", f"₹{results.get('stop_loss', 0):.2f}",
-                             f"-₹{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
-                    st.metric("Risk Amount", f"₹{results.get('risk_amount', 0):.2f}")
+                    st.metric("Stop-Loss Price", f"{currency}{results.get('stop_loss', 0):.2f}",
+                             f"-{currency}{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
+                    st.metric("Risk Amount", f"{currency}{results.get('risk_amount', 0):.2f}")
                     st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
                     vwap_value = results.get('vwap', results.get('latest_price', 0))
                     if vwap_value > 0:
                         st.info(
-                            f"**VWAP Trailing:** ₹{vwap_value:.2f}\n\n"
+                            f"**VWAP Trailing:** {currency}{vwap_value:.2f}\n\n"
                             "Trail stop to VWAP. Exit if closes below."
                         )
 
@@ -2915,13 +2940,13 @@ def main():
                     st.markdown("### 🎯 Profit Targets")
                     if results.get('targets'):
                         for target in results['targets']:
-                            st.metric(target['level'], f"₹{target['price']:.2f}", f"+₹{target['profit_potential']:.2f}")
+                            st.metric(target['level'], f"{currency}{target['price']:.2f}", f"+{currency}{target['profit_potential']:.2f}")
                 
                 with col3:
                     st.markdown("### 📍 Key Levels")
-                    st.metric("Resistance", f"₹{results.get('resistance', 0):.2f}")
-                    st.metric("Support", f"₹{results.get('support', 0):.2f}")
-                    st.metric("ATR (14)", f"₹{results.get('atr', 0):.2f}")
+                    st.metric("Resistance", f"{currency}{results.get('resistance', 0):.2f}")
+                    st.metric("Support", f"{currency}{results.get('support', 0):.2f}")
+                    st.metric("ATR (14)", f"{currency}{results.get('atr', 0):.2f}")
 
                 # News
                 if results.get('news_headlines'):
@@ -3080,9 +3105,9 @@ def main():
                             for level_name, level_price in list(fib_data['fib_levels'].items())[:7]:
                                 distance = level_price - results['latest_price']
                                 if abs(distance) / results['latest_price'] < 0.01:
-                                    st.success(f"✅ **{level_name}:** ₹{level_price:.2f} ← Near Current Price")
+                                    st.success(f"✅ **{level_name}:** {currency}{level_price:.2f} ← Near Current Price")
                                 else:
-                                    st.write(f"• {level_name}: ₹{level_price:.2f}")
+                                    st.write(f"• {level_name}: {currency}{level_price:.2f}")
                     
                     with fib_col2:
                         st.markdown("### 🎯 Nearest Fib Targets")
@@ -3091,8 +3116,8 @@ def main():
                             for target in fib_data['targets'][:3]:
                                 st.metric(
                                     target['level'], 
-                                    f"₹{target['price']:.2f}",
-                                    f"+₹{target['distance']:.2f}"
+                                    f"{currency}{target['price']:.2f}",
+                                    f"+{currency}{target['distance']:.2f}"
                                 )
                         else:
                             st.info("No nearby Fibonacci targets identified")
@@ -3108,7 +3133,7 @@ def main():
                 st.subheader("📊 Swing Trading Analysis")
                 
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Current Price", f"₹{results['latest_price']:.2f}")
+                col1.metric("Current Price", f"{currency}{results['latest_price']:.2f}")
                 col2.metric("Signal", results['signal'])
                 col3.metric("RSI", f"{results['rsi']:.2f}")
                 
@@ -3123,13 +3148,13 @@ def main():
                 
                 with swing_col1:
                     st.markdown("**52-Week Range**")
-                    st.metric("52W High", f"₹{results.get('52w_high', 0):.2f}")
+                    st.metric("52W High", f"{currency}{results.get('52w_high', 0):.2f}")
                     distance_high = results.get('distance_from_52w_high', 0)
                     st.metric("Distance from High", f"{distance_high:+.2f}%")
                 
                 with swing_col2:
                     st.markdown("**52-Week Low**")
-                    st.metric("52W Low", f"₹{results.get('52w_low', 0):.2f}")
+                    st.metric("52W Low", f"{currency}{results.get('52w_low', 0):.2f}")
                     distance_low = ((results['latest_price'] - results.get('52w_low', 0)) / results.get('52w_low', 1)) * 100
                     st.metric("Distance from Low", f"{distance_low:+.2f}%")
                 
@@ -3139,19 +3164,19 @@ def main():
                     ema_200 = results.get('ema_200', 0)
                     
                     if ema_100:
-                        st.metric("EMA 100", f"₹{ema_100:.2f}")
+                        st.metric("EMA 100", f"{currency}{ema_100:.2f}")
                     else:
                         st.metric("EMA 100", "N/A")
                     
                     if ema_200:
-                        st.metric("EMA 200", f"₹{ema_200:.2f}")
+                        st.metric("EMA 200", f"{currency}{ema_200:.2f}")
                     else:
                         st.metric("EMA 200", "N/A")
                 
                 with swing_col4:
                     st.markdown("**Moving Averages**")
-                    st.metric("MA 50", f"₹{results['moving_averages']['MA_50']:.2f}")
-                    st.metric("MA 200", f"₹{results['moving_averages']['MA_200']:.2f}")
+                    st.metric("MA 50", f"{currency}{results['moving_averages']['MA_50']:.2f}")
+                    st.metric("MA 200", f"{currency}{results['moving_averages']['MA_200']:.2f}")
                 
                 st.markdown("---")
                 st.markdown("### 📊 Trend Analysis")
@@ -3291,7 +3316,7 @@ def main():
         col1, col2, col3 = st.columns(3)
         bt_ticker = col1.text_input("Ticker", "AAPL", key="bt_tick")
         bt_period = col2.selectbox("Period", ["1mo", "3mo", "6mo", "1y", "2y"])
-        bt_capital = col3.number_input("Initial Capital (₹)", value=100000, key="bt_cap")
+        bt_capital = col3.number_input("Initial Capital ({currency})", value=100000, key="bt_cap")
 
         strategy = st.selectbox("Strategy", ["RSI Strategy", "MACD Strategy", "Moving Average Crossover"])
 
@@ -3318,14 +3343,14 @@ def main():
                     col1, col2, col3, col4 = st.columns(4)
                     col1.metric("Total Trades", metrics['total_trades'])
                     col2.metric("Win Rate", f"{metrics['win_rate']:.2f}%")
-                    col3.metric("Total Profit", f"₹{metrics['total_profit']:,.2f}")
+                    col3.metric("Total Profit", f"{currency}{metrics['total_profit']:,.2f}")
                     col4.metric("Return", f"{metrics['total_return_pct']:.2f}%")
 
                     col5, col6, col7, col8 = st.columns(4)
                     col5.metric("Winning Trades", metrics['winning_trades'])
                     col6.metric("Losing Trades", metrics['losing_trades'])
                     col7.metric("Profit Factor", f"{metrics['profit_factor']:.2f}")
-                    col8.metric("Final Capital", f"₹{metrics['final_capital']:,.2f}")
+                    col8.metric("Final Capital", f"{currency}{metrics['final_capital']:,.2f}")
 
                     if backtester.trades:
                         st.markdown("### 📋 Trade History")
@@ -3415,7 +3440,7 @@ def main():
 
             with col3:
                 if order_type == "LIMIT":
-                    limit_price = st.number_input("Limit Price (₹)", value=0.0, step=0.1)
+                    limit_price = st.number_input("Limit Price ({currency})", value=0.0, step=0.1)
                 else:
                     limit_price = None
 
