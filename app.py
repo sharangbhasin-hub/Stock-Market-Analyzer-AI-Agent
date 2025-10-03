@@ -1640,7 +1640,7 @@ def detectcandlestickpatternstalib(self, data):
     
     # 1. HAMMER
     if lowershadow > currbody * 2 and uppershadow < currbody * 0.3 and currisgreen and currrange > 0:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Hammer',
             'type': 'bullish',
             'strength': 85,
