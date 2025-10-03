@@ -2498,17 +2498,6 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             results['pattern_description'] = pattern_data['description']
             results['pattern_impact'] = pattern_impact
 
-            
-            pattern_impact = self.calculate_pattern_impact(pattern_data, latest_price)
-            
-            # Store pattern information in results
-            results['candlestick_pattern'] = pattern_data['pattern']
-            results['pattern_type'] = pattern_data['type']
-            results['pattern_strength'] = pattern_data['strength']
-            results['pattern_confidence'] = pattern_data.get('confidence', 0)
-            results['pattern_category'] = pattern_data.get('category', 'none')
-            results['pattern_description'] = pattern_data['description']
-            results['pattern_impact'] = pattern_impact
 
             # ============ STOP-LOSS CALCULATION ============
             atr = self.calculate_atr(five_min_data, period=14)
