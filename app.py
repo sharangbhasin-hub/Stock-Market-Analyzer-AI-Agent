@@ -2124,9 +2124,9 @@ def main():
 
                         # Fetch news and sentiment
                         headlines = analyzer.scrape_news_headlines(ticker_input)
-                        sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)  # Use new method
+                        sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
                         results['news_headlines'] = headlines
-                        results['sentiment'] = sentiment_detailed['overall_sentiment']
+                        results['sentiment'] = sentiment_detailed['overall_sentiment']  # Store as string
                         results['sentiment_score'] = sentiment_detailed['overall_score']
                         results['sentiment_detailed'] = sentiment_detailed  # Store full breakdown
 
@@ -2162,7 +2162,7 @@ def main():
 
                 # News Sentiment
                 if results.get('sentiment'):
-                    sentiment = results['sentiment']['sentiment']
+                    sentiment = results.get('sentiment', 'Neutral')
                     if sentiment == "Positive":
                         st.success(f"📰 Sentiment: {sentiment}")
                     elif sentiment == "Negative":
