@@ -857,8 +857,8 @@ def analyze_macd_detailed(macd_data, daily_data):
 
 def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
     # Safety checks for all inputs
-    if not isinstance(analysis_results, dict):
-        analysis_results = {}
+    if not isinstance(results, dict):
+        results = {}
     if not isinstance(news_headlines, list):
         news_headlines = []
     
