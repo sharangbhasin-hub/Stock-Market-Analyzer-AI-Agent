@@ -933,18 +933,17 @@ Respond with structured, actionable paragraphs as in a premium research note.
 @st.cache_data(ttl=86400)
 def get_dynamic_tickers(market_name, api_key=None):
     """
-    Fetch tickers dynamically for ALL markets
-    Priority: Alpha Vantage → Alternative APIs → Curated Lists
+    Fetch tickers dynamically for ALL markets with multiple fallbacks
+    Returns: (tickers_list, source_name, errors_list)
     """
     
     base_url = "https://www.alphavantage.co/query"
+    errors = []
     
     try:
         # ==================== USA MARKET ====================
         if "USA" in market_name:
-            st.info("📡 Fetching US stocks...")
-            
-            # Method 1: Alpha Vantage LISTING_STATUS (Best)
+            # Method 1: Alpha Vantage LISTING_STATUS
             if api_key:
                 try:
                     params = {
@@ -958,34 +957,29 @@ def get_dynamic_tickers(market_name, api_key=None):
                         from io import StringIO
                         df = pd.read_csv(StringIO(response.text))
                         tickers = df['symbol'].tolist()[:500]
-                        st.success(f"✅ Loaded {len(tickers)} US stocks from Alpha Vantage")
-                        return tickers
+                        return tickers, "Alpha Vantage Official", errors
                 except Exception as e:
-                    st.warning(f"⚠️ Alpha Vantage failed: {e}")
+                    errors.append(f"Alpha Vantage: {str(e)[:100]}")
             
-            # Method 2: NASDAQ Screener (Fallback - No API key needed)
+            # Method 2: NASDAQ Screener
             try:
-                st.info("📡 Trying NASDAQ Screener...")
                 url = "https://api.nasdaq.com/api/screener/stocks?tableonly=true&limit=1000&download=true"
                 headers = {'User-Agent': 'Mozilla/5.0'}
                 response = requests.get(url, headers=headers, timeout=10)
                 data = response.json()
                 tickers = [row['symbol'] for row in data['data']['rows'][:500]]
-                st.success(f"✅ Loaded {len(tickers)} US stocks from NASDAQ")
-                return tickers
+                return tickers, "NASDAQ Screener", errors
             except Exception as e:
-                st.warning(f"⚠️ NASDAQ Screener failed: {e}")
+                errors.append(f"NASDAQ Screener: {str(e)[:100]}")
             
-            # Method 3: Final fallback
-            st.info("📊 Using curated US stock list")
-            return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 
-                   'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V', 'MA']
+            # Method 3: Extended fallback
+            tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 
+                      'NFLX', 'AMD', 'INTC', 'JPM', 'BAC', 'WMT', 'DIS', 'V', 'MA']
+            return tickers, "Curated US List", errors
         
         # ==================== INDIA MARKET ====================
         elif "India" in market_name:
-            st.info("📡 Fetching NSE/BSE stocks...")
-            
-            # Method 1: NSE Official API (Best for real-time)
+            # Method 1: NSE Official API
             try:
                 headers = {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -1000,103 +994,94 @@ def get_dynamic_tickers(market_name, api_key=None):
                 if response.status_code == 200:
                     data = response.json()
                     tickers = [f"{stock['symbol']}.NS" for stock in data['data']]
-                    st.success(f"✅ Loaded {len(tickers)} NSE stocks from NSE API")
-                    return tickers
+                    return tickers, "NSE Official API", errors
             except Exception as e:
-                st.warning(f"⚠️ NSE API failed: {e}")
+                errors.append(f"NSE API: {str(e)[:100]}")
             
             # Method 2: GitHub Community List
             try:
-                st.info("📡 Trying GitHub community list...")
                 url = "https://raw.githubusercontent.com/BennyThadikaran/eod2/main/src/eod2_data/EQUITY_L.csv"
-                df = pd.read_csv(url, timeout=10)
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                
+                from io import StringIO
+                df = pd.read_csv(StringIO(response.text))
                 tickers = [f"{symbol}.NS" for symbol in df['SYMBOL'].tolist()[:300]]
-                st.success(f"✅ Loaded {len(tickers)} NSE stocks from GitHub")
-                return tickers
+                return tickers, "GitHub Community", errors
             except Exception as e:
-                st.warning(f"⚠️ GitHub source failed: {e}")
+                errors.append(f"GitHub: {str(e)[:100]}")
             
-            # Method 3: Alpha Vantage validated (if API key available)
+            # Method 3: Alpha Vantage validated
             if api_key:
                 try:
-                    st.info("📡 Using Alpha Vantage validated list...")
                     indian_companies = [
                         'RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'ICICIBANK', 'HINDUNILVR',
                         'SBIN', 'BHARTIARTL', 'KOTAKBANK', 'LT', 'ITC', 'AXISBANK',
                         'ASIANPAINT', 'MARUTI', 'TITAN', 'SUNPHARMA', 'ULTRACEMCO',
                         'BAJFINANCE', 'WIPRO', 'HCLTECH', 'NESTLEIND', 'TATAMOTORS',
-                        'TATASTEEL', 'POWERGRID', 'NTPC', 'ONGC', 'M&M', 'TECHM'
+                        'TATASTEEL', 'POWERGRID', 'NTPC', 'ONGC', 'M&M', 'TECHM',
+                        'ADANIPORTS', 'HINDALCO', 'DIVISLAB', 'DRREDDY', 'BAJAJFINSV'
                     ]
                     tickers = [f"{symbol}.NS" for symbol in indian_companies]
-                    st.success(f"✅ Loaded {len(tickers)} NSE stocks (Alpha Vantage compatible)")
-                    return tickers
+                    return tickers, "Alpha Vantage Validated", errors
                 except:
                     pass
             
             # Method 4: Final fallback
-            st.info("📊 Using curated NSE stock list")
-            return ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
-                   'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS', 'LT.NS']
+            tickers = ['RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
+                      'HINDUNILVR.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS', 'LT.NS']
+            return tickers, "Curated NSE List", errors
         
         # ==================== UK MARKET ====================
         elif "UK" in market_name:
-            st.info("📡 Fetching LSE stocks...")
-            
             # Method 1: Alpha Vantage validated (if API key available)
             if api_key:
                 try:
-                    st.info("📡 Using Alpha Vantage validated LSE list...")
                     lse_symbols = [
                         'BARC', 'HSBA', 'BP', 'SHEL', 'VOD', 'AZN', 'GLEN', 'RIO',
                         'LSEG', 'LLOY', 'GSK', 'ULVR', 'DGE', 'NG', 'REL', 'PSON',
                         'CRH', 'CPG', 'ANTO', 'PRU', 'BT-A', 'BA', 'IMB', 'FERG'
                     ]
                     tickers = [f"{symbol}.L" for symbol in lse_symbols]
-                    st.success(f"✅ Loaded {len(tickers)} LSE stocks (Alpha Vantage compatible)")
-                    return tickers
+                    return tickers, "Alpha Vantage Validated LSE", errors
                 except:
                     pass
             
             # Method 2: Extended curated list
-            st.info("📊 Using curated LSE stock list")
             lse_major = [
                 'BARC.L', 'HSBA.L', 'BP.L', 'SHEL.L', 'VOD.L', 'AZN.L', 'GLEN.L', 
                 'RIO.L', 'LSEG.L', 'LLOY.L', 'GSK.L', 'ULVR.L', 'DGE.L', 'NG.L',
                 'REL.L', 'PSON.L', 'CRH.L', 'CPG.L', 'ANTO.L', 'PRU.L', 'BT-A.L',
                 'BA.L', 'IMB.L', 'FERG.L', 'EXPN.L', 'AAL.L', 'BDEV.L', 'FLTR.L'
             ]
-            st.success(f"✅ Loaded {len(lse_major)} LSE stocks")
-            return lse_major
+            return lse_major, "Curated LSE List", errors
         
         # ==================== JAPAN MARKET ====================
         elif "Japan" in market_name:
-            st.info("📡 Fetching TSE stocks...")
-            
-            # Method 1: Extended curated list (Alpha Vantage has limited TSE)
+            # Note: Alpha Vantage has limited TSE coverage
             if api_key:
-                st.warning("⚠️ Alpha Vantage has limited TSE coverage")
+                errors.append("Alpha Vantage: Limited TSE support")
             
-            # Method 2: Comprehensive TSE list
-            st.info("📊 Using curated TSE stock list")
+            # Comprehensive TSE list
             tse_stocks = [
                 '7203.T', '6758.T', '9984.T', '6861.T', '8306.T', '7267.T', '6098.T',
                 '9432.T', '8035.T', '4063.T', '6501.T', '6902.T', '6954.T', '6981.T',
                 '4502.T', '4503.T', '8411.T', '8316.T', '7751.T', '6762.T', '9434.T',
                 '9433.T', '8031.T', '8058.T', '3382.T', '4324.T', '6178.T', '4911.T'
             ]
-            st.success(f"✅ Loaded {len(tse_stocks)} TSE stocks")
-            return tse_stocks
+            return tse_stocks, "Curated TSE List", errors
         
-        return []
+        # Unknown market
+        return [], "Unknown Market", errors
         
     except Exception as e:
-        st.error(f"Error fetching tickers: {e}")
-        return get_fallback_tickers(market_name)
+        errors.append(f"Critical error: {str(e)[:100]}")
+        # Emergency fallback
+        return get_emergency_fallback(market_name), "Emergency Fallback", errors
 
-def get_fallback_tickers(market_name):
-    """Emergency fallback - minimal curated lists"""
-    st.warning("⚠️ Using emergency fallback list")
-    
+
+def get_emergency_fallback(market_name):
+    """Minimal emergency fallback lists"""
     if "USA" in market_name:
         return ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX']
     elif "India" in market_name:
@@ -1107,31 +1092,47 @@ def get_fallback_tickers(market_name):
         return ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T']
     return []
 
+
 def run_premarket_screener(market_name, market_config):
-    """Dynamic pre-market screener with multiple data sources"""
+    """Clean pre-market screener with comprehensive fallbacks"""
     
-    st.write(f"### 🔍 Dynamic Pre-Market Scanner - {market_name}")
-    
-    # Step 1: Fetch tickers dynamically
-    with st.spinner(f"📡 Fetching ticker list for {market_name}..."):
-        all_tickers = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
+    # Fetch tickers with source tracking
+    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHAVANTAGEAPIKEY)
     
     if not all_tickers:
-        st.error("❌ No tickers available")
+        st.error("❌ Unable to fetch stock list")
+        if errors:
+            with st.expander("🔍 View Error Details"):
+                for err in errors:
+                    st.text(err)
         return {}
     
-    st.write(f"📊 Found {len(all_tickers)} stocks to scan")
+    # Show info based on source
+    if errors and "Emergency" in source:
+        # Critical situation - using last resort
+        with st.expander(f"⚠️ EMERGENCY MODE: {source} ({len(all_tickers)} stocks)"):
+            st.error("All primary sources failed. Using minimal stock list.")
+            for err in errors:
+                st.caption(f"• {err}")
+    elif errors:
+        # Some sources failed but we got data
+        with st.expander(f"ℹ️ Using: {source} ({len(all_tickers)} stocks) - Click for details"):
+            st.info(f"Successfully loaded from: **{source}**")
+            if errors:
+                st.caption("Failed sources:")
+                for err in errors:
+                    st.caption(f"  • {err}")
     
-    # Step 2: User filters (optional - can be added later)
+    # Set market-specific filters
     min_price = 10.0 if "USA" in market_name else 50.0
     min_volume = 100000
     
-    # Step 3: Scan stocks
+    # Scan stocks
     screened_list = {}
     progress_bar = st.progress(0)
     status_text = st.empty()
+    status_text.text("🔍 Scanning stocks...")
     
-    # Batch processing for efficiency
     batch_size = 50
     total_processed = 0
     
@@ -1139,22 +1140,16 @@ def run_premarket_screener(market_name, market_config):
         batch_tickers = all_tickers[batch_idx:batch_idx + batch_size]
         
         try:
-            # Download batch data
             data = yf.download(" ".join(batch_tickers), period="5d", 
                              group_by='ticker', auto_adjust=True, progress=False)
             
             for ticker in batch_tickers:
                 try:
-                    # Handle data structure
-                    if len(batch_tickers) > 1:
-                        stock_data = data[ticker]
-                    else:
-                        stock_data = data
+                    stock_data = data[ticker] if len(batch_tickers) > 1 else data
                     
                     if stock_data.empty or len(stock_data) < 2:
                         continue
                     
-                    # Extract metrics
                     last_day = stock_data.iloc[-1]
                     prev_day = stock_data.iloc[-2]
                     
@@ -1162,7 +1157,6 @@ def run_premarket_screener(market_name, market_config):
                     volume = int(last_day['Volume'])
                     change_pct = float((price - prev_day['Close']) / prev_day['Close'] * 100)
                     
-                    # Apply filters
                     if price >= min_price and volume >= min_volume:
                         screened_list[ticker] = {
                             'price': price,
@@ -1170,30 +1164,113 @@ def run_premarket_screener(market_name, market_config):
                             'change_pct': change_pct
                         }
                         
-                        if len(screened_list) >= 50:  # Max 50 results
+                        if len(screened_list) >= 50:
                             break
-                
                 except:
                     continue
             
             total_processed += len(batch_tickers)
             progress_bar.progress(min(total_processed / len(all_tickers), 1.0))
-            status_text.text(f"Scanned: {total_processed}/{len(all_tickers)} | Found: {len(screened_list)}")
             
             if len(screened_list) >= 50:
                 break
-                
         except:
             continue
     
     progress_bar.empty()
     status_text.empty()
     
-    # Display results
+    # Final result - ONE CLEAN LINE
     if screened_list:
-        st.success(f"✅ Found {len(screened_list)} stocks (Price > {min_price}, Volume > {min_volume:,})")
+        st.success(f"✅ Found {len(screened_list)} stocks from **{source}**. Select from sidebar dropdown.")
     else:
-        st.warning("⚠️ No stocks found matching criteria")
+        st.warning(f"⚠️ No stocks matched criteria (Price > {min_price}, Volume > {min_volume:,})")
+    
+    return screened_list
+
+def run_premarket_screener(market_name, market_config):
+    """Clean pre-market screener with minimal UI"""
+    
+    # Fetch tickers
+    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHAVANTAGEAPIKEY)
+    
+    if not all_tickers:
+        st.error("❌ Unable to fetch stock list")
+        if errors:
+            with st.expander("🔍 View Error Details"):
+                for err in errors:
+                    st.text(err)
+        return {}
+    
+    # Show source info only if there were errors (fallback was used)
+    if errors:
+        with st.expander(f"⚠️ Using fallback: {source} ({len(all_tickers)} stocks) - Click to see details"):
+            st.warning(f"Primary sources failed. Using: **{source}**")
+            for err in errors:
+                st.caption(f"• {err}")
+    
+    # Set filters based on market
+    min_price = 10.0 if "USA" in market_name else 50.0
+    min_volume = 100000
+    
+    # Scan stocks
+    screened_list = {}
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    status_text.text("🔍 Scanning stocks...")
+    
+    batch_size = 50
+    total_processed = 0
+    
+    for batch_idx in range(0, len(all_tickers), batch_size):
+        batch_tickers = all_tickers[batch_idx:batch_idx + batch_size]
+        
+        try:
+            data = yf.download(" ".join(batch_tickers), period="5d", 
+                             group_by='ticker', auto_adjust=True, progress=False)
+            
+            for ticker in batch_tickers:
+                try:
+                    stock_data = data[ticker] if len(batch_tickers) > 1 else data
+                    
+                    if stock_data.empty or len(stock_data) < 2:
+                        continue
+                    
+                    last_day = stock_data.iloc[-1]
+                    prev_day = stock_data.iloc[-2]
+                    
+                    price = float(last_day['Close'])
+                    volume = int(last_day['Volume'])
+                    change_pct = float((price - prev_day['Close']) / prev_day['Close'] * 100)
+                    
+                    if price >= min_price and volume >= min_volume:
+                        screened_list[ticker] = {
+                            'price': price,
+                            'volume': volume,
+                            'change_pct': change_pct
+                        }
+                        
+                        if len(screened_list) >= 50:
+                            break
+                except:
+                    continue
+            
+            total_processed += len(batch_tickers)
+            progress_bar.progress(min(total_processed / len(all_tickers), 1.0))
+            
+            if len(screened_list) >= 50:
+                break
+        except:
+            continue
+    
+    progress_bar.empty()
+    status_text.empty()
+    
+    # Final result - ONE LINE
+    if screened_list:
+        st.success(f"✅ Found {len(screened_list)} stocks from **{source}**. Check sidebar to select.")
+    else:
+        st.warning("⚠️ No stocks matched criteria. Try adjusting filters.")
     
     return screened_list
 
