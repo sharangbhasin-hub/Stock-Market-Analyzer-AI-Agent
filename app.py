@@ -2112,8 +2112,8 @@ class StockAnalyzer:
             if results['supertrend']['trend'] == 'uptrend':
                 results['supertrend_target'] = results['supertrend']['value']
 
-            results.get('risk_amount', 0) = round(risk_per_share * results['position_size'], 2)
-            results.get('risk_percent', 0) = round((risk_per_share / results['latest_price']) * 100, 2)
+            results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
+            results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
             results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
 
             results['candlestick_pattern'] = self.check_candlestick_pattern(five_min_data)
