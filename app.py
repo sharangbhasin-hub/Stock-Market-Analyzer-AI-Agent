@@ -2056,7 +2056,7 @@ class StockAnalyzer:
             results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
             results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
             five_min_data = self.compute_vwap(five_min_data)
-            results['vwap'] = five_min_data['vwap'].iloc[-1]
+            results.get('vwap', 0) = five_min_data['vwap'].iloc[-1]
             results['vwma'] = self.compute_vwma(five_min_data)
             results['supertrend'] = self.compute_supertrend(five_min_data)
 
@@ -2075,7 +2075,7 @@ class StockAnalyzer:
 
             stop_loss_atr = results['latest_price'] - (atr * 1.5)
             results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
-            results['trailing_stop_vwap'] = results['vwap']
+            results['trailing_stop_vwap'] = results.get('vwap', 0)
 
             # ============ POSITION SIZE ============
             max_capital_per_trade = 12500
@@ -2892,7 +2892,9 @@ def main():
                              f"-₹{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
                     st.metric("Risk Amount", f"₹{results.get('risk_amount', 0):.2f}")
                     st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
-                    st.info(f"**VWAP Trailing:** ₹{results['vwap']:.2f}\n\nTrail stop to VWAP. Exit if closes below.")
+                    vwap_value = results.get('vwap', results.get('latest_price', 0))
+                    if vwap_value > 0:
+                        st.info(f"**VWAP Trailing:** ₹{vwap_value:.2f}"\n\nTrail stop to VWAP. Exit if closes below.")
                 
                 with col2:
                     st.markdown("### 🎯 Profit Targets")
