@@ -3255,7 +3255,7 @@ def main():
                     if trading_mode == "Intraday Trading":
                         results = analyzer.analyze_for_intraday()
                     else:
-                        results = analyzer.analyze_for_swing(ticker_input)
+                        results = analyzer.analyze_for_swing()
 
                     if results:
                         # Add Fibonacci
