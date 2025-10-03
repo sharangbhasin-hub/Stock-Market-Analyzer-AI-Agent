@@ -1596,6 +1596,15 @@ class StockAnalyzer:
         self.fib_calc = FibonacciCalculator()
         self.risk_manager = RiskManager()
 
+    def setup_sentiment_analyzer(self):
+        """Setup sentiment analyzer with error handling"""
+        try:
+            from transformers import pipeline
+            self.sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+        except Exception as e:
+            print(f"Warning: Could not load sentiment analyzer: {e}")
+            self.sentiment_analyzer = None
+
 
 def detectcandlestickpatternstalib(self, data):
     """
