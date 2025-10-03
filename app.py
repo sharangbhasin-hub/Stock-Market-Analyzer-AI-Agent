@@ -2651,10 +2651,10 @@ def calculate_pattern_impact(self, pattern_data, current_price):
 
         return checklist
 
-    def analyze_for_intraday(self, ticker):
+    def analyze_for_intraday(self):
         """Complete intraday analysis WITH STOP-LOSS"""
         results = {
-            'ticker': ticker,
+            'ticker': self.ticker,
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             'market_open': is_market_open()
         }
@@ -2746,17 +2746,17 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             results['targets'] = [
                 {
                     "level": "Target 1 (1:1.5)", 
-                    "price": round(results['latest_price'] + risk * 1.5 * target_mult, 2),
+                    "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
                     "profitpotential": round(risk * 1.5 * target_mult * results['position_size'], 2)
                 },
                 {
                     "level": "Target 2 (1:2)", 
-                    "price": round(results['latest_price'] + risk * 2.0 * target_mult, 2),
+                    "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
                     "profitpotential": round(risk * 2.0 * target_mult * results['position_size'], 2)
                 },
                 {
                     "level": "Target 3 (1:3)", 
-                    "price": round(results['latest_price'] + risk * 3.0 * target_mult, 2),
+                    "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
                     "profitpotential": round(risk * 3.0 * target_mult * results['position_size'], 2)
                 },
             ]
@@ -2769,7 +2769,6 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
             results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
 
-            results['candlestick_pattern'] = self.check_candlestick_pattern(five_min_data)
             results['inside_bar'] = self.detect_inside_bar_pattern(fifteen_min_data)
             results['breakout_status'] = self.detect_breakout_retest(five_min_data, sr_levels['resistance'])
 
@@ -2780,7 +2779,7 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             results['confirmation_checklist'] = self.run_confirmation_checklist(results)
             results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
 
-            results['currency'] = get_currency_symbol(self.ticker)
+            results['currency'] = get_currency_symbol(self.ticker, None)
             return results
 
         except Exception as e:
