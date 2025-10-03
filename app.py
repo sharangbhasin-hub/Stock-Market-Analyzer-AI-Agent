@@ -1647,77 +1647,77 @@ def detectcandlestickpatternstalib(self, data):
             'confidence': 85,
             'category': 'reversal',
             'description': 'Strong bullish reversal at support - Buyers regained control'
-        }
+        })
     
     # 2. BULLISH ENGULFING
     if previsred and currisgreen and curropen < prevclose and currclose > prevopen and currbody > prevbody * 1.3:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Bullish Engulfing',
             'type': 'bullish',
             'strength': 90,
             'confidence': 90,
             'category': 'reversal',
             'description': 'Very strong bullish reversal - Large buying pressure'
-        }
+        })
     
     # 3. MORNING STAR
     if c3['Close'] < c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisgreen and currclose > c3['Open'] + c3['Close'] / 2:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Morning Star',
             'type': 'bullish',
             'strength': 95,
             'confidence': 95,
             'category': 'reversal',
             'description': 'Extremely strong bullish reversal - 3-candle bottom pattern'
-        }
+        })
     
     # BEARISH PATTERNS
     
     # 4. SHOOTING STAR
     if uppershadow > currbody * 2 and lowershadow < currbody * 0.3 and currisred and currrange > 0:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Shooting Star',
             'type': 'bearish',
             'strength': 85,
             'confidence': 85,
             'category': 'reversal',
             'description': 'Strong bearish reversal at resistance - Sellers regained control'
-        }
+        })
     
     # 5. BEARISH ENGULFING
     if previsgreen and currisred and curropen > prevclose and currclose < prevopen and currbody > prevbody * 1.3:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Bearish Engulfing',
             'type': 'bearish',
             'strength': 90,
             'confidence': 90,
             'category': 'reversal',
             'description': 'Very strong bearish reversal - Large selling pressure'
-        }
+        })
     
     # 6. EVENING STAR
     if c3['Close'] > c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisred and currclose < c3['Open'] + c3['Close'] / 2:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Evening Star',
             'type': 'bearish',
             'strength': 95,
             'confidence': 95,
             'category': 'reversal',
             'description': 'Extremely strong bearish reversal - 3-candle top pattern'
-        }
+        })
     
     # NEUTRAL
     
     # 7. DOJI
     if currbody < currrange * 0.1 and currrange > 0:
-        patternsfound.append{
+        patternsfound.append({
             'pattern': 'Doji',
             'type': 'neutral',
             'strength': 50,
             'confidence': 70,
             'category': 'indecision',
             'description': 'Market indecision - Wait for confirmation'
-        }
+        })
     
     # Return strongest pattern
     if patternsfound:
