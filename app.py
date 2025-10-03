@@ -781,10 +781,25 @@ Provide a concise 2-3 sentence overview blending technical posture, recent news/
 - Capital Required: ₹{results.get('capital_used', 0):,.0f}
 
 **3. Detailed Technical Analysis**
-- MACD: Line={macd['line']:.2f}, Signal={macd['signal']:.2f}, Histogram={macd['histogram']:.2f} → {macd_signal}
+**MACD Analysis:**
+- MACD Line: {macd['line']:.2f}
+- Signal Line: {macd['signal']:.2f}
+- Histogram: {macd['histogram']:.2f}
+- Signal: {macd_signal}
+
+**Moving Average Configuration:**
 - Price vs MA50: {price:.2f} vs {ma_50:.2f} ({'Above' if price > ma_50 else 'Below'})
-- Key Levels: Resistance=₹{results['resistance']:.2f}, Support=₹{results['support']:.2f}
-- Technical Posture: {'Strong Bullish' if price > ma_50 > results['moving_averages']['MA_200'] else 'Strong Bearish' if price < ma_50 < results['moving_averages']['MA_200'] else 'Mixed/Consolidating'}
+- MA50 vs MA200: {ma_50:.2f} vs {results['moving_averages']['MA_200']:.2f}
+
+**Key Levels:**
+- Resistance: ₹{results['resistance']:.2f} (+{((results['resistance'] - price) / price * 100):.2f}%)
+- Support: ₹{results['support']:.2f} ({((price - results['support']) / price * 100):.2f}%)
+
+**Technical Posture:** {
+    'Strong Bullish' if price > ma_50 > results['moving_averages']['MA_200']
+    else 'Strong Bearish' if price < ma_50 < results['moving_averages']['MA_200']
+    else 'Mixed/Consolidating'
+}
 
 **4. Qualitative Context: News & Sentiment**
 - Sentiment: {sentiment.get('sentiment', 'Neutral')}
@@ -792,10 +807,23 @@ Provide a concise 2-3 sentence overview blending technical posture, recent news/
 - Top Headlines: {'; '.join(news_headlines[:3]) if news_headlines else 'No recent news found.'}
 
 **5. Integrated Outlook & Analyst View**
+**Alignment Check:**
+- Do technical signals (MACD: {macd_signal}, Trend: {trend}) align with sentiment ({sentiment.get('sentiment', 'Neutral')})?
+- Are there any divergences or contradictions?
 - Does technical posture align with current sentiment and news flow?
 - Discuss divergences (e.g., bullish technicals vs. negative news).
+
+**Forward-Looking Perspective:**
+- What are potential catalysts (from news)?
+- What are key risks (technical or fundamental)?
+- Which levels should traders watch closely?
 - Key upcoming events or catalysts from news.
 - Key risks (technical breakdown, bearish sentiment, etc.).
+
+**Trading Recommendation:**
+- Suggested action: BUY / SELL / HOLD
+- Confidence level
+- Entry/Exit strategy
 - Provide actionable view: recommend BUY/SELL/HOLD with confidence; mention critical levels for stops and targets.
 
 Respond with structured, actionable paragraphs as in a premium research note.
