@@ -1249,7 +1249,7 @@ class StockAnalyzer:
                 self.sentiment_analyzer = None
 
     def analyze_sentiment_detailed(self, headlines):
-    """Analyze sentiment with per-article breakdown"""
+        """Analyze sentiment with per-article breakdown"""
     if not headlines or not self.sentiment_analyzer:
         return {
             'overall_sentiment': 'Neutral',
