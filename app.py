@@ -2474,7 +2474,7 @@ def main():
                     if st.button(f"🔄 Load {selected_market} Stocks", type="primary"):
                         with st.spinner(f"Loading..."):
                             # Use the same dynamic fetcher
-                            all_tickers, source, errors = get_dynamic_tickers(selected_market, ALPHAVANTAGEAPIKEY)
+                            all_tickers, source, errors = get_dynamic_tickers(selected_market, ALPHA_VANTAGE_API_KEY)
                             
                             if all_tickers:
                                 stocks_dict = {}
