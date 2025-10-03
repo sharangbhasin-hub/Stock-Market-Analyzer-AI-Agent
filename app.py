@@ -2486,8 +2486,8 @@ def calculate_pattern_impact(self, pattern_data, current_price):
             results['support'] = sr_levels['support']
 
             # ========== CANDLESTICK PATTERN ANALYSIS ==========
-            pattern_data = self.detect_candlestick_patterns_talib(five_min_data)
-            pattern_impact = self.calculate_pattern_impact(pattern_data, results['latest_price'])
+            pattern_data = self.detectcandlestickpatternstalib(five_min_data)
+            pattern_impact = self.calculatepatternimpact(pattern_data, results['latest_price'])
             
             # Store pattern information
             results['candlestick_pattern'] = pattern_data['pattern']
