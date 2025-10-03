@@ -2504,7 +2504,8 @@ def main():
                         "🇬🇧 UK (LSE)": "£",
                         "🇯🇵 Japan (TSE)": "¥"
                     }
-                    currency = currency_map.get(selected_market, "$")
+                    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+
                     
                     if st.button(f"🔄 Load {selected_market} Stocks", type="primary"):
                         with st.spinner(f"Loading..."):
@@ -2678,7 +2679,6 @@ def main():
         with col2:
             if 'analysis_results' in st.session_state:
                 results = st.session_state['analysis_results']
-                currency = results.get('currency', '{currency}')
                 st.metric("Price", f"{currency}{results['latest_price']:.2f}")
                 st.metric("Signal", results.get('signal', 'HOLD'))
                 st.metric("RSI", f"{results['rsi']:.2f}")
