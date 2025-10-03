@@ -1589,12 +1589,12 @@ def analyze_portfolio(tickers_list):
 # ==============================================================================
 
 class StockAnalyzer:
-def __init__(self, ticker=None):
-    self.ticker = ticker
-    self.sentiment_analyzer = None
-    self.setup_sentiment_analyzer()
-    self.fib_calc = FibonacciCalculator()
-    self.risk_manager = RiskManager()
+    def __init__(self, ticker=None):
+        self.ticker = ticker
+        self.sentiment_analyzer = None
+        self.setup_sentiment_analyzer()
+        self.fib_calc = FibonacciCalculator()
+        self.risk_manager = RiskManager()
 
 
 def detectcandlestickpatternstalib(self, data):
