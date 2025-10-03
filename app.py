@@ -892,8 +892,8 @@ Provide a concise 2-3 sentence overview blending technical posture, recent news/
 - MA50 vs MA200: {ma_50:.2f} vs {results['moving_averages']['MA_200']:.2f}
 
 **Key Levels:**
-- Resistance: ₹{results['resistance']:.2f} (+{((results['resistance'] - price) / price * 100):.2f}%)
-- Support: ₹{results['support']:.2f} ({((price - results['support']) / price * 100):.2f}%)
+- Resistance: ₹{results.get('resistance', 0):.2f} (+{((results.get('resistance', 0) - price) / price * 100):.2f}%)
+- Support: ₹{results.get('support', 0):.2f} ({((price - results.get('support', 0)) / price * 100):.2f}%)
 
 **Technical Posture:** {
     'Strong Bullish' if price > ma_50 > results['moving_averages']['MA_200']
@@ -2061,15 +2061,15 @@ class StockAnalyzer:
             results['supertrend'] = self.compute_supertrend(five_min_data)
 
             sr_levels = self.detect_support_resistance(fifteen_min_data)
-            results['resistance'] = sr_levels['resistance']
-            results['support'] = sr_levels['support']
+            results.get('resistance', 0) = sr_levels['resistance']
+            results.get('support', 0) = sr_levels['support']
 
             # ============ STOP-LOSS CALCULATION ============
             atr = self.calculate_atr(five_min_data, period=14)
             results['atr'] = atr
 
-            if results['support'] > 0:
-                stop_loss_support = results['support'] * 0.995
+            if results.get('support', 0) > 0:
+                stop_loss_support = results.get('support', 0) * 0.995
             else:
                 stop_loss_support = results['latest_price'] * 0.98
 
@@ -2112,8 +2112,8 @@ class StockAnalyzer:
             if results['supertrend']['trend'] == 'uptrend':
                 results['supertrend_target'] = results['supertrend']['value']
 
-            results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
-            results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
+            results.get('risk_amount', 0) = round(risk_per_share * results['position_size'], 2)
+            results.get('risk_percent', 0) = round((risk_per_share / results['latest_price']) * 100, 2)
             results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
 
             results['candlestick_pattern'] = self.check_candlestick_pattern(five_min_data)
@@ -2908,8 +2908,8 @@ def main():
                 
                 with col3:
                     st.markdown("### 📍 Key Levels")
-                    st.metric("Resistance", f"₹{results['resistance']:.2f}")
-                    st.metric("Support", f"₹{results['support']:.2f}")
+                    st.metric("Resistance", f"₹{results.get('resistance', 0):.2f}")
+                    st.metric("Support", f"₹{results.get('support', 0):.2f}")
                     st.metric("ATR (14)", f"₹{results.get('atr', 0):.2f}")
 
                 # News
