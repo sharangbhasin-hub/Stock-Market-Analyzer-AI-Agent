@@ -1130,131 +1130,50 @@ def get_emergency_fallback(market_name):
 
 
 def run_premarket_screener(market_name, market_config):
-    """Clean pre-market screener with comprehensive fallbacks"""
+    """Pre-market screener with comprehensive error handling and user feedback"""
     
     # Fetch tickers with source tracking
     all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
     
+    # Handle no tickers scenario
     if not all_tickers:
-        st.error("❌ Unable to fetch stock list")
+        st.error("❌ Unable to fetch stock list from any source")
         if errors:
-            with st.expander("🔍 View Error Details"):
+            with st.expander("🔍 Click to view error details"):
                 for err in errors:
-                    st.text(err)
+                    st.text(f"• {err}")
         return {}
     
-    # Show info based on source
+    # Show appropriate feedback based on data source quality
     if errors and "Emergency" in source:
-        # Critical situation - using last resort
+        # Critical situation - all primary sources failed
         with st.expander(f"⚠️ EMERGENCY MODE: {source} ({len(all_tickers)} stocks)"):
-            st.error("All primary sources failed. Using minimal stock list.")
+            st.error("⚠️ All primary data sources failed. Using minimal fallback stock list.")
+            st.caption("Failed sources:")
             for err in errors:
-                st.caption(f"• {err}")
+                st.caption(f"  • {err}")
     elif errors:
-        # Some sources failed but we got data
-        with st.expander(f"ℹ️ Using: {source} ({len(all_tickers)} stocks) - Click for details"):
-            st.info(f"Successfully loaded from: **{source}**")
-            if errors:
-                st.caption("Failed sources:")
-                for err in errors:
-                    st.caption(f"  • {err}")
-    
-    # Set market-specific filters
-    min_price = 10.0 if "USA" in market_name else 50.0
-    min_volume = 100000
-    
-    # Scan stocks
-    screened_list = {}
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    status_text.text("🔍 Scanning stocks...")
-    
-    batch_size = 50
-    total_processed = 0
-    
-    for batch_idx in range(0, len(all_tickers), batch_size):
-        batch_tickers = all_tickers[batch_idx:batch_idx + batch_size]
-        
-        try:
-            data = yf.download(" ".join(batch_tickers), period="5d", 
-                             group_by='ticker', auto_adjust=True, progress=False)
-            
-            for ticker in batch_tickers:
-                try:
-                    stock_data = data[ticker] if len(batch_tickers) > 1 else data
-                    
-                    if stock_data.empty or len(stock_data) < 2:
-                        continue
-                    
-                    last_day = stock_data.iloc[-1]
-                    prev_day = stock_data.iloc[-2]
-                    
-                    price = float(last_day['Close'])
-                    volume = int(last_day['Volume'])
-                    change_pct = float((price - prev_day['Close']) / prev_day['Close'] * 100)
-                    
-                    if price >= min_price and volume >= min_volume:
-                        screened_list[ticker] = {
-                            'price': price,
-                            'volume': volume,
-                            'change_pct': change_pct
-                        }
-                        
-                        if len(screened_list) >= 50:
-                            break
-                except:
-                    continue
-            
-            total_processed += len(batch_tickers)
-            progress_bar.progress(min(total_processed / len(all_tickers), 1.0))
-            
-            if len(screened_list) >= 50:
-                break
-        except:
-            continue
-    
-    progress_bar.empty()
-    status_text.empty()
-    
-    # Final result - ONE CLEAN LINE
-    if screened_list:
-        st.success(f"✅ Found {len(screened_list)} stocks from **{source}**. Select from sidebar dropdown.")
-    else:
-        st.warning(f"⚠️ No stocks matched criteria (Price > {min_price}, Volume > {min_volume:,})")
-    
-    return screened_list
-
-def run_premarket_screener(market_name, market_config):
-    """Clean pre-market screener with minimal UI"""
-    
-    # Fetch tickers
-    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
-    
-    if not all_tickers:
-        st.error("❌ Unable to fetch stock list")
-        if errors:
-            with st.expander("🔍 View Error Details"):
-                for err in errors:
-                    st.text(err)
-        return {}
-    
-    # Show source info only if there were errors (fallback was used)
-    if errors:
-        with st.expander(f"⚠️ Using fallback: {source} ({len(all_tickers)} stocks) - Click to see details"):
-            st.warning(f"Primary sources failed. Using: **{source}**")
+        # Some sources failed but we got data from a fallback
+        with st.expander(f"ℹ️ Data Source: {source} ({len(all_tickers)} stocks) - Click for details"):
+            st.info(f"✅ Successfully loaded from: **{source}**")
+            st.caption("Note: Some sources were unavailable:")
             for err in errors:
-                st.caption(f"• {err}")
+                st.caption(f"  • {err}")
+    else:
+        # All good - no errors
+        st.success(f"✅ Loaded {len(all_tickers)} stocks from **{source}**")
     
-    # Set filters based on market
+    # Set market-specific filtering criteria
     min_price = 10.0 if "USA" in market_name else 50.0
     min_volume = 100000
     
-    # Scan stocks
+    # Initialize screening
     screened_list = {}
     progress_bar = st.progress(0)
     status_text = st.empty()
-    status_text.text("🔍 Scanning stocks...")
+    status_text.text("🔍 Scanning stocks for trading opportunities...")
     
+    # Process in batches for efficiency
     batch_size = 50
     total_processed = 0
     
@@ -1262,23 +1181,35 @@ def run_premarket_screener(market_name, market_config):
         batch_tickers = all_tickers[batch_idx:batch_idx + batch_size]
         
         try:
-            data = yf.download(" ".join(batch_tickers), period="5d", 
-                             group_by='ticker', auto_adjust=True, progress=False)
+            # Download batch data
+            data = yf.download(
+                " ".join(batch_tickers), 
+                period="5d", 
+                group_by='ticker', 
+                auto_adjust=True, 
+                progress=False
+            )
             
+            # Process each ticker in the batch
             for ticker in batch_tickers:
                 try:
+                    # Extract ticker data
                     stock_data = data[ticker] if len(batch_tickers) > 1 else data
                     
+                    # Skip if insufficient data
                     if stock_data.empty or len(stock_data) < 2:
                         continue
                     
+                    # Get latest and previous day data
                     last_day = stock_data.iloc[-1]
                     prev_day = stock_data.iloc[-2]
                     
+                    # Extract metrics
                     price = float(last_day['Close'])
                     volume = int(last_day['Volume'])
                     change_pct = float((price - prev_day['Close']) / prev_day['Close'] * 100)
                     
+                    # Apply filters
                     if price >= min_price and volume >= min_volume:
                         screened_list[ticker] = {
                             'price': price,
@@ -1286,27 +1217,38 @@ def run_premarket_screener(market_name, market_config):
                             'change_pct': change_pct
                         }
                         
+                        # Stop if we have enough stocks
                         if len(screened_list) >= 50:
                             break
-                except:
+                
+                except Exception:
+                    # Skip problematic tickers silently
                     continue
             
+            # Update progress
             total_processed += len(batch_tickers)
             progress_bar.progress(min(total_processed / len(all_tickers), 1.0))
             
+            # Break if we have enough stocks
             if len(screened_list) >= 50:
                 break
-        except:
+        
+        except Exception:
+            # Skip failed batches silently
             continue
     
+    # Clean up progress indicators
     progress_bar.empty()
     status_text.empty()
     
-    # Final result - ONE LINE
+    # Display final results
     if screened_list:
-        st.success(f"✅ Found {len(screened_list)} stocks from **{source}**. Check sidebar to select.")
+        st.success(f"✅ Found **{len(screened_list)} stocks** from {source} that meet criteria")
+        st.info("💡 Select a stock from the sidebar dropdown to begin analysis")
     else:
-        st.warning("⚠️ No stocks matched criteria. Try adjusting filters.")
+        st.warning(f"⚠️ No stocks matched screening criteria")
+        st.info(f"📊 Criteria: Price ≥ ₹{min_price if 'India' in market_name else '$' + str(min_price)}, Volume ≥ {min_volume:,}")
+        st.info("💡 Try selecting a different market or manually enter a ticker symbol")
     
     return screened_list
 
