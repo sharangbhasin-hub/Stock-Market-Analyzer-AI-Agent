@@ -1548,1318 +1548,1318 @@ class StockAnalyzer:
             self.sentiment_analyzer = None
 
 
-def detectcandlestickpatternstalib(self, data):
-    """
-    Comprehensive candlestick pattern detection - Pure Python
-    """
-    
-    if lendata < 5:
-        return {
-            'pattern': 'Insufficient Data',
-            'type': 'neutral',
-            'strength': 0,
-            'confidence': 0,
-            'category': 'none',
-            'description': 'Need at least 5 candles'
+    def detectcandlestickpatternstalib(self, data):
+        """
+        Comprehensive candlestick pattern detection - Pure Python
+        """
+        
+        if lendata < 5:
+            return {
+                'pattern': 'Insufficient Data',
+                'type': 'neutral',
+                'strength': 0,
+                'confidence': 0,
+                'category': 'none',
+                'description': 'Need at least 5 candles'
+            }
+        
+        patternsfound = []
+        
+        # Get last 5 candles
+        c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
+        
+        # Current candle
+        curropen = c5['Open'] if 'Open' in c5.index else c5['open']
+        currhigh = c5['High'] if 'High' in c5.index else c5['high']
+        currlow = c5['Low'] if 'Low' in c5.index else c5['low']
+        currclose = c5['Close'] if 'Close' in c5.index else c5['close']
+        currbody = abscurrclose - curropen
+        currrange = currhigh - currlow
+        
+        # Previous candle
+        prevopen = c4['Open'] if 'Open' in c4.index else c4['open']
+        prevclose = c4['Close'] if 'Close' in c4.index else c4['close']
+        prevbody = absprevclose - prevopen
+        
+        currisgreen = currclose > curropen
+        currisred = currclose < curropen
+        previsgreen = prevclose > prevopen
+        previsred = prevclose < prevopen
+        
+        lowershadow = mincurropen, currclose - currlow
+        uppershadow = currhigh - maxcurropen, currclose
+        
+        # BULLISH PATTERNS
+        
+        # 1. HAMMER
+        if lowershadow > currbody * 2 and uppershadow < currbody * 0.3 and currisgreen and currrange > 0:
+            patternsfound.append({
+                'pattern': 'Hammer',
+                'type': 'bullish',
+                'strength': 85,
+                'confidence': 85,
+                'category': 'reversal',
+                'description': 'Strong bullish reversal at support - Buyers regained control'
+            })
+        
+        # 2. BULLISH ENGULFING
+        if previsred and currisgreen and curropen < prevclose and currclose > prevopen and currbody > prevbody * 1.3:
+            patternsfound.append({
+                'pattern': 'Bullish Engulfing',
+                'type': 'bullish',
+                'strength': 90,
+                'confidence': 90,
+                'category': 'reversal',
+                'description': 'Very strong bullish reversal - Large buying pressure'
+            })
+        
+        # 3. MORNING STAR
+        if c3['Close'] < c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisgreen and currclose > c3['Open'] + c3['Close'] / 2:
+            patternsfound.append({
+                'pattern': 'Morning Star',
+                'type': 'bullish',
+                'strength': 95,
+                'confidence': 95,
+                'category': 'reversal',
+                'description': 'Extremely strong bullish reversal - 3-candle bottom pattern'
+            })
+        
+        # BEARISH PATTERNS
+        
+        # 4. SHOOTING STAR
+        if uppershadow > currbody * 2 and lowershadow < currbody * 0.3 and currisred and currrange > 0:
+            patternsfound.append({
+                'pattern': 'Shooting Star',
+                'type': 'bearish',
+                'strength': 85,
+                'confidence': 85,
+                'category': 'reversal',
+                'description': 'Strong bearish reversal at resistance - Sellers regained control'
+            })
+        
+        # 5. BEARISH ENGULFING
+        if previsgreen and currisred and curropen > prevclose and currclose < prevopen and currbody > prevbody * 1.3:
+            patternsfound.append({
+                'pattern': 'Bearish Engulfing',
+                'type': 'bearish',
+                'strength': 90,
+                'confidence': 90,
+                'category': 'reversal',
+                'description': 'Very strong bearish reversal - Large selling pressure'
+            })
+        
+        # 6. EVENING STAR
+        if c3['Close'] > c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisred and currclose < c3['Open'] + c3['Close'] / 2:
+            patternsfound.append({
+                'pattern': 'Evening Star',
+                'type': 'bearish',
+                'strength': 95,
+                'confidence': 95,
+                'category': 'reversal',
+                'description': 'Extremely strong bearish reversal - 3-candle top pattern'
+            })
+        
+        # NEUTRAL
+        
+        # 7. DOJI
+        if currbody < currrange * 0.1 and currrange > 0:
+            patternsfound.append({
+                'pattern': 'Doji',
+                'type': 'neutral',
+                'strength': 50,
+                'confidence': 70,
+                'category': 'indecision',
+                'description': 'Market indecision - Wait for confirmation'
+            })
+        
+        # Return strongest pattern
+        if patternsfound:
+            patternsfound.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
+            return patternsfound0
+        else:
+            return {
+                'pattern': 'No Significant Pattern',
+                'type': 'neutral',
+                'strength': 0,
+                'confidence': 0,
+                'category': 'none',
+                'description': 'No clear pattern detected'
+            }
+
+    def calculatepatternimpact(self, patterndata, currentprice):
+        """Calculate pattern impact on trading decisions"""
+        
+        patterntype = patterndata['type']
+        strength = patterndata['strength']
+        
+        impact = {
+            'signal_boost': 0,
+            'stop_loss_adjustment': 1.0,
+            'target_multiplier': 1.0,
+            'confidence_boost': 0,
+            'risk_adjustment': 1.0
         }
-    
-    patternsfound = []
-    
-    # Get last 5 candles
-    c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
-    
-    # Current candle
-    curropen = c5['Open'] if 'Open' in c5.index else c5['open']
-    currhigh = c5['High'] if 'High' in c5.index else c5['high']
-    currlow = c5['Low'] if 'Low' in c5.index else c5['low']
-    currclose = c5['Close'] if 'Close' in c5.index else c5['close']
-    currbody = abscurrclose - curropen
-    currrange = currhigh - currlow
-    
-    # Previous candle
-    prevopen = c4['Open'] if 'Open' in c4.index else c4['open']
-    prevclose = c4['Close'] if 'Close' in c4.index else c4['close']
-    prevbody = absprevclose - prevopen
-    
-    currisgreen = currclose > curropen
-    currisred = currclose < curropen
-    previsgreen = prevclose > prevopen
-    previsred = prevclose < prevopen
-    
-    lowershadow = mincurropen, currclose - currlow
-    uppershadow = currhigh - maxcurropen, currclose
-    
-    # BULLISH PATTERNS
-    
-    # 1. HAMMER
-    if lowershadow > currbody * 2 and uppershadow < currbody * 0.3 and currisgreen and currrange > 0:
-        patternsfound.append({
-            'pattern': 'Hammer',
-            'type': 'bullish',
-            'strength': 85,
-            'confidence': 85,
-            'category': 'reversal',
-            'description': 'Strong bullish reversal at support - Buyers regained control'
-        })
-    
-    # 2. BULLISH ENGULFING
-    if previsred and currisgreen and curropen < prevclose and currclose > prevopen and currbody > prevbody * 1.3:
-        patternsfound.append({
-            'pattern': 'Bullish Engulfing',
-            'type': 'bullish',
-            'strength': 90,
-            'confidence': 90,
-            'category': 'reversal',
-            'description': 'Very strong bullish reversal - Large buying pressure'
-        })
-    
-    # 3. MORNING STAR
-    if c3['Close'] < c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisgreen and currclose > c3['Open'] + c3['Close'] / 2:
-        patternsfound.append({
-            'pattern': 'Morning Star',
-            'type': 'bullish',
-            'strength': 95,
-            'confidence': 95,
-            'category': 'reversal',
-            'description': 'Extremely strong bullish reversal - 3-candle bottom pattern'
-        })
-    
-    # BEARISH PATTERNS
-    
-    # 4. SHOOTING STAR
-    if uppershadow > currbody * 2 and lowershadow < currbody * 0.3 and currisred and currrange > 0:
-        patternsfound.append({
-            'pattern': 'Shooting Star',
-            'type': 'bearish',
-            'strength': 85,
-            'confidence': 85,
-            'category': 'reversal',
-            'description': 'Strong bearish reversal at resistance - Sellers regained control'
-        })
-    
-    # 5. BEARISH ENGULFING
-    if previsgreen and currisred and curropen > prevclose and currclose < prevopen and currbody > prevbody * 1.3:
-        patternsfound.append({
-            'pattern': 'Bearish Engulfing',
-            'type': 'bearish',
-            'strength': 90,
-            'confidence': 90,
-            'category': 'reversal',
-            'description': 'Very strong bearish reversal - Large selling pressure'
-        })
-    
-    # 6. EVENING STAR
-    if c3['Close'] > c3['Open'] and absc4['Close'] - c4['Open'] < c3['High'] - c3['Low'] * 0.3 and currisred and currclose < c3['Open'] + c3['Close'] / 2:
-        patternsfound.append({
-            'pattern': 'Evening Star',
-            'type': 'bearish',
-            'strength': 95,
-            'confidence': 95,
-            'category': 'reversal',
-            'description': 'Extremely strong bearish reversal - 3-candle top pattern'
-        })
-    
-    # NEUTRAL
-    
-    # 7. DOJI
-    if currbody < currrange * 0.1 and currrange > 0:
-        patternsfound.append({
-            'pattern': 'Doji',
-            'type': 'neutral',
-            'strength': 50,
-            'confidence': 70,
-            'category': 'indecision',
-            'description': 'Market indecision - Wait for confirmation'
-        })
-    
-    # Return strongest pattern
-    if patternsfound:
-        patternsfound.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
-        return patternsfound0
-    else:
-        return {
-            'pattern': 'No Significant Pattern',
-            'type': 'neutral',
-            'strength': 0,
-            'confidence': 0,
-            'category': 'none',
-            'description': 'No clear pattern detected'
-        }
-
-def calculatepatternimpact(self, patterndata, currentprice):
-    """Calculate pattern impact on trading decisions"""
-    
-    patterntype = patterndata['type']
-    strength = patterndata['strength']
-    
-    impact = {
-        'signal_boost': 0,
-        'stop_loss_adjustment': 1.0,
-        'target_multiplier': 1.0,
-        'confidence_boost': 0,
-        'risk_adjustment': 1.0
-    }
-    
-    # Very strong patterns (strength >= 90)
-    if strength >= 90:
-        if patterntype == 'bullish':
-            impact['signal_boost'] = 2
-            impact['stop_loss_adjustment'] = 0.97
-            impact['target_multiplier'] = 1.4
-            impact['confidence_boost'] = 20
-        elif patterntype == 'bearish':
-            impact['signal_boost'] = -2
-            impact['stop_loss_adjustment'] = 1.03
-            impact['target_multiplier'] = 0.7
-            impact['confidence_boost'] = -20
-    
-    # Strong patterns (80-89)
-    elif strength >= 80:
-        if patterntype == 'bullish':
-            impact['signal_boost'] = 1.5
-            impact['stop_loss_adjustment'] = 0.98
-            impact['target_multiplier'] = 1.25
-            impact['confidence_boost'] = 15
-        elif patterntype == 'bearish':
-            impact['signal_boost'] = -1.5
-            impact['stop_loss_adjustment'] = 1.02
-            impact['target_multiplier'] = 0.8
-            impact['confidence_boost'] = -15
-    
-    # Medium patterns (70-79)
-    elif strength >= 70:
-        if patterntype == 'bullish':
-            impact['signal_boost'] = 1
-            impact['stop_loss_adjustment'] = 0.99
-            impact['target_multiplier'] = 1.15
-            impact['confidence_boost'] = 10
-        elif patterntype == 'bearish':
-            impact['signal_boost'] = -1
-            impact['stop_loss_adjustment'] = 1.01
-            impact['target_multiplier'] = 0.9
-            impact['confidence_boost'] = -10
-    
-    return impact
+        
+        # Very strong patterns (strength >= 90)
+        if strength >= 90:
+            if patterntype == 'bullish':
+                impact['signal_boost'] = 2
+                impact['stop_loss_adjustment'] = 0.97
+                impact['target_multiplier'] = 1.4
+                impact['confidence_boost'] = 20
+            elif patterntype == 'bearish':
+                impact['signal_boost'] = -2
+                impact['stop_loss_adjustment'] = 1.03
+                impact['target_multiplier'] = 0.7
+                impact['confidence_boost'] = -20
+        
+        # Strong patterns (80-89)
+        elif strength >= 80:
+            if patterntype == 'bullish':
+                impact['signal_boost'] = 1.5
+                impact['stop_loss_adjustment'] = 0.98
+                impact['target_multiplier'] = 1.25
+                impact['confidence_boost'] = 15
+            elif patterntype == 'bearish':
+                impact['signal_boost'] = -1.5
+                impact['stop_loss_adjustment'] = 1.02
+                impact['target_multiplier'] = 0.8
+                impact['confidence_boost'] = -15
+        
+        # Medium patterns (70-79)
+        elif strength >= 70:
+            if patterntype == 'bullish':
+                impact['signal_boost'] = 1
+                impact['stop_loss_adjustment'] = 0.99
+                impact['target_multiplier'] = 1.15
+                impact['confidence_boost'] = 10
+            elif patterntype == 'bearish':
+                impact['signal_boost'] = -1
+                impact['stop_loss_adjustment'] = 1.01
+                impact['target_multiplier'] = 0.9
+                impact['confidence_boost'] = -10
+        
+        return impact
 
 
-    def setup_sentiment_analyzer(self):
-        """Initialize sentiment analysis"""
-        try:
-            self.sentiment_analyzer = pipeline("sentiment-analysis", model="ProsusAI/finbert", return_all_scores=True)
-        except:
+        def setup_sentiment_analyzer(self):
+            """Initialize sentiment analysis"""
             try:
-                self.sentiment_analyzer = pipeline("sentiment-analysis")
+                self.sentiment_analyzer = pipeline("sentiment-analysis", model="ProsusAI/finbert", return_all_scores=True)
             except:
-                self.sentiment_analyzer = None
+                try:
+                    self.sentiment_analyzer = pipeline("sentiment-analysis")
+                except:
+                    self.sentiment_analyzer = None
 
-    def analyze_sentiment_detailed(self, headlines):
-        """Analyze sentiment with per-article breakdown"""
-        if not headlines or not self.sentiment_analyzer:
-            return {
-                'overall_sentiment': 'Neutral',
-                'overall_score': 0.0,
-                'articles': []
-            }
-        
-        try:
-            article_sentiments = []
-            sentiment_scores = []
-            
-            for headline in headlines:
-                if len(headline) > 15:
-                    result = self.sentiment_analyzer(headline[:512])
-                    
-                    if isinstance(result[0], list):
-                        sentiment_dict = {item['label']: item['score'] for item in result[0]}
-                        score = sentiment_dict.get('positive', 0) - sentiment_dict.get('negative', 0)
-                        label = 'Positive' if score > 0.1 else 'Negative' if score < -0.1 else 'Neutral'
-                        
-                        article_sentiments.append({
-                            'headline': headline,
-                            'sentiment': label,
-                            'score': round(score, 3),
-                            'positive': round(sentiment_dict.get('positive', 0), 3),
-                            'negative': round(sentiment_dict.get('negative', 0), 3),
-                            'neutral': round(sentiment_dict.get('neutral', 0), 3)
-                        })
-                        sentiment_scores.append(score)
-                    else:
-                        score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
-                        
-                        article_sentiments.append({
-                            'headline': headline,
-                            'sentiment': result[0]['label'],
-                            'score': round(score, 3),
-                            'confidence': round(result[0]['score'], 3)
-                        })
-                        sentiment_scores.append(score)
-            
-            if sentiment_scores:
-                avg_sentiment = np.mean(sentiment_scores)
-                overall = 'Positive' if avg_sentiment > 0.1 else 'Negative' if avg_sentiment < -0.1 else 'Neutral'
-            else:
-                avg_sentiment = 0.0
-                overall = 'Neutral'
-            
-            return {
-                'overall_sentiment': overall,
-                'overall_score': round(avg_sentiment, 3),
-                'articles': article_sentiments,
-                'total_articles': len(article_sentiments),
-                'positive_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Positive', 'POSITIVE']),
-                'negative_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Negative', 'NEGATIVE']),
-                'neutral_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Neutral', 'NEUTRAL'])
-            }
-        except Exception as e:
-            return {
-                'overall_sentiment': 'Neutral',
-                'overall_score': 0.0,
-                'articles': [],
-                'error': str(e)
-            }
-
-
-    def fetch_stock_data(self, ticker, period="60d"):
-        """Fetch stock data"""
-        try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period=period)
-            if hist.empty:
-                return None
-            return hist
-        except:
-            return None
-
-    def compute_rsi(self, data, window=14):
-        """Calculate RSI"""
-        try:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            delta = data[close_col].diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-            rs = gain / loss
-            rsi = 100 - (100 / (1 + rs))
-            return rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50.0
-        except:
-            return 50.0
-
-    def compute_macd(self, data):
-        """Calculate MACD"""
-        try:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            exp1 = data[close_col].ewm(span=12, adjust=False).mean()
-            exp2 = data[close_col].ewm(span=26, adjust=False).mean()
-            macd = exp1 - exp2
-            signal = macd.ewm(span=9).mean()
-            histogram = macd - signal
-
-            return {
-                'line': macd.iloc[-1] if not pd.isna(macd.iloc[-1]) else 0.0,
-                'signal': signal.iloc[-1] if not pd.isna(signal.iloc[-1]) else 0.0,
-                'histogram': histogram.iloc[-1] if not pd.isna(histogram.iloc[-1]) else 0.0
-            }
-        except:
-            return {'line': 0.0, 'signal': 0.0, 'histogram': 0.0}
-
-    def compute_moving_averages(self, data):
-        """Calculate moving averages"""
-        try:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            current_price = data[close_col].iloc[-1]
-
-            ma_20 = data[close_col].rolling(window=20).mean().iloc[-1] if len(data) >= 20 else current_price
-            ma_25 = data[close_col].rolling(window=25).mean().iloc[-1] if len(data) >= 25 else current_price
-            ma_50 = data[close_col].rolling(window=50).mean().iloc[-1] if len(data) >= 50 else current_price
-            ma_200 = data[close_col].rolling(window=200).mean().iloc[-1] if len(data) >= 200 else current_price
-
-            return {
-                'MA_20': ma_20 if not pd.isna(ma_20) else current_price,
-                'MA_25': ma_25 if not pd.isna(ma_25) else current_price,
-                'MA_50': ma_50 if not pd.isna(ma_50) else current_price,
-                'MA_200': ma_200 if not pd.isna(ma_200) else current_price
-            }
-        except:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            current_price = data[close_col].iloc[-1]
-            return {'MA_20': current_price, 'MA_25': current_price, 'MA_50': current_price, 'MA_200': current_price}
-
-    def compute_bollinger_bands(self, data, window=20, num_std=2):
-        """Calculate Bollinger Bands"""
-        try:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            sma = data[close_col].rolling(window=window).mean()
-            std = data[close_col].rolling(window=window).std()
-            upper_band = sma + (std * num_std)
-            lower_band = sma - (std * num_std)
-
-            return {
-                'upper': upper_band.iloc[-1] if not pd.isna(upper_band.iloc[-1]) else data[close_col].iloc[-1],
-                'middle': sma.iloc[-1] if not pd.isna(sma.iloc[-1]) else data[close_col].iloc[-1],
-                'lower': lower_band.iloc[-1] if not pd.isna(lower_band.iloc[-1]) else data[close_col].iloc[-1]
-            }
-        except:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            current_price = data[close_col].iloc[-1]
-            return {'upper': current_price, 'middle': current_price, 'lower': current_price}
-
-    def compute_stochastic_momentum(self, data, k_period=14, d_period=3):
-        """Calculate SMI"""
-        try:
-            high_col = 'High' if 'High' in data.columns else 'high'
-            low_col = 'Low' if 'Low' in data.columns else 'low'
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-
-            highest_high = data[high_col].rolling(window=k_period).max()
-            lowest_low = data[low_col].rolling(window=k_period).min()
-
-            k_line = 100 * ((data[close_col] - lowest_low) / (highest_high - lowest_low))
-            d_line = k_line.rolling(window=d_period).mean()
-
-            crossover = 'none'
-            if len(k_line) > 1 and len(d_line) > 1:
-                if k_line.iloc[-1] > d_line.iloc[-1] and k_line.iloc[-2] <= d_line.iloc[-2]:
-                    crossover = 'bullish'
-                elif k_line.iloc[-1] < d_line.iloc[-1] and k_line.iloc[-2] >= d_line.iloc[-2]:
-                    crossover = 'bearish'
-
-            return {
-                'k': k_line.iloc[-1] if not pd.isna(k_line.iloc[-1]) else 50.0,
-                'd': d_line.iloc[-1] if not pd.isna(d_line.iloc[-1]) else 50.0,
-                'crossover': crossover
-            }
-        except:
-            return {'k': 50.0, 'd': 50.0, 'crossover': 'none'}
-
-    def compute_vwap(self, data):
-        """Calculate VWAP"""
-        try:
-            high_col = 'High' if 'High' in data.columns else 'high'
-            low_col = 'Low' if 'Low' in data.columns else 'low'
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
-
-            typical_price = (data[high_col] + data[low_col] + data[close_col]) / 3
-            vwap = (typical_price * data[volume_col]).cumsum() / data[volume_col].cumsum()
-            data['vwap'] = vwap
-            return data
-        except:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            data['vwap'] = data[close_col]
-            return data
-
-    def compute_vwma(self, data, period=20):
-        """Calculate VWMA"""
-        try:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
-
-            vwma = (data[close_col] * data[volume_col]).rolling(window=period).sum() / data[volume_col].rolling(window=period).sum()
-            return vwma.iloc[-1] if not pd.isna(vwma.iloc[-1]) else data[close_col].iloc[-1]
-        except:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            return data[close_col].iloc[-1]
-
-    def compute_supertrend(self, data, period=10, multiplier=3):
-        """Calculate Supertrend"""
-        try:
-            high_col = 'High' if 'High' in data.columns else 'high'
-            low_col = 'Low' if 'Low' in data.columns else 'low'
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-
-            high_low = data[high_col] - data[low_col]
-            high_close = abs(data[high_col] - data[close_col].shift())
-            low_close = abs(data[low_col] - data[close_col].shift())
-            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-            atr = tr.rolling(window=period).mean()
-
-            hl_avg = (data[high_col] + data[low_col]) / 2
-            upper_band = hl_avg + (multiplier * atr)
-            lower_band = hl_avg - (multiplier * atr)
-
-            supertrend = pd.Series(index=data.index, dtype=float)
-            trend = pd.Series(index=data.index, dtype=int)
-
-            for i in range(period, len(data)):
-                if data[close_col].iloc[i] > upper_band.iloc[i-1]:
-                    trend.iloc[i] = 1
-                    supertrend.iloc[i] = lower_band.iloc[i]
-                elif data[close_col].iloc[i] < lower_band.iloc[i-1]:
-                    trend.iloc[i] = -1
-                    supertrend.iloc[i] = upper_band.iloc[i]
-                else:
-                    trend.iloc[i] = trend.iloc[i-1] if i > period else 0
-                    if trend.iloc[i] == 1:
-                        supertrend.iloc[i] = lower_band.iloc[i]
-                    else:
-                        supertrend.iloc[i] = upper_band.iloc[i]
-
-            return {
-                'value': supertrend.iloc[-1] if not pd.isna(supertrend.iloc[-1]) else data[close_col].iloc[-1],
-                'trend': 'uptrend' if trend.iloc[-1] == 1 else 'downtrend'
-            }
-        except:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            return {'value': data[close_col].iloc[-1], 'trend': 'neutral'}
-
-    def detect_support_resistance(self, data, window=20):
-        """Detect S/R levels"""
-        try:
-            high_col = 'High' if 'High' in data.columns else 'high'
-            low_col = 'Low' if 'Low' in data.columns else 'low'
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-
-            highs = data[high_col].rolling(window=window, center=True).max()
-            lows = data[low_col].rolling(window=window, center=True).min()
-
-            resistance = highs.iloc[-window:].max()
-            support = lows.iloc[-window:].min()
-
-            return {
-                'resistance': resistance,
-                'support': support,
-                'current_price': data[close_col].iloc[-1]
-            }
-        except:
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-            current_price = data[close_col].iloc[-1]
-            return {'resistance': current_price * 1.02, 'support': current_price * 0.98, 'current_price': current_price}
-
-def detect_candlestick_patterns_talib(self, data):
-    """
-    Comprehensive candlestick pattern detection - Pure Python (No TA-Lib needed)
-    Detects 15+ high-probability patterns with professional accuracy
-    """
-    
-    if len(data) < 5:
-        return {
-            'pattern': 'Insufficient Data',
-            'type': 'neutral',
-            'strength': 0,
-            'confidence': 0,
-            'category': 'none',
-            'description': 'Need at least 5 candles for pattern detection'
-        }
-    
-    patterns_found = []
-    
-    # Get last 5 candles for pattern analysis
-    c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
-    
-    # Current candle (most recent)
-    curr_open = c5['Open']
-    curr_high = c5['High']
-    curr_low = c5['Low']
-    curr_close = c5['Close']
-    curr_body = abs(curr_close - curr_open)
-    curr_range = curr_high - curr_low
-    
-    # Previous candle
-    prev_open = c4['Open']
-    prev_high = c4['High']
-    prev_low = c4['Low']
-    prev_close = c4['Close']
-    prev_body = abs(prev_close - prev_open)
-    prev_range = prev_high - prev_low
-    
-    # Helper variables
-    curr_is_green = curr_close > curr_open
-    curr_is_red = curr_close < curr_open
-    prev_is_green = prev_close > prev_open
-    prev_is_red = prev_close < prev_open
-    
-    lower_shadow = min(curr_open, curr_close) - curr_low
-    upper_shadow = curr_high - max(curr_open, curr_close)
-    
-    # ==================== BULLISH PATTERNS ====================
-    
-    # 1. HAMMER (Bullish Reversal) - Strong at support
-    if (lower_shadow > curr_body * 2 and 
-        upper_shadow < curr_body * 0.3 and
-        curr_is_green and
-        curr_range > 0):
-        patterns_found.append({
-            'pattern': 'Hammer',
-            'type': 'bullish',
-            'strength': 85,
-            'confidence': 85,
-            'category': 'reversal',
-            'description': 'Strong bullish reversal at support - Buyers regained control after selling pressure'
-        })
-    
-    # 2. INVERTED HAMMER (Bullish Reversal)
-    elif (upper_shadow > curr_body * 2 and 
-          lower_shadow < curr_body * 0.3 and
-          curr_range > 0):
-        patterns_found.append({
-            'pattern': 'Inverted Hammer',
-            'type': 'bullish',
-            'strength': 75,
-            'confidence': 75,
-            'category': 'reversal',
-            'description': 'Potential bullish reversal - Wait for next candle confirmation'
-        })
-    
-    # 3. BULLISH ENGULFING (Very Strong)
-    if (prev_is_red and curr_is_green and
-        curr_open < prev_close and
-        curr_close > prev_open and
-        curr_body > prev_body * 1.3):
-        patterns_found.append({
-            'pattern': 'Bullish Engulfing',
-            'type': 'bullish',
-            'strength': 90,
-            'confidence': 90,
-            'category': 'reversal',
-            'description': 'Very strong bullish reversal - Large buying pressure overwhelmed sellers'
-        })
-    
-    # 4. MORNING STAR (3-Candle Bullish Reversal)
-    if (c3['Close'] < c3['Open'] and  # First red
-        abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
-        curr_is_green and
-        curr_close > (c3['Open'] + c3['Close']) / 2):
-        patterns_found.append({
-            'pattern': 'Morning Star',
-            'type': 'bullish',
-            'strength': 95,
-            'confidence': 95,
-            'category': 'reversal',
-            'description': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern'
-        })
-    
-    # 5. PIERCING PATTERN
-    if (prev_is_red and curr_is_green and
-        curr_open < prev_low and
-        curr_close > (prev_open + prev_close) / 2 and
-        curr_close < prev_open):
-        patterns_found.append({
-            'pattern': 'Piercing Pattern',
-            'type': 'bullish',
-            'strength': 80,
-            'confidence': 80,
-            'category': 'reversal',
-            'description': 'Bullish reversal - Buyers pushing through resistance'
-        })
-    
-    # 6. THREE WHITE SOLDIERS (Bullish Continuation)
-    if (c3['Close'] > c3['Open'] and
-        c4['Close'] > c4['Open'] and
-        curr_is_green and
-        c4['Close'] > c3['Close'] and
-        curr_close > c4['Close']):
-        patterns_found.append({
-            'pattern': 'Three White Soldiers',
-            'type': 'bullish',
-            'strength': 92,
-            'confidence': 90,
-            'category': 'continuation',
-            'description': 'Strong bullish continuation - Steady upward momentum'
-        })
-    
-    # 7. BULLISH HARAMI
-    if (prev_is_red and curr_is_green and
-        curr_open > prev_close and
-        curr_close < prev_open and
-        curr_body < prev_body * 0.5):
-        patterns_found.append({
-            'pattern': 'Bullish Harami',
-            'type': 'bullish',
-            'strength': 70,
-            'confidence': 70,
-            'category': 'reversal',
-            'description': 'Bullish reversal - Needs confirmation from next candle'
-        })
-    
-    # 8. DRAGONFLY DOJI (Bullish at support)
-    if (curr_body < curr_range * 0.1 and
-        lower_shadow > upper_shadow * 2 and
-        curr_range > 0):
-        patterns_found.append({
-            'pattern': 'Dragonfly Doji',
-            'type': 'bullish',
-            'strength': 70,
-            'confidence': 75,
-            'category': 'reversal',
-            'description': 'Bullish reversal at support - Sellers tried but failed'
-        })
-    
-    # ==================== BEARISH PATTERNS ====================
-    
-    # 9. SHOOTING STAR (Bearish Reversal)
-    if (upper_shadow > curr_body * 2 and 
-        lower_shadow < curr_body * 0.3 and
-        curr_is_red and
-        curr_range > 0):
-        patterns_found.append({
-            'pattern': 'Shooting Star',
-            'type': 'bearish',
-            'strength': 85,
-            'confidence': 85,
-            'category': 'reversal',
-            'description': 'Strong bearish reversal at resistance - Sellers regained control'
-        })
-    
-    # 10. HANGING MAN (Bearish at resistance)
-    elif (lower_shadow > curr_body * 2 and 
-          upper_shadow < curr_body * 0.3 and
-          curr_is_red and
-          curr_range > 0):
-        patterns_found.append({
-            'pattern': 'Hanging Man',
-            'type': 'bearish',
-            'strength': 75,
-            'confidence': 75,
-            'category': 'reversal',
-            'description': 'Bearish reversal at resistance - Warning sign of trend change'
-        })
-    
-    # 11. BEARISH ENGULFING
-    if (prev_is_green and curr_is_red and
-        curr_open > prev_close and
-        curr_close < prev_open and
-        curr_body > prev_body * 1.3):
-        patterns_found.append({
-            'pattern': 'Bearish Engulfing',
-            'type': 'bearish',
-            'strength': 90,
-            'confidence': 90,
-            'category': 'reversal',
-            'description': 'Very strong bearish reversal - Large selling pressure overwhelmed buyers'
-        })
-    
-    # 12. EVENING STAR (3-Candle Bearish Reversal)
-    if (c3['Close'] > c3['Open'] and  # First green
-        abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
-        curr_is_red and
-        curr_close < (c3['Open'] + c3['Close']) / 2):
-        patterns_found.append({
-            'pattern': 'Evening Star',
-            'type': 'bearish',
-            'strength': 95,
-            'confidence': 95,
-            'category': 'reversal',
-            'description': 'Extremely strong bearish reversal - Classic 3-candle top pattern'
-        })
-    
-    # 13. DARK CLOUD COVER
-    if (prev_is_green and curr_is_red and
-        curr_open > prev_high and
-        curr_close < (prev_open + prev_close) / 2 and
-        curr_close > prev_open):
-        patterns_found.append({
-            'pattern': 'Dark Cloud Cover',
-            'type': 'bearish',
-            'strength': 80,
-            'confidence': 80,
-            'category': 'reversal',
-            'description': 'Bearish reversal - Selling pressure increasing significantly'
-        })
-    
-    # 14. THREE BLACK CROWS (Bearish Continuation)
-    if (c3['Close'] < c3['Open'] and
-        c4['Close'] < c4['Open'] and
-        curr_is_red and
-        c4['Close'] < c3['Close'] and
-        curr_close < c4['Close']):
-        patterns_found.append({
-            'pattern': 'Three Black Crows',
-            'type': 'bearish',
-            'strength': 92,
-            'confidence': 90,
-            'category': 'continuation',
-            'description': 'Strong bearish continuation - Steady downward momentum'
-        })
-    
-    # 15. GRAVESTONE DOJI (Bearish at resistance)
-    if (curr_body < curr_range * 0.1 and
-        upper_shadow > lower_shadow * 2 and
-        curr_range > 0):
-        patterns_found.append({
-            'pattern': 'Gravestone Doji',
-            'type': 'bearish',
-            'strength': 70,
-            'confidence': 75,
-            'category': 'reversal',
-            'description': 'Bearish reversal at resistance - Buyers tried but failed'
-        })
-    
-    # ==================== NEUTRAL PATTERNS ====================
-    
-    # 16. DOJI (Indecision)
-    if curr_body < curr_range * 0.1 and curr_range > 0:
-        patterns_found.append({
-            'pattern': 'Doji',
-            'type': 'neutral',
-            'strength': 50,
-            'confidence': 70,
-            'category': 'indecision',
-            'description': 'Market indecision - Potential trend reversal point, wait for confirmation'
-        })
-    
-    # 17. SPINNING TOP
-    if (curr_body > curr_range * 0.1 and curr_body < curr_range * 0.3 and
-        upper_shadow > curr_body and lower_shadow > curr_body):
-        patterns_found.append({
-            'pattern': 'Spinning Top',
-            'type': 'neutral',
-            'strength': 40,
-            'confidence': 60,
-            'category': 'indecision',
-            'description': 'Indecision between buyers and sellers - Wait for clear direction'
-        })
-    
-    # Return strongest pattern
-    if patterns_found:
-        # Sort by strength, then confidence
-        patterns_found.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
-        return patterns_found[0]
-    else:
-        return {
-            'pattern': 'No Significant Pattern',
-            'type': 'neutral',
-            'strength': 0,
-            'confidence': 0,
-            'category': 'none',
-            'description': 'No clear candlestick pattern detected'
-        }
-
-def get_pattern_description(self, pattern_name, pattern_type, category):
-    """Get professional description for each pattern"""
-    descriptions = {
-        # Bullish Patterns
-        'Hammer': 'Strong bullish reversal at support - Buyers regained control after selling pressure',
-        'Inverted Hammer': 'Potential bullish reversal - Wait for next candle confirmation',
-        'Bullish Engulfing': 'Very strong bullish reversal - Large buying pressure overwhelmed sellers',
-        'Morning Star': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern',
-        'Piercing Pattern': 'Bullish reversal - Buyers pushing through resistance',
-        'Morning Doji Star': 'Strong bullish reversal with indecision candle - Trend change likely',
-        'Three White Soldiers': 'Strong bullish continuation - Steady upward momentum',
-        'Rising Three Methods': 'Bullish continuation - Temporary pause before next move up',
-        'Bullish Harami': 'Bullish reversal - Needs confirmation from next candle',
-        'Dragonfly Doji': 'Bullish reversal at support - Sellers tried but failed',
-        'Marubozu': 'Strong bullish momentum - No wicks, pure buying pressure',
-        
-        # Bearish Patterns
-        'Shooting Star': 'Strong bearish reversal at resistance - Sellers regained control',
-        'Evening Star': 'Extremely strong bearish reversal - Classic 3-candle top pattern',
-        'Dark Cloud Cover': 'Bearish reversal - Selling pressure increasing significantly',
-        'Hanging Man': 'Bearish reversal at resistance - Warning sign of trend change',
-        'Evening Doji Star': 'Strong bearish reversal with indecision - Downtrend likely',
-        'Three Black Crows': 'Strong bearish continuation - Steady downward momentum',
-        'Identical Three Crows': 'Very strong bearish continuation - Consistent selling',
-        'Gravestone Doji': 'Bearish reversal at resistance - Buyers tried but failed',
-        
-        # Neutral Patterns
-        'Doji': 'Market indecision - Potential trend reversal point, wait for confirmation',
-        'Spinning Top': 'Indecision between buyers and sellers - Wait for clear direction',
-    }
-    
-    return descriptions.get(pattern_name, f'{pattern_type.title()} {category} signal')
-
-def calculate_pattern_impact(self, pattern_data, current_price):
-    """
-    Calculate how candlestick pattern should impact trading decisions
-    Returns adjustment factors for stop-loss, targets, and signal confidence
-    """
-    
-    pattern_type = pattern_data['type']
-    strength = pattern_data['strength']
-    category = pattern_data.get('category', 'none')
-    
-    impact = {
-        'signal_boost': 0,           # Points to add to signal scoring
-        'stop_loss_adjustment': 1.0, # Multiplier for stop-loss distance
-        'target_multiplier': 1.0,    # Multiplier for profit targets
-        'confidence_boost': 0,       # Percentage boost to confidence
-        'risk_adjustment': 1.0       # Multiplier for position size
-    }
-    
-    # VERY STRONG PATTERNS (Strength >= 90)
-    if strength >= 90:
-        if pattern_type == 'bullish':
-            impact['signal_boost'] = 2          # Strong buy signal
-            impact['stop_loss_adjustment'] = 0.97  # Tighter stop (3% closer)
-            impact['target_multiplier'] = 1.4   # 40% higher targets
-            impact['confidence_boost'] = 20     # +20% confidence
-            impact['risk_adjustment'] = 1.2     # Can increase position 20%
-        elif pattern_type == 'bearish':
-            impact['signal_boost'] = -2         # Strong sell/avoid signal
-            impact['stop_loss_adjustment'] = 1.03  # Wider stop
-            impact['target_multiplier'] = 0.7   # Lower targets
-            impact['confidence_boost'] = -20
-            impact['risk_adjustment'] = 0.8     # Reduce position 20%
-    
-    # STRONG PATTERNS (Strength 80-89)
-    elif strength >= 80:
-        if pattern_type == 'bullish':
-            impact['signal_boost'] = 1.5
-            impact['stop_loss_adjustment'] = 0.98
-            impact['target_multiplier'] = 1.25
-            impact['confidence_boost'] = 15
-            impact['risk_adjustment'] = 1.15
-        elif pattern_type == 'bearish':
-            impact['signal_boost'] = -1.5
-            impact['stop_loss_adjustment'] = 1.02
-            impact['target_multiplier'] = 0.8
-            impact['confidence_boost'] = -15
-            impact['risk_adjustment'] = 0.85
-    
-    # MEDIUM PATTERNS (Strength 70-79)
-    elif strength >= 70:
-        if pattern_type == 'bullish':
-            impact['signal_boost'] = 1
-            impact['stop_loss_adjustment'] = 0.99
-            impact['target_multiplier'] = 1.15
-            impact['confidence_boost'] = 10
-            impact['risk_adjustment'] = 1.1
-        elif pattern_type == 'bearish':
-            impact['signal_boost'] = -1
-            impact['stop_loss_adjustment'] = 1.01
-            impact['target_multiplier'] = 0.9
-            impact['confidence_boost'] = -10
-            impact['risk_adjustment'] = 0.9
-    
-    # WEAK PATTERNS (Strength < 70) - Minimal impact
-    else:
-        if pattern_type == 'bullish':
-            impact['signal_boost'] = 0.5
-            impact['confidence_boost'] = 5
-        elif pattern_type == 'bearish':
-            impact['signal_boost'] = -0.5
-            impact['confidence_boost'] = -5
-    
-    # BONUS: Extra boost for REVERSAL patterns at key levels
-    if category == 'reversal':
-        impact['confidence_boost'] += 5  # Reversals are powerful
-    
-    return impact
-
-    def detect_inside_bar_pattern(self, data):
-        """Detect Inside Bar"""
-        if len(data) < 2:
-            return {"detected": False, "message": "Insufficient data"}
-
-        try:
-            high_col = 'High' if 'High' in data.columns else 'high'
-            low_col = 'Low' if 'Low' in data.columns else 'low'
-            close_col = 'Close' if 'Close' in data.columns else 'close'
-
-            mother_bar = data.iloc[-2]
-            inside_bar = data.iloc[-1]
-
-            is_inside_bar = (
-                inside_bar[high_col] <= mother_bar[high_col] and
-                inside_bar[low_col] >= mother_bar[low_col]
-            )
-
-            if is_inside_bar:
+        def analyze_sentiment_detailed(self, headlines):
+            """Analyze sentiment with per-article breakdown"""
+            if not headlines or not self.sentiment_analyzer:
                 return {
-                    "detected": True,
-                    "mother_high": mother_bar[high_col],
-                    "mother_low": mother_bar[low_col],
-                    "current_price": data[close_col].iloc[-1],
-                    "buy_trigger": mother_bar[high_col],
-                    "sell_trigger": mother_bar[low_col],
-                    "message": f"Inside Bar detected. Buy above {mother_bar[high_col]:.2f} or Sell below {mother_bar[low_col]:.2f}"
+                    'overall_sentiment': 'Neutral',
+                    'overall_score': 0.0,
+                    'articles': []
                 }
-            else:
-                return {"detected": False, "message": "No Inside Bar pattern"}
-        except:
-            return {"detected": False, "message": "Error"}
+            
+            try:
+                article_sentiments = []
+                sentiment_scores = []
+                
+                for headline in headlines:
+                    if len(headline) > 15:
+                        result = self.sentiment_analyzer(headline[:512])
+                        
+                        if isinstance(result[0], list):
+                            sentiment_dict = {item['label']: item['score'] for item in result[0]}
+                            score = sentiment_dict.get('positive', 0) - sentiment_dict.get('negative', 0)
+                            label = 'Positive' if score > 0.1 else 'Negative' if score < -0.1 else 'Neutral'
+                            
+                            article_sentiments.append({
+                                'headline': headline,
+                                'sentiment': label,
+                                'score': round(score, 3),
+                                'positive': round(sentiment_dict.get('positive', 0), 3),
+                                'negative': round(sentiment_dict.get('negative', 0), 3),
+                                'neutral': round(sentiment_dict.get('neutral', 0), 3)
+                            })
+                            sentiment_scores.append(score)
+                        else:
+                            score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
+                            
+                            article_sentiments.append({
+                                'headline': headline,
+                                'sentiment': result[0]['label'],
+                                'score': round(score, 3),
+                                'confidence': round(result[0]['score'], 3)
+                            })
+                            sentiment_scores.append(score)
+                
+                if sentiment_scores:
+                    avg_sentiment = np.mean(sentiment_scores)
+                    overall = 'Positive' if avg_sentiment > 0.1 else 'Negative' if avg_sentiment < -0.1 else 'Neutral'
+                else:
+                    avg_sentiment = 0.0
+                    overall = 'Neutral'
+                
+                return {
+                    'overall_sentiment': overall,
+                    'overall_score': round(avg_sentiment, 3),
+                    'articles': article_sentiments,
+                    'total_articles': len(article_sentiments),
+                    'positive_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Positive', 'POSITIVE']),
+                    'negative_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Negative', 'NEGATIVE']),
+                    'neutral_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Neutral', 'NEUTRAL'])
+                }
+            except Exception as e:
+                return {
+                    'overall_sentiment': 'Neutral',
+                    'overall_score': 0.0,
+                    'articles': [],
+                    'error': str(e)
+                }
 
-    def detect_breakout_retest(self, five_min_data, resistance):
-        """Detect breakout and retest"""
-        if five_min_data.empty or resistance == 0:
-            return "Not Analyzed"
 
-        high_col = 'High' if 'High' in five_min_data.columns else 'high'
-        low_col = 'Low' if 'Low' in five_min_data.columns else 'low'
-        close_col = 'Close' if 'Close' in five_min_data.columns else 'close'
+        def fetch_stock_data(self, ticker, period="60d"):
+            """Fetch stock data"""
+            try:
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period=period)
+                if hist.empty:
+                    return None
+                return hist
+            except:
+                return None
 
-        recent_data = five_min_data.tail(20)
+        def compute_rsi(self, data, window=14):
+            """Calculate RSI"""
+            try:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                delta = data[close_col].diff()
+                gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+                loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+                rs = gain / loss
+                rsi = 100 - (100 / (1 + rs))
+                return rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50.0
+            except:
+                return 50.0
 
-        breakout_candle_index = -1
-        retest_candle_index = -1
+        def compute_macd(self, data):
+            """Calculate MACD"""
+            try:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                exp1 = data[close_col].ewm(span=12, adjust=False).mean()
+                exp2 = data[close_col].ewm(span=26, adjust=False).mean()
+                macd = exp1 - exp2
+                signal = macd.ewm(span=9).mean()
+                histogram = macd - signal
 
-        for i in range(1, len(recent_data)):
-            prev_high = recent_data[high_col].iloc[i-1]
-            current_high = recent_data[high_col].iloc[i]
+                return {
+                    'line': macd.iloc[-1] if not pd.isna(macd.iloc[-1]) else 0.0,
+                    'signal': signal.iloc[-1] if not pd.isna(signal.iloc[-1]) else 0.0,
+                    'histogram': histogram.iloc[-1] if not pd.isna(histogram.iloc[-1]) else 0.0
+                }
+            except:
+                return {'line': 0.0, 'signal': 0.0, 'histogram': 0.0}
 
-            if current_high > resistance and prev_high <= resistance:
-                breakout_candle_index = i
-                break
+        def compute_moving_averages(self, data):
+            """Calculate moving averages"""
+            try:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                current_price = data[close_col].iloc[-1]
 
-        if breakout_candle_index == -1:
-            return "No Breakout Detected"
+                ma_20 = data[close_col].rolling(window=20).mean().iloc[-1] if len(data) >= 20 else current_price
+                ma_25 = data[close_col].rolling(window=25).mean().iloc[-1] if len(data) >= 25 else current_price
+                ma_50 = data[close_col].rolling(window=50).mean().iloc[-1] if len(data) >= 50 else current_price
+                ma_200 = data[close_col].rolling(window=200).mean().iloc[-1] if len(data) >= 200 else current_price
 
-        for i in range(breakout_candle_index + 1, len(recent_data)):
-            current_low = recent_data[low_col].iloc[i]
+                return {
+                    'MA_20': ma_20 if not pd.isna(ma_20) else current_price,
+                    'MA_25': ma_25 if not pd.isna(ma_25) else current_price,
+                    'MA_50': ma_50 if not pd.isna(ma_50) else current_price,
+                    'MA_200': ma_200 if not pd.isna(ma_200) else current_price
+                }
+            except:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                current_price = data[close_col].iloc[-1]
+                return {'MA_20': current_price, 'MA_25': current_price, 'MA_50': current_price, 'MA_200': current_price}
 
-            if current_low <= resistance:
-                retest_candle_index = i
-                break
+        def compute_bollinger_bands(self, data, window=20, num_std=2):
+            """Calculate Bollinger Bands"""
+            try:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                sma = data[close_col].rolling(window=window).mean()
+                std = data[close_col].rolling(window=window).std()
+                upper_band = sma + (std * num_std)
+                lower_band = sma - (std * num_std)
 
-        if retest_candle_index == -1:
-            return f"Breakout Occurred. Awaiting Retest."
+                return {
+                    'upper': upper_band.iloc[-1] if not pd.isna(upper_band.iloc[-1]) else data[close_col].iloc[-1],
+                    'middle': sma.iloc[-1] if not pd.isna(sma.iloc[-1]) else data[close_col].iloc[-1],
+                    'lower': lower_band.iloc[-1] if not pd.isna(lower_band.iloc[-1]) else data[close_col].iloc[-1]
+                }
+            except:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                current_price = data[close_col].iloc[-1]
+                return {'upper': current_price, 'middle': current_price, 'lower': current_price}
 
-        if retest_candle_index < len(recent_data) - 1:
-            confirmation_candle = recent_data.iloc[retest_candle_index + 1]
+        def compute_stochastic_momentum(self, data, k_period=14, d_period=3):
+            """Calculate SMI"""
+            try:
+                high_col = 'High' if 'High' in data.columns else 'high'
+                low_col = 'Low' if 'Low' in data.columns else 'low'
+                close_col = 'Close' if 'Close' in data.columns else 'close'
 
-            if confirmation_candle[close_col] > resistance:
-                return f"✅ Retest Confirmed. Potential Entry."
+                highest_high = data[high_col].rolling(window=k_period).max()
+                lowest_low = data[low_col].rolling(window=k_period).min()
 
-        return f"Retest in Progress. Awaiting Confirmation."
+                k_line = 100 * ((data[close_col] - lowest_low) / (highest_high - lowest_low))
+                d_line = k_line.rolling(window=d_period).mean()
 
-    def run_confirmation_checklist(self, analysis_results):
-        """Run 5-point checklist"""
-        checklist = {
-            "1. At Key S/R Level": "⚠️ PENDING",
-            "2. Price Rejection": "⚠️ PENDING",
-            "3. Chart Pattern Confirmed": "⚠️ PENDING",
-            "4. Candlestick Signal": "⚠️ PENDING",
-            "5. Indicator Alignment": "⚠️ PENDING",
-            "FINAL_SIGNAL": "HOLD"
+                crossover = 'none'
+                if len(k_line) > 1 and len(d_line) > 1:
+                    if k_line.iloc[-1] > d_line.iloc[-1] and k_line.iloc[-2] <= d_line.iloc[-2]:
+                        crossover = 'bullish'
+                    elif k_line.iloc[-1] < d_line.iloc[-1] and k_line.iloc[-2] >= d_line.iloc[-2]:
+                        crossover = 'bearish'
+
+                return {
+                    'k': k_line.iloc[-1] if not pd.isna(k_line.iloc[-1]) else 50.0,
+                    'd': d_line.iloc[-1] if not pd.isna(d_line.iloc[-1]) else 50.0,
+                    'crossover': crossover
+                }
+            except:
+                return {'k': 50.0, 'd': 50.0, 'crossover': 'none'}
+
+        def compute_vwap(self, data):
+            """Calculate VWAP"""
+            try:
+                high_col = 'High' if 'High' in data.columns else 'high'
+                low_col = 'Low' if 'Low' in data.columns else 'low'
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
+
+                typical_price = (data[high_col] + data[low_col] + data[close_col]) / 3
+                vwap = (typical_price * data[volume_col]).cumsum() / data[volume_col].cumsum()
+                data['vwap'] = vwap
+                return data
+            except:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                data['vwap'] = data[close_col]
+                return data
+
+        def compute_vwma(self, data, period=20):
+            """Calculate VWMA"""
+            try:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
+
+                vwma = (data[close_col] * data[volume_col]).rolling(window=period).sum() / data[volume_col].rolling(window=period).sum()
+                return vwma.iloc[-1] if not pd.isna(vwma.iloc[-1]) else data[close_col].iloc[-1]
+            except:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                return data[close_col].iloc[-1]
+
+        def compute_supertrend(self, data, period=10, multiplier=3):
+            """Calculate Supertrend"""
+            try:
+                high_col = 'High' if 'High' in data.columns else 'high'
+                low_col = 'Low' if 'Low' in data.columns else 'low'
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+
+                high_low = data[high_col] - data[low_col]
+                high_close = abs(data[high_col] - data[close_col].shift())
+                low_close = abs(data[low_col] - data[close_col].shift())
+                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                atr = tr.rolling(window=period).mean()
+
+                hl_avg = (data[high_col] + data[low_col]) / 2
+                upper_band = hl_avg + (multiplier * atr)
+                lower_band = hl_avg - (multiplier * atr)
+
+                supertrend = pd.Series(index=data.index, dtype=float)
+                trend = pd.Series(index=data.index, dtype=int)
+
+                for i in range(period, len(data)):
+                    if data[close_col].iloc[i] > upper_band.iloc[i-1]:
+                        trend.iloc[i] = 1
+                        supertrend.iloc[i] = lower_band.iloc[i]
+                    elif data[close_col].iloc[i] < lower_band.iloc[i-1]:
+                        trend.iloc[i] = -1
+                        supertrend.iloc[i] = upper_band.iloc[i]
+                    else:
+                        trend.iloc[i] = trend.iloc[i-1] if i > period else 0
+                        if trend.iloc[i] == 1:
+                            supertrend.iloc[i] = lower_band.iloc[i]
+                        else:
+                            supertrend.iloc[i] = upper_band.iloc[i]
+
+                return {
+                    'value': supertrend.iloc[-1] if not pd.isna(supertrend.iloc[-1]) else data[close_col].iloc[-1],
+                    'trend': 'uptrend' if trend.iloc[-1] == 1 else 'downtrend'
+                }
+            except:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                return {'value': data[close_col].iloc[-1], 'trend': 'neutral'}
+
+        def detect_support_resistance(self, data, window=20):
+            """Detect S/R levels"""
+            try:
+                high_col = 'High' if 'High' in data.columns else 'high'
+                low_col = 'Low' if 'Low' in data.columns else 'low'
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+
+                highs = data[high_col].rolling(window=window, center=True).max()
+                lows = data[low_col].rolling(window=window, center=True).min()
+
+                resistance = highs.iloc[-window:].max()
+                support = lows.iloc[-window:].min()
+
+                return {
+                    'resistance': resistance,
+                    'support': support,
+                    'current_price': data[close_col].iloc[-1]
+                }
+            except:
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+                current_price = data[close_col].iloc[-1]
+                return {'resistance': current_price * 1.02, 'support': current_price * 0.98, 'current_price': current_price}
+
+    def detect_candlestick_patterns_talib(self, data):
+        """
+        Comprehensive candlestick pattern detection - Pure Python (No TA-Lib needed)
+        Detects 15+ high-probability patterns with professional accuracy
+        """
+        
+        if len(data) < 5:
+            return {
+                'pattern': 'Insufficient Data',
+                'type': 'neutral',
+                'strength': 0,
+                'confidence': 0,
+                'category': 'none',
+                'description': 'Need at least 5 candles for pattern detection'
+            }
+        
+        patterns_found = []
+        
+        # Get last 5 candles for pattern analysis
+        c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
+        
+        # Current candle (most recent)
+        curr_open = c5['Open']
+        curr_high = c5['High']
+        curr_low = c5['Low']
+        curr_close = c5['Close']
+        curr_body = abs(curr_close - curr_open)
+        curr_range = curr_high - curr_low
+        
+        # Previous candle
+        prev_open = c4['Open']
+        prev_high = c4['High']
+        prev_low = c4['Low']
+        prev_close = c4['Close']
+        prev_body = abs(prev_close - prev_open)
+        prev_range = prev_high - prev_low
+        
+        # Helper variables
+        curr_is_green = curr_close > curr_open
+        curr_is_red = curr_close < curr_open
+        prev_is_green = prev_close > prev_open
+        prev_is_red = prev_close < prev_open
+        
+        lower_shadow = min(curr_open, curr_close) - curr_low
+        upper_shadow = curr_high - max(curr_open, curr_close)
+        
+        # ==================== BULLISH PATTERNS ====================
+        
+        # 1. HAMMER (Bullish Reversal) - Strong at support
+        if (lower_shadow > curr_body * 2 and 
+            upper_shadow < curr_body * 0.3 and
+            curr_is_green and
+            curr_range > 0):
+            patterns_found.append({
+                'pattern': 'Hammer',
+                'type': 'bullish',
+                'strength': 85,
+                'confidence': 85,
+                'category': 'reversal',
+                'description': 'Strong bullish reversal at support - Buyers regained control after selling pressure'
+            })
+        
+        # 2. INVERTED HAMMER (Bullish Reversal)
+        elif (upper_shadow > curr_body * 2 and 
+              lower_shadow < curr_body * 0.3 and
+              curr_range > 0):
+            patterns_found.append({
+                'pattern': 'Inverted Hammer',
+                'type': 'bullish',
+                'strength': 75,
+                'confidence': 75,
+                'category': 'reversal',
+                'description': 'Potential bullish reversal - Wait for next candle confirmation'
+            })
+        
+        # 3. BULLISH ENGULFING (Very Strong)
+        if (prev_is_red and curr_is_green and
+            curr_open < prev_close and
+            curr_close > prev_open and
+            curr_body > prev_body * 1.3):
+            patterns_found.append({
+                'pattern': 'Bullish Engulfing',
+                'type': 'bullish',
+                'strength': 90,
+                'confidence': 90,
+                'category': 'reversal',
+                'description': 'Very strong bullish reversal - Large buying pressure overwhelmed sellers'
+            })
+        
+        # 4. MORNING STAR (3-Candle Bullish Reversal)
+        if (c3['Close'] < c3['Open'] and  # First red
+            abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
+            curr_is_green and
+            curr_close > (c3['Open'] + c3['Close']) / 2):
+            patterns_found.append({
+                'pattern': 'Morning Star',
+                'type': 'bullish',
+                'strength': 95,
+                'confidence': 95,
+                'category': 'reversal',
+                'description': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern'
+            })
+        
+        # 5. PIERCING PATTERN
+        if (prev_is_red and curr_is_green and
+            curr_open < prev_low and
+            curr_close > (prev_open + prev_close) / 2 and
+            curr_close < prev_open):
+            patterns_found.append({
+                'pattern': 'Piercing Pattern',
+                'type': 'bullish',
+                'strength': 80,
+                'confidence': 80,
+                'category': 'reversal',
+                'description': 'Bullish reversal - Buyers pushing through resistance'
+            })
+        
+        # 6. THREE WHITE SOLDIERS (Bullish Continuation)
+        if (c3['Close'] > c3['Open'] and
+            c4['Close'] > c4['Open'] and
+            curr_is_green and
+            c4['Close'] > c3['Close'] and
+            curr_close > c4['Close']):
+            patterns_found.append({
+                'pattern': 'Three White Soldiers',
+                'type': 'bullish',
+                'strength': 92,
+                'confidence': 90,
+                'category': 'continuation',
+                'description': 'Strong bullish continuation - Steady upward momentum'
+            })
+        
+        # 7. BULLISH HARAMI
+        if (prev_is_red and curr_is_green and
+            curr_open > prev_close and
+            curr_close < prev_open and
+            curr_body < prev_body * 0.5):
+            patterns_found.append({
+                'pattern': 'Bullish Harami',
+                'type': 'bullish',
+                'strength': 70,
+                'confidence': 70,
+                'category': 'reversal',
+                'description': 'Bullish reversal - Needs confirmation from next candle'
+            })
+        
+        # 8. DRAGONFLY DOJI (Bullish at support)
+        if (curr_body < curr_range * 0.1 and
+            lower_shadow > upper_shadow * 2 and
+            curr_range > 0):
+            patterns_found.append({
+                'pattern': 'Dragonfly Doji',
+                'type': 'bullish',
+                'strength': 70,
+                'confidence': 75,
+                'category': 'reversal',
+                'description': 'Bullish reversal at support - Sellers tried but failed'
+            })
+        
+        # ==================== BEARISH PATTERNS ====================
+        
+        # 9. SHOOTING STAR (Bearish Reversal)
+        if (upper_shadow > curr_body * 2 and 
+            lower_shadow < curr_body * 0.3 and
+            curr_is_red and
+            curr_range > 0):
+            patterns_found.append({
+                'pattern': 'Shooting Star',
+                'type': 'bearish',
+                'strength': 85,
+                'confidence': 85,
+                'category': 'reversal',
+                'description': 'Strong bearish reversal at resistance - Sellers regained control'
+            })
+        
+        # 10. HANGING MAN (Bearish at resistance)
+        elif (lower_shadow > curr_body * 2 and 
+              upper_shadow < curr_body * 0.3 and
+              curr_is_red and
+              curr_range > 0):
+            patterns_found.append({
+                'pattern': 'Hanging Man',
+                'type': 'bearish',
+                'strength': 75,
+                'confidence': 75,
+                'category': 'reversal',
+                'description': 'Bearish reversal at resistance - Warning sign of trend change'
+            })
+        
+        # 11. BEARISH ENGULFING
+        if (prev_is_green and curr_is_red and
+            curr_open > prev_close and
+            curr_close < prev_open and
+            curr_body > prev_body * 1.3):
+            patterns_found.append({
+                'pattern': 'Bearish Engulfing',
+                'type': 'bearish',
+                'strength': 90,
+                'confidence': 90,
+                'category': 'reversal',
+                'description': 'Very strong bearish reversal - Large selling pressure overwhelmed buyers'
+            })
+        
+        # 12. EVENING STAR (3-Candle Bearish Reversal)
+        if (c3['Close'] > c3['Open'] and  # First green
+            abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
+            curr_is_red and
+            curr_close < (c3['Open'] + c3['Close']) / 2):
+            patterns_found.append({
+                'pattern': 'Evening Star',
+                'type': 'bearish',
+                'strength': 95,
+                'confidence': 95,
+                'category': 'reversal',
+                'description': 'Extremely strong bearish reversal - Classic 3-candle top pattern'
+            })
+        
+        # 13. DARK CLOUD COVER
+        if (prev_is_green and curr_is_red and
+            curr_open > prev_high and
+            curr_close < (prev_open + prev_close) / 2 and
+            curr_close > prev_open):
+            patterns_found.append({
+                'pattern': 'Dark Cloud Cover',
+                'type': 'bearish',
+                'strength': 80,
+                'confidence': 80,
+                'category': 'reversal',
+                'description': 'Bearish reversal - Selling pressure increasing significantly'
+            })
+        
+        # 14. THREE BLACK CROWS (Bearish Continuation)
+        if (c3['Close'] < c3['Open'] and
+            c4['Close'] < c4['Open'] and
+            curr_is_red and
+            c4['Close'] < c3['Close'] and
+            curr_close < c4['Close']):
+            patterns_found.append({
+                'pattern': 'Three Black Crows',
+                'type': 'bearish',
+                'strength': 92,
+                'confidence': 90,
+                'category': 'continuation',
+                'description': 'Strong bearish continuation - Steady downward momentum'
+            })
+        
+        # 15. GRAVESTONE DOJI (Bearish at resistance)
+        if (curr_body < curr_range * 0.1 and
+            upper_shadow > lower_shadow * 2 and
+            curr_range > 0):
+            patterns_found.append({
+                'pattern': 'Gravestone Doji',
+                'type': 'bearish',
+                'strength': 70,
+                'confidence': 75,
+                'category': 'reversal',
+                'description': 'Bearish reversal at resistance - Buyers tried but failed'
+            })
+        
+        # ==================== NEUTRAL PATTERNS ====================
+        
+        # 16. DOJI (Indecision)
+        if curr_body < curr_range * 0.1 and curr_range > 0:
+            patterns_found.append({
+                'pattern': 'Doji',
+                'type': 'neutral',
+                'strength': 50,
+                'confidence': 70,
+                'category': 'indecision',
+                'description': 'Market indecision - Potential trend reversal point, wait for confirmation'
+            })
+        
+        # 17. SPINNING TOP
+        if (curr_body > curr_range * 0.1 and curr_body < curr_range * 0.3 and
+            upper_shadow > curr_body and lower_shadow > curr_body):
+            patterns_found.append({
+                'pattern': 'Spinning Top',
+                'type': 'neutral',
+                'strength': 40,
+                'confidence': 60,
+                'category': 'indecision',
+                'description': 'Indecision between buyers and sellers - Wait for clear direction'
+            })
+        
+        # Return strongest pattern
+        if patterns_found:
+            # Sort by strength, then confidence
+            patterns_found.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
+            return patterns_found[0]
+        else:
+            return {
+                'pattern': 'No Significant Pattern',
+                'type': 'neutral',
+                'strength': 0,
+                'confidence': 0,
+                'category': 'none',
+                'description': 'No clear candlestick pattern detected'
+            }
+
+    def get_pattern_description(self, pattern_name, pattern_type, category):
+        """Get professional description for each pattern"""
+        descriptions = {
+            # Bullish Patterns
+            'Hammer': 'Strong bullish reversal at support - Buyers regained control after selling pressure',
+            'Inverted Hammer': 'Potential bullish reversal - Wait for next candle confirmation',
+            'Bullish Engulfing': 'Very strong bullish reversal - Large buying pressure overwhelmed sellers',
+            'Morning Star': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern',
+            'Piercing Pattern': 'Bullish reversal - Buyers pushing through resistance',
+            'Morning Doji Star': 'Strong bullish reversal with indecision candle - Trend change likely',
+            'Three White Soldiers': 'Strong bullish continuation - Steady upward momentum',
+            'Rising Three Methods': 'Bullish continuation - Temporary pause before next move up',
+            'Bullish Harami': 'Bullish reversal - Needs confirmation from next candle',
+            'Dragonfly Doji': 'Bullish reversal at support - Sellers tried but failed',
+            'Marubozu': 'Strong bullish momentum - No wicks, pure buying pressure',
+            
+            # Bearish Patterns
+            'Shooting Star': 'Strong bearish reversal at resistance - Sellers regained control',
+            'Evening Star': 'Extremely strong bearish reversal - Classic 3-candle top pattern',
+            'Dark Cloud Cover': 'Bearish reversal - Selling pressure increasing significantly',
+            'Hanging Man': 'Bearish reversal at resistance - Warning sign of trend change',
+            'Evening Doji Star': 'Strong bearish reversal with indecision - Downtrend likely',
+            'Three Black Crows': 'Strong bearish continuation - Steady downward momentum',
+            'Identical Three Crows': 'Very strong bearish continuation - Consistent selling',
+            'Gravestone Doji': 'Bearish reversal at resistance - Buyers tried but failed',
+            
+            # Neutral Patterns
+            'Doji': 'Market indecision - Potential trend reversal point, wait for confirmation',
+            'Spinning Top': 'Indecision between buyers and sellers - Wait for clear direction',
         }
+        
+        return descriptions.get(pattern_name, f'{pattern_type.title()} {category} signal')
 
-        five_min_df = analysis_results.get('5m_data')
-        if five_min_df is None or five_min_df.empty:
+    def calculate_pattern_impact(self, pattern_data, current_price):
+        """
+        Calculate how candlestick pattern should impact trading decisions
+        Returns adjustment factors for stop-loss, targets, and signal confidence
+        """
+        
+        pattern_type = pattern_data['type']
+        strength = pattern_data['strength']
+        category = pattern_data.get('category', 'none')
+        
+        impact = {
+            'signal_boost': 0,           # Points to add to signal scoring
+            'stop_loss_adjustment': 1.0, # Multiplier for stop-loss distance
+            'target_multiplier': 1.0,    # Multiplier for profit targets
+            'confidence_boost': 0,       # Percentage boost to confidence
+            'risk_adjustment': 1.0       # Multiplier for position size
+        }
+        
+        # VERY STRONG PATTERNS (Strength >= 90)
+        if strength >= 90:
+            if pattern_type == 'bullish':
+                impact['signal_boost'] = 2          # Strong buy signal
+                impact['stop_loss_adjustment'] = 0.97  # Tighter stop (3% closer)
+                impact['target_multiplier'] = 1.4   # 40% higher targets
+                impact['confidence_boost'] = 20     # +20% confidence
+                impact['risk_adjustment'] = 1.2     # Can increase position 20%
+            elif pattern_type == 'bearish':
+                impact['signal_boost'] = -2         # Strong sell/avoid signal
+                impact['stop_loss_adjustment'] = 1.03  # Wider stop
+                impact['target_multiplier'] = 0.7   # Lower targets
+                impact['confidence_boost'] = -20
+                impact['risk_adjustment'] = 0.8     # Reduce position 20%
+        
+        # STRONG PATTERNS (Strength 80-89)
+        elif strength >= 80:
+            if pattern_type == 'bullish':
+                impact['signal_boost'] = 1.5
+                impact['stop_loss_adjustment'] = 0.98
+                impact['target_multiplier'] = 1.25
+                impact['confidence_boost'] = 15
+                impact['risk_adjustment'] = 1.15
+            elif pattern_type == 'bearish':
+                impact['signal_boost'] = -1.5
+                impact['stop_loss_adjustment'] = 1.02
+                impact['target_multiplier'] = 0.8
+                impact['confidence_boost'] = -15
+                impact['risk_adjustment'] = 0.85
+        
+        # MEDIUM PATTERNS (Strength 70-79)
+        elif strength >= 70:
+            if pattern_type == 'bullish':
+                impact['signal_boost'] = 1
+                impact['stop_loss_adjustment'] = 0.99
+                impact['target_multiplier'] = 1.15
+                impact['confidence_boost'] = 10
+                impact['risk_adjustment'] = 1.1
+            elif pattern_type == 'bearish':
+                impact['signal_boost'] = -1
+                impact['stop_loss_adjustment'] = 1.01
+                impact['target_multiplier'] = 0.9
+                impact['confidence_boost'] = -10
+                impact['risk_adjustment'] = 0.9
+        
+        # WEAK PATTERNS (Strength < 70) - Minimal impact
+        else:
+            if pattern_type == 'bullish':
+                impact['signal_boost'] = 0.5
+                impact['confidence_boost'] = 5
+            elif pattern_type == 'bearish':
+                impact['signal_boost'] = -0.5
+                impact['confidence_boost'] = -5
+        
+        # BONUS: Extra boost for REVERSAL patterns at key levels
+        if category == 'reversal':
+            impact['confidence_boost'] += 5  # Reversals are powerful
+        
+        return impact
+
+        def detect_inside_bar_pattern(self, data):
+            """Detect Inside Bar"""
+            if len(data) < 2:
+                return {"detected": False, "message": "Insufficient data"}
+
+            try:
+                high_col = 'High' if 'High' in data.columns else 'high'
+                low_col = 'Low' if 'Low' in data.columns else 'low'
+                close_col = 'Close' if 'Close' in data.columns else 'close'
+
+                mother_bar = data.iloc[-2]
+                inside_bar = data.iloc[-1]
+
+                is_inside_bar = (
+                    inside_bar[high_col] <= mother_bar[high_col] and
+                    inside_bar[low_col] >= mother_bar[low_col]
+                )
+
+                if is_inside_bar:
+                    return {
+                        "detected": True,
+                        "mother_high": mother_bar[high_col],
+                        "mother_low": mother_bar[low_col],
+                        "current_price": data[close_col].iloc[-1],
+                        "buy_trigger": mother_bar[high_col],
+                        "sell_trigger": mother_bar[low_col],
+                        "message": f"Inside Bar detected. Buy above {mother_bar[high_col]:.2f} or Sell below {mother_bar[low_col]:.2f}"
+                    }
+                else:
+                    return {"detected": False, "message": "No Inside Bar pattern"}
+            except:
+                return {"detected": False, "message": "Error"}
+
+        def detect_breakout_retest(self, five_min_data, resistance):
+            """Detect breakout and retest"""
+            if five_min_data.empty or resistance == 0:
+                return "Not Analyzed"
+
+            high_col = 'High' if 'High' in five_min_data.columns else 'high'
+            low_col = 'Low' if 'Low' in five_min_data.columns else 'low'
+            close_col = 'Close' if 'Close' in five_min_data.columns else 'close'
+
+            recent_data = five_min_data.tail(20)
+
+            breakout_candle_index = -1
+            retest_candle_index = -1
+
+            for i in range(1, len(recent_data)):
+                prev_high = recent_data[high_col].iloc[i-1]
+                current_high = recent_data[high_col].iloc[i]
+
+                if current_high > resistance and prev_high <= resistance:
+                    breakout_candle_index = i
+                    break
+
+            if breakout_candle_index == -1:
+                return "No Breakout Detected"
+
+            for i in range(breakout_candle_index + 1, len(recent_data)):
+                current_low = recent_data[low_col].iloc[i]
+
+                if current_low <= resistance:
+                    retest_candle_index = i
+                    break
+
+            if retest_candle_index == -1:
+                return f"Breakout Occurred. Awaiting Retest."
+
+            if retest_candle_index < len(recent_data) - 1:
+                confirmation_candle = recent_data.iloc[retest_candle_index + 1]
+
+                if confirmation_candle[close_col] > resistance:
+                    return f"✅ Retest Confirmed. Potential Entry."
+
+            return f"Retest in Progress. Awaiting Confirmation."
+
+        def run_confirmation_checklist(self, analysis_results):
+            """Run 5-point checklist"""
+            checklist = {
+                "1. At Key S/R Level": "⚠️ PENDING",
+                "2. Price Rejection": "⚠️ PENDING",
+                "3. Chart Pattern Confirmed": "⚠️ PENDING",
+                "4. Candlestick Signal": "⚠️ PENDING",
+                "5. Indicator Alignment": "⚠️ PENDING",
+                "FINAL_SIGNAL": "HOLD"
+            }
+
+            five_min_df = analysis_results.get('5m_data')
+            if five_min_df is None or five_min_df.empty:
+                return checklist
+
+            close_col = 'Close' if 'Close' in five_min_df.columns else 'close'
+            high_col = 'High' if 'High' in five_min_df.columns else 'high'
+            low_col = 'Low' if 'Low' in five_min_df.columns else 'low'
+
+            resistance = analysis_results.get('resistance', 0)
+            support = analysis_results.get('support', 0)
+            latest_price = analysis_results.get('latest_price', 0)
+
+            at_resistance = abs(latest_price - resistance) / resistance < 0.005 if resistance > 0 else False
+            at_support = abs(latest_price - support) / support < 0.005 if support > 0 else False
+
+            if at_support:
+                checklist["1. At Key S/R Level"] = "✅ At Support"
+                last_candle = five_min_df.iloc[-1]
+                if (last_candle[low_col] < support) and (last_candle[close_col] > support):
+                    checklist["2. Price Rejection"] = "✅ Bullish Rejection"
+            elif at_resistance:
+                checklist["1. At Key S/R Level"] = "✅ At Resistance"
+                last_candle = five_min_df.iloc[-1]
+                if (last_candle[high_col] > resistance) and (last_candle[close_col] < resistance):
+                    checklist["2. Price Rejection"] = "✅ Bearish Rejection"
+            else:
+                checklist["1. At Key S/R Level"] = "❌ Not at a key level"
+                checklist["2. Price Rejection"] = "❌ No Rejection"
+
+            pattern_status = self.detect_breakout_retest(five_min_df, resistance)
+            if "✅ Retest Confirmed" in pattern_status:
+                checklist["3. Chart Pattern Confirmed"] = "✅ Breakout/Retest"
+            else:
+                checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
+
+            candle_pattern = self.check_candlestick_pattern(five_min_df)
+            if "No significant" not in candle_pattern:
+                checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}"
+            else:
+                checklist["4. Candlestick Signal"] = "❌ No Signal"
+
+            rsi = analysis_results.get('rsi', 50)
+            five_min_df = self.compute_vwap(five_min_df)
+            vwap = five_min_df['vwap'].iloc[-1]
+
+            if (checklist["1. At Key S/R Level"] == "✅ At Support" and
+                rsi < 70 and latest_price > vwap):
+                checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
+            elif (checklist["1. At Key S/R Level"] == "✅ At Resistance" and
+                  rsi > 30 and latest_price < vwap):
+                checklist["5. Indicator Alignment"] = "✅ Bearish Alignment"
+            else:
+                checklist["5. Indicator Alignment"] = "❌ No Alignment"
+
+            bullish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and ("Bullish" in str(v) or "Breakout" in str(v)))
+            bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
+
+            # Add pattern signal boost
+            pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
+            
+            # Adjust checks with pattern influence
+            if bullish_checks + pattern_boost >= 3:
+                checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
+            elif bearish_checks - pattern_boost >= 3:
+                checklist['FINAL_SIGNAL'] = "🔴 SELL"
+            else:
+                checklist['FINAL_SIGNAL'] = "⚪ HOLD"
             return checklist
 
-        close_col = 'Close' if 'Close' in five_min_df.columns else 'close'
-        high_col = 'High' if 'High' in five_min_df.columns else 'high'
-        low_col = 'Low' if 'Low' in five_min_df.columns else 'low'
-
-        resistance = analysis_results.get('resistance', 0)
-        support = analysis_results.get('support', 0)
-        latest_price = analysis_results.get('latest_price', 0)
-
-        at_resistance = abs(latest_price - resistance) / resistance < 0.005 if resistance > 0 else False
-        at_support = abs(latest_price - support) / support < 0.005 if support > 0 else False
-
-        if at_support:
-            checklist["1. At Key S/R Level"] = "✅ At Support"
-            last_candle = five_min_df.iloc[-1]
-            if (last_candle[low_col] < support) and (last_candle[close_col] > support):
-                checklist["2. Price Rejection"] = "✅ Bullish Rejection"
-        elif at_resistance:
-            checklist["1. At Key S/R Level"] = "✅ At Resistance"
-            last_candle = five_min_df.iloc[-1]
-            if (last_candle[high_col] > resistance) and (last_candle[close_col] < resistance):
-                checklist["2. Price Rejection"] = "✅ Bearish Rejection"
-        else:
-            checklist["1. At Key S/R Level"] = "❌ Not at a key level"
-            checklist["2. Price Rejection"] = "❌ No Rejection"
-
-        pattern_status = self.detect_breakout_retest(five_min_df, resistance)
-        if "✅ Retest Confirmed" in pattern_status:
-            checklist["3. Chart Pattern Confirmed"] = "✅ Breakout/Retest"
-        else:
-            checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
-
-        candle_pattern = self.check_candlestick_pattern(five_min_df)
-        if "No significant" not in candle_pattern:
-            checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}"
-        else:
-            checklist["4. Candlestick Signal"] = "❌ No Signal"
-
-        rsi = analysis_results.get('rsi', 50)
-        five_min_df = self.compute_vwap(five_min_df)
-        vwap = five_min_df['vwap'].iloc[-1]
-
-        if (checklist["1. At Key S/R Level"] == "✅ At Support" and
-            rsi < 70 and latest_price > vwap):
-            checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
-        elif (checklist["1. At Key S/R Level"] == "✅ At Resistance" and
-              rsi > 30 and latest_price < vwap):
-            checklist["5. Indicator Alignment"] = "✅ Bearish Alignment"
-        else:
-            checklist["5. Indicator Alignment"] = "❌ No Alignment"
-
-        bullish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and ("Bullish" in str(v) or "Breakout" in str(v)))
-        bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
-
-        # Add pattern signal boost
-        pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
-        
-        # Adjust checks with pattern influence
-        if bullish_checks + pattern_boost >= 3:
-            checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
-        elif bearish_checks - pattern_boost >= 3:
-            checklist['FINAL_SIGNAL'] = "🔴 SELL"
-        else:
-            checklist['FINAL_SIGNAL'] = "⚪ HOLD"
-        return checklist
-
-    def analyze_for_intraday(self):
-        """Complete intraday analysis WITH STOP-LOSS"""
-        results = {
-            'ticker': self.ticker,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'market_open': is_market_open()
-        }
-
-        try:
-            daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
-            if daily_data is None:
-                return None
-
-            fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
-            if fifteen_min_data is None:
-                fifteen_min_data = daily_data.copy()
-                fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
-
-            five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
-            if five_min_data is None:
-                five_min_data = fifteen_min_data.copy()
-
-            results['5m_data'] = five_min_data
-            results['latest_price'] = daily_data['Close'].iloc[-1]
-            results['rsi'] = self.compute_rsi(daily_data)
-            results['macd'] = self.compute_macd(daily_data)
-            results['moving_averages'] = self.compute_moving_averages(daily_data)
-
-            results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
-            results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
-            five_min_data = self.compute_vwap(five_min_data)
-            results['vwap'] = five_min_data['vwap'].iloc[-1]
-            results['vwma'] = self.compute_vwma(five_min_data)
-            results['supertrend'] = self.compute_supertrend(five_min_data)
-
-            sr_levels = self.detect_support_resistance(fifteen_min_data)
-            results['resistance'] = sr_levels['resistance']
-            results['support'] = sr_levels['support']
-
-            # ========== CANDLESTICK PATTERN ANALYSIS ==========
-            pattern_data = self.detectcandlestickpatternstalib(five_min_data)
-            pattern_impact = self.calculatepatternimpact(pattern_data, results['latest_price'])
-            
-            # Store pattern information
-            results['candlestick_pattern'] = pattern_data['pattern']
-            results['pattern_type'] = pattern_data['type']
-            results['pattern_strength'] = pattern_data['strength']
-            results['pattern_confidence'] = pattern_data.get('confidence', 0)
-            results['pattern_category'] = pattern_data.get('category', 'none')
-            results['pattern_description'] = pattern_data['description']
-            results['pattern_impact'] = pattern_impact
-
-
-            # ============ STOP-LOSS CALCULATION ============
-            atr = self.calculate_atr(five_min_data, period=14)
-            results['atr'] = atr
-
-            # Calculate base stop-loss
-            if results.get('support', 0) > 0:
-                base_stop_loss = results.get('support', 0) * 0.995
-            else:
-                base_stop_loss = results['latest_price'] * 0.98
-            
-            # Apply pattern adjustment
-            pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
-            stop_loss_support = base_stop_loss * pattern_adjustment
-            
-            # Store both for reference
-            results['base_stoploss'] = base_stop_loss
-            results['stoploss'] = stop_loss_support
-
-            stop_loss_atr = results['latest_price'] - (atr * 1.5)
-            results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
-            results['trailing_stop_vwap'] = results.get('vwap', 0)
-
-            # ============ POSITION SIZE ============
-            max_capital_per_trade = 12500
-            risk_per_share = abs(results['latest_price'] - results['stop_loss'])
-
-            if risk_per_share > 0:
-                max_quantity = int(max_capital_per_trade / results['latest_price'])
-                risk_based_quantity = int((max_capital_per_trade * 0.02) / risk_per_share)
-                results['position_size'] = min(max_quantity, risk_based_quantity, 100)
-            else:
-                results['position_size'] = 1
-
-            # ============ TARGETS ============
-            risk_amount = risk_per_share
-
-            # Get pattern target multiplier
-            target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
-            
-            results['targets'] = [
-                {
-                    "level": "Target 1 (1:1.5)", 
-                    "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
-                    "profitpotential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
-                },
-                {
-                    "level": "Target 2 (1:2)", 
-                    "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
-                    "profitpotential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
-                },
-                {
-                    "level": "Target 3 (1:3)", 
-                    "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
-                    "profitpotential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
-                },
-            ]
-
-
-            if results['supertrend']['trend'] == 'uptrend':
-                results['supertrend_target'] = results['supertrend']['value']
-
-            results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
-            results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
-            results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
-
-            results['inside_bar'] = self.detect_inside_bar_pattern(fifteen_min_data)
-            results['breakout_status'] = self.detect_breakout_retest(five_min_data, sr_levels['resistance'])
-
-            results['5m_data'] = five_min_data
-            results['15m_data'] = fifteen_min_data
-            results['daily_data'] = daily_data
-
-            results['confirmation_checklist'] = self.run_confirmation_checklist(results)
-            results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
-
-            results['currency'] = get_currency_symbol(self.ticker, None)
-            return results
-
-        except Exception as e:
-            st.error(f"Error in intraday analysis: {e}")
-            return None
-
-
-
-    def analyze_for_swing(self):
-        """Swing trading analysis"""
-        results = {
-            'ticker': self.ticker,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'mode': 'swing'
-        }
-
-        try:
-            daily_data = self.fetch_stock_data(self.ticker, period="1y")
-            if daily_data is None:
-                return None
-
-            results['latest_price'] = daily_data['Close'].iloc[-1]
-            results['rsi'] = self.compute_rsi(daily_data)
-            results['macd'] = self.compute_macd(daily_data)
-            results['moving_averages'] = self.compute_moving_averages(daily_data)
-
-            results['52w_high'] = daily_data['Close'].max()
-            results['52w_low'] = daily_data['Close'].min()
-            results['distance_from_52w_high'] = ((results['latest_price'] - results['52w_high']) / results['52w_high']) * 100
-
-            ema_100 = daily_data['Close'].ewm(span=100, adjust=False).mean().iloc[-1] if len(daily_data) >= 100 else None
-            ema_200 = daily_data['Close'].ewm(span=200, adjust=False).mean().iloc[-1] if len(daily_data) >= 200 else None
-
-            results['ema_100'] = ema_100
-            results['ema_200'] = ema_200
-
-            signal = "HOLD"
-            if results['latest_price'] > results['moving_averages']['MA_50']:
-                if results['rsi'] < 70 and results['macd']['histogram'] > 0:
-                    signal = "BUY"
-            elif results['latest_price'] < results['moving_averages']['MA_50']:
-                if results['rsi'] > 30 and results['macd']['histogram'] < 0:
-                    signal = "SELL"
-
-            results['signal'] = signal
-            results['daily_data'] = daily_data
-
-            return results
-
-        except Exception as e:
-            return None
-
-    def scrape_news_headlines(self, ticker_name, days=1):
-        """Scrape news headlines"""
-        try:
-            api_key = NEWSAPI_KEY if NEWSAPI_KEY else "e205d77d7bc14acc8744d3ea10568f50"
-            search_query = ticker_name.replace("^", "").replace(".NS", "")
-            url = f"https://newsapi.org/v2/everything?q={search_query}&language=en&sortBy=publishedAt&apiKey={api_key}&pageSize=5"
-            headers = {"User-Agent": "Mozilla/5.0"}
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            news_data = response.json()
-            headlines = []
-            if news_data.get("status") == "ok" and news_data.get("articles"):
-                for article in news_data["articles"]:
-                    title = article.get("title")
-                    if title and len(title) > 15:
-                        headlines.append(title)
-                    if len(headlines) >= 5:
-                        break
-            return headlines if headlines else ["No recent news found"]
-        except:
-            return ["No news available"]
-
-    def analyze_sentiment(self, headlines):
-        """Analyze sentiment"""
-        if not headlines or not self.sentiment_analyzer:
-            return {"sentiment": "Neutral", "score": 0.0}
-
-        try:
-            sentiments = []
-            for headline in headlines:
-                if len(headline) > 15:
-                    result = self.sentiment_analyzer(headline[:512])
-                    if isinstance(result[0], list):
-                        sentiment_scores = {item['label']: item['score'] for item in result[0]}
-                        if 'positive' in sentiment_scores:
-                            sentiments.append(sentiment_scores['positive'] - sentiment_scores.get('negative', 0))
-                    else:
-                        score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
-                        sentiments.append(score)
-
-            if sentiments:
-                avg_sentiment = np.mean(sentiments)
-                if avg_sentiment > 0.1:
-                    return {"sentiment": "Positive", "score": avg_sentiment}
-                elif avg_sentiment < -0.1:
-                    return {"sentiment": "Negative", "score": avg_sentiment}
-
-            return {"sentiment": "Neutral", "score": 0.0}
-        except:
-            return {"sentiment": "Neutral", "score": 0.0}
-
-    def analyze_with_fibonacci(self, data):
-        """Fibonacci analysis"""
-        try:
-            high = data['Close'].max()
-            low = data['Close'].min()
-            current_price = data['Close'].iloc[-1]
-
-            sma_50 = data['Close'].rolling(50).mean().iloc[-1] if len(data) >= 50 else current_price
-            trend = 'uptrend' if current_price > sma_50 else 'downtrend'
-
-            fib_levels = self.fib_calc.calculate_levels(high, low, trend)
-            targets = self.fib_calc.identify_targets(current_price, fib_levels)
-
-            return {
-                'fib_levels': fib_levels,
-                'targets': targets,
-                'trend': trend
+        def analyze_for_intraday(self):
+            """Complete intraday analysis WITH STOP-LOSS"""
+            results = {
+                'ticker': self.ticker,
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'market_open': is_market_open()
             }
-        except:
-            return None
 
-    def calculate_atr(self, data, period=14):
-        """Calculate ATR"""
-        try:
-            high = data['High'] if 'High' in data.columns else data['high']
-            low = data['Low' if 'Low' in data.columns else 'low']
-            close = data['Close'] if 'Close' in data.columns else data['close']
+            try:
+                daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
+                if daily_data is None:
+                    return None
 
-            high_low = high - low
-            high_close = abs(high - close.shift())
-            low_close = abs(low - close.shift())
+                fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
+                if fifteen_min_data is None:
+                    fifteen_min_data = daily_data.copy()
+                    fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
 
-            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-            atr = tr.rolling(window=period).mean()
+                five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
+                if five_min_data is None:
+                    five_min_data = fifteen_min_data.copy()
 
-            return atr.iloc[-1] if not pd.isna(atr.iloc[-1]) else 0
-        except:
-            return 0
+                results['5m_data'] = five_min_data
+                results['latest_price'] = daily_data['Close'].iloc[-1]
+                results['rsi'] = self.compute_rsi(daily_data)
+                results['macd'] = self.compute_macd(daily_data)
+                results['moving_averages'] = self.compute_moving_averages(daily_data)
+
+                results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
+                results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
+                five_min_data = self.compute_vwap(five_min_data)
+                results['vwap'] = five_min_data['vwap'].iloc[-1]
+                results['vwma'] = self.compute_vwma(five_min_data)
+                results['supertrend'] = self.compute_supertrend(five_min_data)
+
+                sr_levels = self.detect_support_resistance(fifteen_min_data)
+                results['resistance'] = sr_levels['resistance']
+                results['support'] = sr_levels['support']
+
+                # ========== CANDLESTICK PATTERN ANALYSIS ==========
+                pattern_data = self.detectcandlestickpatternstalib(five_min_data)
+                pattern_impact = self.calculatepatternimpact(pattern_data, results['latest_price'])
+                
+                # Store pattern information
+                results['candlestick_pattern'] = pattern_data['pattern']
+                results['pattern_type'] = pattern_data['type']
+                results['pattern_strength'] = pattern_data['strength']
+                results['pattern_confidence'] = pattern_data.get('confidence', 0)
+                results['pattern_category'] = pattern_data.get('category', 'none')
+                results['pattern_description'] = pattern_data['description']
+                results['pattern_impact'] = pattern_impact
+
+
+                # ============ STOP-LOSS CALCULATION ============
+                atr = self.calculate_atr(five_min_data, period=14)
+                results['atr'] = atr
+
+                # Calculate base stop-loss
+                if results.get('support', 0) > 0:
+                    base_stop_loss = results.get('support', 0) * 0.995
+                else:
+                    base_stop_loss = results['latest_price'] * 0.98
+                
+                # Apply pattern adjustment
+                pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
+                stop_loss_support = base_stop_loss * pattern_adjustment
+                
+                # Store both for reference
+                results['base_stoploss'] = base_stop_loss
+                results['stoploss'] = stop_loss_support
+
+                stop_loss_atr = results['latest_price'] - (atr * 1.5)
+                results['stop_loss'] = max(stop_loss_support, stop_loss_atr)
+                results['trailing_stop_vwap'] = results.get('vwap', 0)
+
+                # ============ POSITION SIZE ============
+                max_capital_per_trade = 12500
+                risk_per_share = abs(results['latest_price'] - results['stop_loss'])
+
+                if risk_per_share > 0:
+                    max_quantity = int(max_capital_per_trade / results['latest_price'])
+                    risk_based_quantity = int((max_capital_per_trade * 0.02) / risk_per_share)
+                    results['position_size'] = min(max_quantity, risk_based_quantity, 100)
+                else:
+                    results['position_size'] = 1
+
+                # ============ TARGETS ============
+                risk_amount = risk_per_share
+
+                # Get pattern target multiplier
+                target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
+                
+                results['targets'] = [
+                    {
+                        "level": "Target 1 (1:1.5)", 
+                        "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
+                        "profitpotential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
+                    },
+                    {
+                        "level": "Target 2 (1:2)", 
+                        "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
+                        "profitpotential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
+                    },
+                    {
+                        "level": "Target 3 (1:3)", 
+                        "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
+                        "profitpotential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
+                    },
+                ]
+
+
+                if results['supertrend']['trend'] == 'uptrend':
+                    results['supertrend_target'] = results['supertrend']['value']
+
+                results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
+                results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
+                results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
+
+                results['inside_bar'] = self.detect_inside_bar_pattern(fifteen_min_data)
+                results['breakout_status'] = self.detect_breakout_retest(five_min_data, sr_levels['resistance'])
+
+                results['5m_data'] = five_min_data
+                results['15m_data'] = fifteen_min_data
+                results['daily_data'] = daily_data
+
+                results['confirmation_checklist'] = self.run_confirmation_checklist(results)
+                results['signal'] = results['confirmation_checklist']['FINAL_SIGNAL']
+
+                results['currency'] = get_currency_symbol(self.ticker, None)
+                return results
+
+            except Exception as e:
+                st.error(f"Error in intraday analysis: {e}")
+                return None
+
+
+
+        def analyze_for_swing(self):
+            """Swing trading analysis"""
+            results = {
+                'ticker': self.ticker,
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'mode': 'swing'
+            }
+
+            try:
+                daily_data = self.fetch_stock_data(self.ticker, period="1y")
+                if daily_data is None:
+                    return None
+
+                results['latest_price'] = daily_data['Close'].iloc[-1]
+                results['rsi'] = self.compute_rsi(daily_data)
+                results['macd'] = self.compute_macd(daily_data)
+                results['moving_averages'] = self.compute_moving_averages(daily_data)
+
+                results['52w_high'] = daily_data['Close'].max()
+                results['52w_low'] = daily_data['Close'].min()
+                results['distance_from_52w_high'] = ((results['latest_price'] - results['52w_high']) / results['52w_high']) * 100
+
+                ema_100 = daily_data['Close'].ewm(span=100, adjust=False).mean().iloc[-1] if len(daily_data) >= 100 else None
+                ema_200 = daily_data['Close'].ewm(span=200, adjust=False).mean().iloc[-1] if len(daily_data) >= 200 else None
+
+                results['ema_100'] = ema_100
+                results['ema_200'] = ema_200
+
+                signal = "HOLD"
+                if results['latest_price'] > results['moving_averages']['MA_50']:
+                    if results['rsi'] < 70 and results['macd']['histogram'] > 0:
+                        signal = "BUY"
+                elif results['latest_price'] < results['moving_averages']['MA_50']:
+                    if results['rsi'] > 30 and results['macd']['histogram'] < 0:
+                        signal = "SELL"
+
+                results['signal'] = signal
+                results['daily_data'] = daily_data
+
+                return results
+
+            except Exception as e:
+                return None
+
+        def scrape_news_headlines(self, ticker_name, days=1):
+            """Scrape news headlines"""
+            try:
+                api_key = NEWSAPI_KEY if NEWSAPI_KEY else "e205d77d7bc14acc8744d3ea10568f50"
+                search_query = ticker_name.replace("^", "").replace(".NS", "")
+                url = f"https://newsapi.org/v2/everything?q={search_query}&language=en&sortBy=publishedAt&apiKey={api_key}&pageSize=5"
+                headers = {"User-Agent": "Mozilla/5.0"}
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                news_data = response.json()
+                headlines = []
+                if news_data.get("status") == "ok" and news_data.get("articles"):
+                    for article in news_data["articles"]:
+                        title = article.get("title")
+                        if title and len(title) > 15:
+                            headlines.append(title)
+                        if len(headlines) >= 5:
+                            break
+                return headlines if headlines else ["No recent news found"]
+            except:
+                return ["No news available"]
+
+        def analyze_sentiment(self, headlines):
+            """Analyze sentiment"""
+            if not headlines or not self.sentiment_analyzer:
+                return {"sentiment": "Neutral", "score": 0.0}
+
+            try:
+                sentiments = []
+                for headline in headlines:
+                    if len(headline) > 15:
+                        result = self.sentiment_analyzer(headline[:512])
+                        if isinstance(result[0], list):
+                            sentiment_scores = {item['label']: item['score'] for item in result[0]}
+                            if 'positive' in sentiment_scores:
+                                sentiments.append(sentiment_scores['positive'] - sentiment_scores.get('negative', 0))
+                        else:
+                            score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
+                            sentiments.append(score)
+
+                if sentiments:
+                    avg_sentiment = np.mean(sentiments)
+                    if avg_sentiment > 0.1:
+                        return {"sentiment": "Positive", "score": avg_sentiment}
+                    elif avg_sentiment < -0.1:
+                        return {"sentiment": "Negative", "score": avg_sentiment}
+
+                return {"sentiment": "Neutral", "score": 0.0}
+            except:
+                return {"sentiment": "Neutral", "score": 0.0}
+
+        def analyze_with_fibonacci(self, data):
+            """Fibonacci analysis"""
+            try:
+                high = data['Close'].max()
+                low = data['Close'].min()
+                current_price = data['Close'].iloc[-1]
+
+                sma_50 = data['Close'].rolling(50).mean().iloc[-1] if len(data) >= 50 else current_price
+                trend = 'uptrend' if current_price > sma_50 else 'downtrend'
+
+                fib_levels = self.fib_calc.calculate_levels(high, low, trend)
+                targets = self.fib_calc.identify_targets(current_price, fib_levels)
+
+                return {
+                    'fib_levels': fib_levels,
+                    'targets': targets,
+                    'trend': trend
+                }
+            except:
+                return None
+
+        def calculate_atr(self, data, period=14):
+            """Calculate ATR"""
+            try:
+                high = data['High'] if 'High' in data.columns else data['high']
+                low = data['Low' if 'Low' in data.columns else 'low']
+                close = data['Close'] if 'Close' in data.columns else data['close']
+
+                high_low = high - low
+                high_close = abs(high - close.shift())
+                low_close = abs(low - close.shift())
+
+                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+                atr = tr.rolling(window=period).mean()
+
+                return atr.iloc[-1] if not pd.isna(atr.iloc[-1]) else 0
+            except:
+                return 0
 
 # ==============================================================================
 # === MAIN STREAMLIT UI WITH ALL MISSING FEATURES ==============================
