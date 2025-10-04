@@ -3057,41 +3057,41 @@ def main():
                             else:
                                 results = analyzer.analyze_for_swing()
 
-                if results:
-                    # Add Fibonacci
-                    fib_analysis = analyzer.analyze_with_fibonacci(results['daily_data'])
-                    results['fibonacci'] = fib_analysis
-
-                    # Fetch news and sentiment
-                    headlines = analyzer.scrape_news_headlines(ticker_input)
-                    sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
-                    results['news_headlines'] = headlines
-                    results['sentiment'] = sentiment_detailed['overall_sentiment']  # Store as string
-                    results['sentiment_score'] = sentiment_detailed['overall_score']
-                    results['sentiment_detailed'] = sentiment_detailed  # Store full breakdown
-
-                    st.session_state['analysis_results'] = results
-                    st.session_state['current_ticker'] = ticker_input
-
-                    # Log to database
-                    log_trade_to_db(
-                        ticker_input,
-                        results.get('signal', 'HOLD'),
-                        results['latest_price'],
-                        results.get('position_size', 0),
-                        trading_mode.lower()
-                    )
-
-                    # Send alerts
-                    if results.get('signal') in ['🟢 BUY', '🔴 SELL']:
-                        send_multi_channel_alert(
-                            ticker_input,
-                            results['signal'],
-                            results['latest_price'],
-                            [ch.lower() for ch in alert_channels]
-                        )
-
-                    st.success("✅ Complete Analysis Done!")
+                            if results:
+                                # Add Fibonacci
+                                fib_analysis = analyzer.analyze_with_fibonacci(results['daily_data'])
+                                results['fibonacci'] = fib_analysis
+            
+                                # Fetch news and sentiment
+                                headlines = analyzer.scrape_news_headlines(ticker_input)
+                                sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
+                                results['news_headlines'] = headlines
+                                results['sentiment'] = sentiment_detailed['overall_sentiment']  # Store as string
+                                results['sentiment_score'] = sentiment_detailed['overall_score']
+                                results['sentiment_detailed'] = sentiment_detailed  # Store full breakdown
+            
+                                st.session_state['analysis_results'] = results
+                                st.session_state['current_ticker'] = ticker_input
+            
+                                # Log to database
+                                log_trade_to_db(
+                                    ticker_input,
+                                    results.get('signal', 'HOLD'),
+                                    results['latest_price'],
+                                    results.get('position_size', 0),
+                                    trading_mode.lower()
+                                )
+            
+                                # Send alerts
+                                if results.get('signal') in ['🟢 BUY', '🔴 SELL']:
+                                    send_multi_channel_alert(
+                                        ticker_input,
+                                        results['signal'],
+                                        results['latest_price'],
+                                        [ch.lower() for ch in alert_channels]
+                                    )
+            
+                                st.success("✅ Complete Analysis Done!")
 
         with col2:
             if 'analysis_results' in st.session_state:
