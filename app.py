@@ -2403,318 +2403,318 @@ class StockAnalyzer:
                 checklist['FINAL_SIGNAL'] = "⚪ HOLD"
             return checklist
 
-        def analyze_for_intraday(self):
-            """Complete intraday analysis WITH STOP-LOSS - Error Handled Version"""
-            results = {
-                'ticker': self.ticker,
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'market_open': is_market_open()
-            }
-        
-            try:
-                # Fetch daily data
-                daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
-                if daily_data is None or daily_data.empty:
-                    st.error("Unable to fetch daily data")
-                    return None
-        
-                # Fetch intraday data
-                fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
-                if fifteen_min_data is None or fifteen_min_data.empty:
-                    fifteen_min_data = daily_data.copy()
-                    fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
-        
-                five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
-                if five_min_data is None or five_min_data.empty:
-                    five_min_data = fifteen_min_data.copy()
-        
-                # Normalize column names
-                daily_data.columns = [col.capitalize() for col in daily_data.columns]
-                five_min_data.columns = [col.lower() for col in five_min_data.columns]
+    def analyze_for_intraday(self):
+        """Complete intraday analysis WITH STOP-LOSS - Error Handled Version"""
+        results = {
+            'ticker': self.ticker,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'market_open': is_market_open()
+        }
+    
+        try:
+            # Fetch daily data
+            daily_data = fetch_stock_data(self.ticker, period="60d", interval="1d")
+            if daily_data is None or daily_data.empty:
+                st.error("Unable to fetch daily data")
+                return None
+    
+            # Fetch intraday data
+            fifteen_min_data = fetch_intraday_data(self.ticker, interval="15m", period="5d")
+            if fifteen_min_data is None or fifteen_min_data.empty:
+                fifteen_min_data = daily_data.copy()
                 fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
-        
-                # Store data
-                results['5m_data'] = five_min_data
-                results['15m_data'] = fifteen_min_data
-                results['daily_data'] = daily_data
-        
-                # Basic metrics
-                results['latest_price'] = float(daily_data['Close'].iloc[-1])
-                results['rsi'] = self.compute_rsi(daily_data)
-                results['macd'] = self.compute_macd(daily_data)
-                results['moving_averages'] = self.compute_moving_averages(daily_data)
-        
-                # Intraday indicators
-                results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
-                results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
+    
+            five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
+            if five_min_data is None or five_min_data.empty:
+                five_min_data = fifteen_min_data.copy()
+    
+            # Normalize column names
+            daily_data.columns = [col.capitalize() for col in daily_data.columns]
+            five_min_data.columns = [col.lower() for col in five_min_data.columns]
+            fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
+    
+            # Store data
+            results['5m_data'] = five_min_data
+            results['15m_data'] = fifteen_min_data
+            results['daily_data'] = daily_data
+    
+            # Basic metrics
+            results['latest_price'] = float(daily_data['Close'].iloc[-1])
+            results['rsi'] = self.compute_rsi(daily_data)
+            results['macd'] = self.compute_macd(daily_data)
+            results['moving_averages'] = self.compute_moving_averages(daily_data)
+    
+            # Intraday indicators
+            results['bollinger_bands'] = self.compute_bollinger_bands(five_min_data)
+            results['stochastic'] = self.compute_stochastic_momentum(five_min_data)
+            
+            five_min_data = self.compute_vwap(five_min_data)
+            results['vwap'] = float(five_min_data['vwap'].iloc[-1])
+            results['vwma'] = self.compute_vwma(five_min_data)
+            results['supertrend'] = self.compute_supertrend(five_min_data)
+    
+            # Support/Resistance
+            sr_levels = self.detect_support_resistance(fifteen_min_data)
+            results['resistance'] = float(sr_levels.get('resistance', results['latest_price'] * 1.02))
+            results['support'] = float(sr_levels.get('support', results['latest_price'] * 0.98))
+    
+            # ========== CANDLESTICK PATTERN ANALYSIS ==========
+            try:
+                pattern_data = self.detect_candlestick_patterns_talib(five_min_data)
+                pattern_impact = self.calculate_pattern_impact(pattern_data, results['latest_price'])
                 
-                five_min_data = self.compute_vwap(five_min_data)
-                results['vwap'] = float(five_min_data['vwap'].iloc[-1])
-                results['vwma'] = self.compute_vwma(five_min_data)
-                results['supertrend'] = self.compute_supertrend(five_min_data)
-        
-                # Support/Resistance
-                sr_levels = self.detect_support_resistance(fifteen_min_data)
-                results['resistance'] = float(sr_levels.get('resistance', results['latest_price'] * 1.02))
-                results['support'] = float(sr_levels.get('support', results['latest_price'] * 0.98))
-        
-                # ========== CANDLESTICK PATTERN ANALYSIS ==========
-                try:
-                    pattern_data = self.detect_candlestick_patterns_talib(five_min_data)
-                    pattern_impact = self.calculate_pattern_impact(pattern_data, results['latest_price'])
-                    
-                    results['candlestick_pattern'] = pattern_data.get('pattern', 'None')
-                    results['pattern_type'] = pattern_data.get('type', 'neutral')
-                    results['pattern_strength'] = pattern_data.get('strength', 0)
-                    results['pattern_confidence'] = pattern_data.get('confidence', 0)
-                    results['pattern_category'] = pattern_data.get('category', 'none')
-                    results['pattern_description'] = pattern_data.get('description', 'No pattern')
-                    results['pattern_impact'] = pattern_impact
-                except Exception as e:
-                    st.warning(f"Pattern detection skipped: {str(e)}")
-                    results['candlestick_pattern'] = 'Analysis Error'
-                    results['pattern_type'] = 'neutral'
-                    results['pattern_strength'] = 0
-                    results['pattern_confidence'] = 0
-                    results['pattern_category'] = 'none'
-                    results['pattern_description'] = 'Pattern analysis unavailable'
-                    results['pattern_impact'] = {
-                        'signal_boost': 0,
-                        'stop_loss_adjustment': 1.0,
-                        'target_multiplier': 1.0,
-                        'confidence_boost': 0,
-                        'risk_adjustment': 1.0
-                    }
-        
-                # ============ ATR & STOP-LOSS ============
-                try:
-                    atr = self.calculate_atr(five_min_data, period=14)
-                    results['atr'] = float(atr) if atr > 0 else results['latest_price'] * 0.02
-                except:
-                    results['atr'] = results['latest_price'] * 0.02
-        
-                # Calculate base stop-loss
-                if results.get('support', 0) > 0:
-                    base_stop_loss = results['support'] * 0.995
-                else:
-                    base_stop_loss = results['latest_price'] * 0.98
-                
-                # Apply pattern adjustment
-                pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
-                stop_loss_support = base_stop_loss * pattern_adjustment
-                
-                stop_loss_atr = results['latest_price'] - (results['atr'] * 1.5)
-                results['base_stoploss'] = float(base_stop_loss)
-                results['stop_loss'] = float(max(stop_loss_support, stop_loss_atr))
-                results['trailing_stop_vwap'] = float(results.get('vwap', results['latest_price']))
-        
-                # ============ POSITION SIZE ============
-                max_capital_per_trade = 12500
-                risk_per_share = abs(results['latest_price'] - results['stop_loss'])
-        
-                if risk_per_share > 0:
-                    max_quantity = int(max_capital_per_trade / results['latest_price'])
-                    risk_based_quantity = int((max_capital_per_trade * 0.02) / risk_per_share)
-                    results['position_size'] = min(max_quantity, risk_based_quantity, 100)
-                else:
-                    results['position_size'] = 1
-        
-                # ============ TARGETS ============
-                risk_amount = risk_per_share
-                target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
-                
-                results['targets'] = [
-                    {
-                        "level": "Target 1 (1:1.5)", 
-                        "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
-                        "profit_potential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
-                    },
-                    {
-                        "level": "Target 2 (1:2)", 
-                        "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
-                        "profit_potential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
-                    },
-                    {
-                        "level": "Target 3 (1:3)", 
-                        "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
-                        "profit_potential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
-                    },
-                ]
-        
-                if results.get('supertrend', {}).get('trend') == 'uptrend':
-                    results['supertrend_target'] = results['supertrend']['value']
-        
-                results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
-                results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
-                results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
-        
-                # ============ PATTERN & BREAKOUT DETECTION ============
-                try:
-                    results['inside_bar'] = self.detect_inside_bar_pattern(fifteen_min_data)
-                except:
-                    results['inside_bar'] = {"detected": False, "message": "Not analyzed"}
-        
-                try:
-                    results['breakout_status'] = self.detect_breakout_retest(five_min_data, results['resistance'])
-                except:
-                    results['breakout_status'] = "Not analyzed"
-        
-                # ============ CONFIRMATION CHECKLIST ============
-                try:
-                    results['confirmation_checklist'] = self.run_confirmation_checklist(results)
-                    results['signal'] = results['confirmation_checklist'].get('FINAL_SIGNAL', 'HOLD')
-                except Exception as e:
-                    st.warning(f"Confirmation checklist error: {str(e)}")
-                    results['confirmation_checklist'] = {'FINAL_SIGNAL': 'HOLD'}
-                    results['signal'] = 'HOLD'
-        
-                # ============ CURRENCY SYMBOL ============
-                try:
-                    results['currency'] = get_currency_symbol(self.ticker, None)
-                except:
-                    results['currency'] = '$'
-        
-                return results
-        
+                results['candlestick_pattern'] = pattern_data.get('pattern', 'None')
+                results['pattern_type'] = pattern_data.get('type', 'neutral')
+                results['pattern_strength'] = pattern_data.get('strength', 0)
+                results['pattern_confidence'] = pattern_data.get('confidence', 0)
+                results['pattern_category'] = pattern_data.get('category', 'none')
+                results['pattern_description'] = pattern_data.get('description', 'No pattern')
+                results['pattern_impact'] = pattern_impact
             except Exception as e:
-                st.error(f"Critical error in intraday analysis: {str(e)}")
-                import traceback
-                st.code(traceback.format_exc())
-                return None
-
-        def analyze_for_swing(self):
-            """Swing trading analysis"""
-            results = {
-                'ticker': self.ticker,
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'mode': 'swing'
-            }
-
-            try:
-                daily_data = self.fetch_stock_data(self.ticker, period="1y")
-                if daily_data is None:
-                    return None
-
-                results['latest_price'] = daily_data['Close'].iloc[-1]
-                results['rsi'] = self.compute_rsi(daily_data)
-                results['macd'] = self.compute_macd(daily_data)
-                results['moving_averages'] = self.compute_moving_averages(daily_data)
-
-                results['52w_high'] = daily_data['Close'].max()
-                results['52w_low'] = daily_data['Close'].min()
-                results['distance_from_52w_high'] = ((results['latest_price'] - results['52w_high']) / results['52w_high']) * 100
-
-                ema_100 = daily_data['Close'].ewm(span=100, adjust=False).mean().iloc[-1] if len(daily_data) >= 100 else None
-                ema_200 = daily_data['Close'].ewm(span=200, adjust=False).mean().iloc[-1] if len(daily_data) >= 200 else None
-
-                results['ema_100'] = ema_100
-                results['ema_200'] = ema_200
-
-                signal = "HOLD"
-                if results['latest_price'] > results['moving_averages']['MA_50']:
-                    if results['rsi'] < 70 and results['macd']['histogram'] > 0:
-                        signal = "BUY"
-                elif results['latest_price'] < results['moving_averages']['MA_50']:
-                    if results['rsi'] > 30 and results['macd']['histogram'] < 0:
-                        signal = "SELL"
-
-                results['signal'] = signal
-                results['daily_data'] = daily_data
-
-                return results
-
-            except Exception as e:
-                return None
-
-        def scrape_news_headlines(self, ticker_name, days=1):
-            """Scrape news headlines"""
-            try:
-                api_key = NEWSAPI_KEY if NEWSAPI_KEY else "e205d77d7bc14acc8744d3ea10568f50"
-                search_query = ticker_name.replace("^", "").replace(".NS", "")
-                url = f"https://newsapi.org/v2/everything?q={search_query}&language=en&sortBy=publishedAt&apiKey={api_key}&pageSize=5"
-                headers = {"User-Agent": "Mozilla/5.0"}
-                response = requests.get(url, headers=headers, timeout=10)
-                response.raise_for_status()
-                news_data = response.json()
-                headlines = []
-                if news_data.get("status") == "ok" and news_data.get("articles"):
-                    for article in news_data["articles"]:
-                        title = article.get("title")
-                        if title and len(title) > 15:
-                            headlines.append(title)
-                        if len(headlines) >= 5:
-                            break
-                return headlines if headlines else ["No recent news found"]
-            except:
-                return ["No news available"]
-
-        def analyze_sentiment(self, headlines):
-            """Analyze sentiment"""
-            if not headlines or not self.sentiment_analyzer:
-                return {"sentiment": "Neutral", "score": 0.0}
-
-            try:
-                sentiments = []
-                for headline in headlines:
-                    if len(headline) > 15:
-                        result = self.sentiment_analyzer(headline[:512])
-                        if isinstance(result[0], list):
-                            sentiment_scores = {item['label']: item['score'] for item in result[0]}
-                            if 'positive' in sentiment_scores:
-                                sentiments.append(sentiment_scores['positive'] - sentiment_scores.get('negative', 0))
-                        else:
-                            score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
-                            sentiments.append(score)
-
-                if sentiments:
-                    avg_sentiment = np.mean(sentiments)
-                    if avg_sentiment > 0.1:
-                        return {"sentiment": "Positive", "score": avg_sentiment}
-                    elif avg_sentiment < -0.1:
-                        return {"sentiment": "Negative", "score": avg_sentiment}
-
-                return {"sentiment": "Neutral", "score": 0.0}
-            except:
-                return {"sentiment": "Neutral", "score": 0.0}
-
-        def analyze_with_fibonacci(self, data):
-            """Fibonacci analysis"""
-            try:
-                high = data['Close'].max()
-                low = data['Close'].min()
-                current_price = data['Close'].iloc[-1]
-
-                sma_50 = data['Close'].rolling(50).mean().iloc[-1] if len(data) >= 50 else current_price
-                trend = 'uptrend' if current_price > sma_50 else 'downtrend'
-
-                fib_levels = self.fib_calc.calculate_levels(high, low, trend)
-                targets = self.fib_calc.identify_targets(current_price, fib_levels)
-
-                return {
-                    'fib_levels': fib_levels,
-                    'targets': targets,
-                    'trend': trend
+                st.warning(f"Pattern detection skipped: {str(e)}")
+                results['candlestick_pattern'] = 'Analysis Error'
+                results['pattern_type'] = 'neutral'
+                results['pattern_strength'] = 0
+                results['pattern_confidence'] = 0
+                results['pattern_category'] = 'none'
+                results['pattern_description'] = 'Pattern analysis unavailable'
+                results['pattern_impact'] = {
+                    'signal_boost': 0,
+                    'stop_loss_adjustment': 1.0,
+                    'target_multiplier': 1.0,
+                    'confidence_boost': 0,
+                    'risk_adjustment': 1.0
                 }
+    
+            # ============ ATR & STOP-LOSS ============
+            try:
+                atr = self.calculate_atr(five_min_data, period=14)
+                results['atr'] = float(atr) if atr > 0 else results['latest_price'] * 0.02
             except:
+                results['atr'] = results['latest_price'] * 0.02
+    
+            # Calculate base stop-loss
+            if results.get('support', 0) > 0:
+                base_stop_loss = results['support'] * 0.995
+            else:
+                base_stop_loss = results['latest_price'] * 0.98
+            
+            # Apply pattern adjustment
+            pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
+            stop_loss_support = base_stop_loss * pattern_adjustment
+            
+            stop_loss_atr = results['latest_price'] - (results['atr'] * 1.5)
+            results['base_stoploss'] = float(base_stop_loss)
+            results['stop_loss'] = float(max(stop_loss_support, stop_loss_atr))
+            results['trailing_stop_vwap'] = float(results.get('vwap', results['latest_price']))
+    
+            # ============ POSITION SIZE ============
+            max_capital_per_trade = 12500
+            risk_per_share = abs(results['latest_price'] - results['stop_loss'])
+    
+            if risk_per_share > 0:
+                max_quantity = int(max_capital_per_trade / results['latest_price'])
+                risk_based_quantity = int((max_capital_per_trade * 0.02) / risk_per_share)
+                results['position_size'] = min(max_quantity, risk_based_quantity, 100)
+            else:
+                results['position_size'] = 1
+    
+            # ============ TARGETS ============
+            risk_amount = risk_per_share
+            target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
+            
+            results['targets'] = [
+                {
+                    "level": "Target 1 (1:1.5)", 
+                    "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
+                    "profit_potential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
+                },
+                {
+                    "level": "Target 2 (1:2)", 
+                    "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
+                    "profit_potential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
+                },
+                {
+                    "level": "Target 3 (1:3)", 
+                    "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
+                    "profit_potential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
+                },
+            ]
+    
+            if results.get('supertrend', {}).get('trend') == 'uptrend':
+                results['supertrend_target'] = results['supertrend']['value']
+    
+            results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
+            results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
+            results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
+    
+            # ============ PATTERN & BREAKOUT DETECTION ============
+            try:
+                results['inside_bar'] = self.detect_inside_bar_pattern(fifteen_min_data)
+            except:
+                results['inside_bar'] = {"detected": False, "message": "Not analyzed"}
+    
+            try:
+                results['breakout_status'] = self.detect_breakout_retest(five_min_data, results['resistance'])
+            except:
+                results['breakout_status'] = "Not analyzed"
+    
+            # ============ CONFIRMATION CHECKLIST ============
+            try:
+                results['confirmation_checklist'] = self.run_confirmation_checklist(results)
+                results['signal'] = results['confirmation_checklist'].get('FINAL_SIGNAL', 'HOLD')
+            except Exception as e:
+                st.warning(f"Confirmation checklist error: {str(e)}")
+                results['confirmation_checklist'] = {'FINAL_SIGNAL': 'HOLD'}
+                results['signal'] = 'HOLD'
+    
+            # ============ CURRENCY SYMBOL ============
+            try:
+                results['currency'] = get_currency_symbol(self.ticker, None)
+            except:
+                results['currency'] = '$'
+    
+            return results
+    
+        except Exception as e:
+            st.error(f"Critical error in intraday analysis: {str(e)}")
+            import traceback
+            st.code(traceback.format_exc())
+            return None
+
+    def analyze_for_swing(self):
+        """Swing trading analysis"""
+        results = {
+            'ticker': self.ticker,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'mode': 'swing'
+        }
+
+        try:
+            daily_data = self.fetch_stock_data(self.ticker, period="1y")
+            if daily_data is None:
                 return None
 
-        def calculate_atr(self, data, period=14):
-            """Calculate ATR"""
-            try:
-                high = data['High'] if 'High' in data.columns else data['high']
-                low = data['Low' if 'Low' in data.columns else 'low']
-                close = data['Close'] if 'Close' in data.columns else data['close']
+            results['latest_price'] = daily_data['Close'].iloc[-1]
+            results['rsi'] = self.compute_rsi(daily_data)
+            results['macd'] = self.compute_macd(daily_data)
+            results['moving_averages'] = self.compute_moving_averages(daily_data)
 
-                high_low = high - low
-                high_close = abs(high - close.shift())
-                low_close = abs(low - close.shift())
+            results['52w_high'] = daily_data['Close'].max()
+            results['52w_low'] = daily_data['Close'].min()
+            results['distance_from_52w_high'] = ((results['latest_price'] - results['52w_high']) / results['52w_high']) * 100
 
-                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-                atr = tr.rolling(window=period).mean()
+            ema_100 = daily_data['Close'].ewm(span=100, adjust=False).mean().iloc[-1] if len(daily_data) >= 100 else None
+            ema_200 = daily_data['Close'].ewm(span=200, adjust=False).mean().iloc[-1] if len(daily_data) >= 200 else None
 
-                return atr.iloc[-1] if not pd.isna(atr.iloc[-1]) else 0
-            except:
-                return 0
+            results['ema_100'] = ema_100
+            results['ema_200'] = ema_200
+
+            signal = "HOLD"
+            if results['latest_price'] > results['moving_averages']['MA_50']:
+                if results['rsi'] < 70 and results['macd']['histogram'] > 0:
+                    signal = "BUY"
+            elif results['latest_price'] < results['moving_averages']['MA_50']:
+                if results['rsi'] > 30 and results['macd']['histogram'] < 0:
+                    signal = "SELL"
+
+            results['signal'] = signal
+            results['daily_data'] = daily_data
+
+            return results
+
+        except Exception as e:
+            return None
+
+    def scrape_news_headlines(self, ticker_name, days=1):
+        """Scrape news headlines"""
+        try:
+            api_key = NEWSAPI_KEY if NEWSAPI_KEY else "e205d77d7bc14acc8744d3ea10568f50"
+            search_query = ticker_name.replace("^", "").replace(".NS", "")
+            url = f"https://newsapi.org/v2/everything?q={search_query}&language=en&sortBy=publishedAt&apiKey={api_key}&pageSize=5"
+            headers = {"User-Agent": "Mozilla/5.0"}
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            news_data = response.json()
+            headlines = []
+            if news_data.get("status") == "ok" and news_data.get("articles"):
+                for article in news_data["articles"]:
+                    title = article.get("title")
+                    if title and len(title) > 15:
+                        headlines.append(title)
+                    if len(headlines) >= 5:
+                        break
+            return headlines if headlines else ["No recent news found"]
+        except:
+            return ["No news available"]
+
+    def analyze_sentiment(self, headlines):
+        """Analyze sentiment"""
+        if not headlines or not self.sentiment_analyzer:
+            return {"sentiment": "Neutral", "score": 0.0}
+
+        try:
+            sentiments = []
+            for headline in headlines:
+                if len(headline) > 15:
+                    result = self.sentiment_analyzer(headline[:512])
+                    if isinstance(result[0], list):
+                        sentiment_scores = {item['label']: item['score'] for item in result[0]}
+                        if 'positive' in sentiment_scores:
+                            sentiments.append(sentiment_scores['positive'] - sentiment_scores.get('negative', 0))
+                    else:
+                        score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
+                        sentiments.append(score)
+
+            if sentiments:
+                avg_sentiment = np.mean(sentiments)
+                if avg_sentiment > 0.1:
+                    return {"sentiment": "Positive", "score": avg_sentiment}
+                elif avg_sentiment < -0.1:
+                    return {"sentiment": "Negative", "score": avg_sentiment}
+
+            return {"sentiment": "Neutral", "score": 0.0}
+        except:
+            return {"sentiment": "Neutral", "score": 0.0}
+
+    def analyze_with_fibonacci(self, data):
+        """Fibonacci analysis"""
+        try:
+            high = data['Close'].max()
+            low = data['Close'].min()
+            current_price = data['Close'].iloc[-1]
+
+            sma_50 = data['Close'].rolling(50).mean().iloc[-1] if len(data) >= 50 else current_price
+            trend = 'uptrend' if current_price > sma_50 else 'downtrend'
+
+            fib_levels = self.fib_calc.calculate_levels(high, low, trend)
+            targets = self.fib_calc.identify_targets(current_price, fib_levels)
+
+            return {
+                'fib_levels': fib_levels,
+                'targets': targets,
+                'trend': trend
+            }
+        except:
+            return None
+
+    def calculate_atr(self, data, period=14):
+        """Calculate ATR"""
+        try:
+            high = data['High'] if 'High' in data.columns else data['high']
+            low = data['Low' if 'Low' in data.columns else 'low']
+            close = data['Close'] if 'Close' in data.columns else data['close']
+
+            high_low = high - low
+            high_close = abs(high - close.shift())
+            low_close = abs(low - close.shift())
+
+            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+            atr = tr.rolling(window=period).mean()
+
+            return atr.iloc[-1] if not pd.isna(atr.iloc[-1]) else 0
+        except:
+            return 0
 
 # ==============================================================================
 # === MAIN STREAMLIT UI WITH ALL MISSING FEATURES ==============================
