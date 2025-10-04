@@ -785,7 +785,7 @@ def get_currency_symbol(ticker, selected_market=None):
     
     # Check ticker suffix first
     if '.NS' in ticker or '.BO' in ticker:
-        return '{currency}'  # Indian Rupee
+        return '₹'  # Indian Rupee
     elif '.L' in ticker:
         return '£'  # British Pound
     elif '.T' in ticker:
@@ -794,7 +794,7 @@ def get_currency_symbol(ticker, selected_market=None):
     # Check selected market as fallback
     if selected_market:
         if 'India' in selected_market:
-            return '{currency}'
+            return '₹'
         elif 'UK' in selected_market:
             return '£'
         elif 'Japan' in selected_market:
@@ -3044,14 +3044,20 @@ def main():
                     currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
 
             # ANALYSIS BUTTON
-            if ticker_input and st.button("📊 Analyze with Full Suite", type="primary"):
-                with st.spinner("Running complete analysis..."):
-                    analyzer = StockAnalyzer(ticker=ticker_input)
-
-                    if trading_mode == "Intraday Trading":
-                        results = analyzer.analyze_for_intraday()
-                    else:
-                        results = analyzer.analyze_for_swing()
+            if st.button("📊 Analyze with Full Suite", type="primary"):
+                if not ticker_input:
+                    st.error("⚠️ Please select or enter a valid ticker symbol first")
+                else:
+                    with st.spinner("Running complete analysis..."):
+                        try:
+                            analyzer = StockAnalyzer(ticker=ticker_input)
+                            
+                            if trading_mode == "Intraday Trading":
+                                results = analyzer.analyze_for_intraday()
+                            else:
+                                results = analyzer.analyze_for_swing()
+            
+                            if results:
 
                     if results:
                         # Add Fibonacci
