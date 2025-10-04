@@ -3191,7 +3191,7 @@ def main():
             # ANALYSIS BUTTON
             if ticker_input and st.button("📊 Analyze with Full Suite", type="primary"):
                 with st.spinner("Running complete analysis..."):
-                    analyzer = StockAnalyzer(ticker_input)
+                    analyzer = StockAnalyzer(ticker=ticker_input)
 
                     if trading_mode == "Intraday Trading":
                         results = analyzer.analyze_for_intraday()
