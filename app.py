@@ -454,21 +454,24 @@ class OptionsAnalyzer:
         return self.expiry_schedule.get(today, "No expiry today")
 
     def fetch_options_chain(self, ticker):
-        """Fetch options chain data with improved error handling and multiple ticker formats"""
+        """Fetch options chain data with error handling"""
         try:
             # Try different ticker format variations
             ticker_variations = [
-                ticker,                          # Original input (e.g., ^NSEI)
-                ticker.upper(),                  # Uppercase version
-                ticker.replace('.NS', ''),       # Remove NSE suffix
-                ticker.replace('.BO', ''),       # Remove BSE suffix
+                ticker,
+                ticker.upper(),
+                ticker.replace('.NS', ''),
+                ticker.replace('.BO', ''),
             ]
             
-            # For common Indian indices, add standard formats
+            # Add common formats for Indian markets (though unlikely to work)
             if 'NIFTY' in ticker.upper() or 'NSEI' in ticker.upper():
                 ticker_variations.extend(['^NSEI', 'NIFTY'])
             if 'BANK' in ticker.upper():
                 ticker_variations.extend(['^NSEBANK', 'BANKNIFTY'])
+            
+            # Remove duplicates while preserving order
+            ticker_variations = list(dict.fromkeys(ticker_variations))
             
             # Try each ticker variation
             for test_ticker in ticker_variations:
@@ -492,19 +495,15 @@ class OptionsAnalyzer:
                             'calls': options.calls,
                             'puts': options.puts,
                             'expiry': nearest_expiry,
-                            'ticker': test_ticker,  # Return the working ticker
-                            'all_expiries': expiry_dates  # For future use
+                            'ticker': test_ticker,
+                            'all_expiries': expiry_dates
                         }
                 except Exception:
-                    # Silently try next variation
                     continue
             
-            # If all variations failed, return None
             return None
             
         except Exception as e:
-            # Log error but don't crash
-            st.warning(f"Options data fetch failed: {str(e)}")
             return None
 
     def calculate_pcr(self, options_data):
