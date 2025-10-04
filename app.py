@@ -3124,7 +3124,9 @@ def main():
         # Display full analysis results
         if 'analysis_results' in st.session_state:
             results = st.session_state['analysis_results']
-
+            
+            currency = results.get('currency', get_currency_symbol(results.get('ticker', ''), selected_market))
+            
             if trading_mode == "Intraday Trading":
                 st.subheader("📊 Intraday Trading Dashboard")
 
