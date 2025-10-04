@@ -3056,7 +3056,7 @@ def main():
                                 results = analyzer.analyze_for_intraday()
                             else:
                                 results = analyzer.analyze_for_swing()
-
+            
                             if results:
                                 # Add Fibonacci
                                 fib_analysis = analyzer.analyze_with_fibonacci(results['daily_data'])
@@ -3066,9 +3066,9 @@ def main():
                                 headlines = analyzer.scrape_news_headlines(ticker_input)
                                 sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
                                 results['news_headlines'] = headlines
-                                results['sentiment'] = sentiment_detailed['overall_sentiment']  # Store as string
+                                results['sentiment'] = sentiment_detailed['overall_sentiment']
                                 results['sentiment_score'] = sentiment_detailed['overall_score']
-                                results['sentiment_detailed'] = sentiment_detailed  # Store full breakdown
+                                results['sentiment_detailed'] = sentiment_detailed
             
                                 st.session_state['analysis_results'] = results
                                 st.session_state['current_ticker'] = ticker_input
@@ -3092,24 +3092,34 @@ def main():
                                     )
             
                                 st.success("✅ Complete Analysis Done!")
-
-        with col2:
-            if 'analysis_results' in st.session_state:
-                results = st.session_state['analysis_results']
-                currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
-                st.metric("Price", f"{currency}{results['latest_price']:.2f}")
-                st.metric("Signal", results.get('signal', 'HOLD'))
-                st.metric("RSI", f"{results['rsi']:.2f}")
-
-                # News Sentiment
-                if results.get('sentiment'):
-                    sentiment = results.get('sentiment', 'Neutral')
-                    if sentiment == "Positive":
-                        st.success(f"📰 Sentiment: {sentiment}")
-                    elif sentiment == "Negative":
-                        st.error(f"📰 Sentiment: {sentiment}")
-                    else:
-                        st.info(f"📰 Sentiment: {sentiment}")
+                            else:
+                                st.error("❌ Analysis failed. Please check the ticker symbol.")
+                                
+                        except Exception as e:
+                            st.error(f"❌ Error during analysis: {str(e)}")
+                            import traceback
+                            with st.expander("🔍 View Error Details"):
+                                st.code(traceback.format_exc())
+                    # END OF try-except block - properly closed now
+            
+                # This is now properly outside the button's if-else
+                with col2:
+                    if 'analysis_results' in st.session_state:
+                        results = st.session_state['analysis_results']
+                        currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+                        st.metric("Price", f"{currency}{results['latest_price']:.2f}")
+                        st.metric("Signal", results.get('signal', 'HOLD'))
+                        st.metric("RSI", f"{results['rsi']:.2f}")
+            
+                        # News Sentiment
+                        if results.get('sentiment'):
+                            sentiment = results.get('sentiment', 'Neutral')
+                            if sentiment == "Positive":
+                                st.success(f"📰 Sentiment: {sentiment}")
+                            elif sentiment == "Negative":
+                                st.error(f"📰 Sentiment: {sentiment}")
+                            else:
+                                st.info(f"📰 Sentiment: {sentiment}")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
