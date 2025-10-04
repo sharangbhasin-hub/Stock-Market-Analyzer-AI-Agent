@@ -3768,32 +3768,180 @@ def main():
 
     with tab3:
         st.subheader("🎯 Options Trading Dashboard")
+        
+        # Important notice for users
+        st.info("ℹ️ **Note:** This feature works best with US stocks (AAPL, TSLA, SPY, etc.). Indian options data (Nifty/Bank Nifty) is not reliably available via free APIs.")
+        
         options_analyzer = OptionsAnalyzer()
-        st.info(f"📅 Today's Expiry: **{options_analyzer.get_todays_expiry()}**")
-
-        opt_ticker = st.text_input("Options Ticker", "^NSEI", key="opt_tick")
-
-        if st.button("📊 Analyze Options Chain"):
-            with st.spinner("Fetching options data..."):
+        
+        # Show today's expiry
+        try:
+            todays_expiry = options_analyzer.get_todays_expiry()
+            st.success(f"📅 Today's Expiry: **{todays_expiry}**")
+        except:
+            st.warning("📅 Could not determine today's expiry")
+        
+        # Create columns for ticker input and button
+        col1, col2 = st.columns([3, 1])
+        
+        with col1:
+            opt_ticker = st.text_input(
+                "Enter Options Ticker Symbol",
+                "AAPL",
+                key="opt_tick",
+                help="Enter a ticker symbol. US stocks work best (AAPL, TSLA, SPY, QQQ, MSFT)"
+            )
+        
+        with col2:
+            st.markdown("###")  # Spacing
+            analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True)
+        
+        # Quick select buttons for popular tickers
+        st.markdown("**📌 Popular Options:**")
+        quick_col1, quick_col2, quick_col3, quick_col4, quick_col5 = st.columns(5)
+        
+        if quick_col1.button("AAPL"):
+            opt_ticker = "AAPL"
+            analyze_btn = True
+        if quick_col2.button("TSLA"):
+            opt_ticker = "TSLA"
+            analyze_btn = True
+        if quick_col3.button("SPY"):
+            opt_ticker = "SPY"
+            analyze_btn = True
+        if quick_col4.button("QQQ"):
+            opt_ticker = "QQQ"
+            analyze_btn = True
+        if quick_col5.button("MSFT"):
+            opt_ticker = "MSFT"
+            analyze_btn = True
+        
+        st.markdown("---")
+        
+        if analyze_btn:
+            with st.spinner(f"🔄 Fetching options data for {opt_ticker}..."):
                 options_data = options_analyzer.fetch_options_chain(opt_ticker)
-
+                
                 if options_data:
-                    pcr_data = options_analyzer.calculate_pcr(options_data)
-
-                    if pcr_data:
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("PCR (OI)", f"{pcr_data['pcr_oi']:.2f}")
-                        col2.metric("Put OI", f"{pcr_data['put_oi']:,}")
-                        col3.metric("Call OI", f"{pcr_data['call_oi']:,}")
-                        st.markdown(f"**Sentiment:** {pcr_data['sentiment']}")
-
-                    st.markdown("### 📞 Call Options")
-                    st.dataframe(options_data['calls'].head(10), use_container_width=True)
-
-                    st.markdown("### 📉 Put Options")
-                    st.dataframe(options_data['puts'].head(10), use_container_width=True)
+                    # Success - show data
+                    st.success(f"✅ Options data loaded successfully for **{options_data['ticker']}**")
+                    st.info(f"📆 Nearest Expiry: **{options_data['expiry']}** | Available Expiries: **{len(options_data['all_expiries'])}**")
+                    
+                    # Calculate PCR
+                    try:
+                        pcr_data = options_analyzer.calculate_pcr(options_data)
+                        
+                        if pcr_data:
+                            st.markdown("### 📊 Put-Call Ratio Analysis")
+                            
+                            col1, col2, col3, col4 = st.columns(4)
+                            col1.metric("PCR (OI)", f"{pcr_data.get('pcr_oi', 0):.2f}")
+                            col2.metric("PCR (Volume)", f"{pcr_data.get('pcr_volume', 0):.2f}")
+                            col3.metric("Total Put OI", f"{pcr_data.get('put_oi', 0):,.0f}")
+                            col4.metric("Total Call OI", f"{pcr_data.get('call_oi', 0):,.0f}")
+                            
+                            # Sentiment indicator
+                            sentiment = pcr_data.get('sentiment', 'Neutral')
+                            if 'Bullish' in sentiment:
+                                st.success(f"🟢 **Market Sentiment:** {sentiment}")
+                            elif 'Bearish' in sentiment:
+                                st.error(f"🔴 **Market Sentiment:** {sentiment}")
+                            else:
+                                st.info(f"⚪ **Market Sentiment:** {sentiment}")
+                    except Exception as e:
+                        st.warning("⚠️ Could not calculate PCR metrics")
+                    
+                    # Display options chains
+                    st.markdown("---")
+                    
+                    tab_calls, tab_puts = st.tabs(["📞 Call Options", "📉 Put Options"])
+                    
+                    with tab_calls:
+                        st.markdown("### Call Options Chain")
+                        # Show key columns
+                        call_cols = ['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']
+                        available_cols = [col for col in call_cols if col in options_data['calls'].columns]
+                        
+                        st.dataframe(
+                            options_data['calls'][available_cols].head(20),
+                            use_container_width=True,
+                            height=400
+                        )
+                    
+                    with tab_puts:
+                        st.markdown("### Put Options Chain")
+                        put_cols = ['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']
+                        available_cols = [col for col in put_cols if col in options_data['puts'].columns]
+                        
+                        st.dataframe(
+                            options_data['puts'][available_cols].head(20),
+                            use_container_width=True,
+                            height=400
+                        )
+                    
+                    # Download option
+                    st.markdown("---")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        csv_calls = options_data['calls'].to_csv(index=False)
+                        st.download_button(
+                            "⬇️ Download Call Options CSV",
+                            csv_calls,
+                            f"{options_data['ticker']}_calls_{options_data['expiry']}.csv",
+                            "text/csv"
+                        )
+                    with col2:
+                        csv_puts = options_data['puts'].to_csv(index=False)
+                        st.download_button(
+                            "⬇️ Download Put Options CSV",
+                            csv_puts,
+                            f"{options_data['ticker']}_puts_{options_data['expiry']}.csv",
+                            "text/csv"
+                        )
                 else:
-                    st.error("❌ Could not fetch options data")
+                    # Failed to fetch
+                    st.error(f"❌ Could not fetch options data for **{opt_ticker}**")
+                    
+                    with st.expander("💡 Troubleshooting & Supported Tickers"):
+                        st.markdown("""
+                        ### ✅ Verified Working Tickers:
+                        
+                        **US Stocks:**
+                        - `AAPL` - Apple Inc.
+                        - `TSLA` - Tesla Inc.
+                        - `MSFT` - Microsoft Corporation
+                        - `GOOGL` - Alphabet Inc.
+                        - `AMZN` - Amazon.com Inc.
+                        - `NVDA` - NVIDIA Corporation
+                        - `META` - Meta Platforms Inc.
+                        
+                        **ETFs:**
+                        - `SPY` - S&P 500 ETF
+                        - `QQQ` - Nasdaq-100 ETF
+                        - `IWM` - Russell 2000 ETF
+                        - `DIA` - Dow Jones ETF
+                        
+                        ### ❌ Known Limitations:
+                        
+                        1. **Indian Options NOT Supported:**
+                           - Nifty 50 (`^NSEI`)
+                           - Bank Nifty (`^NSEBANK`)
+                           - Indian individual stocks
+                        
+                        2. **Reasons:**
+                           - yfinance (free API) doesn't provide Indian options data
+                           - NSE requires authentication and paid APIs
+                        
+                        3. **Alternatives for Indian Options:**
+                           - Use broker APIs (Zerodha Kite, Upstox)
+                           - NSE Official API (requires registration)
+                           - Paid data providers (TrueData, iVolatility)
+                        
+                        ### 🔧 Tips:
+                        - Always use uppercase ticker symbols
+                        - Ensure the stock has active options trading
+                        - Try popular, high-volume stocks
+                        """)
 
     with tab4:
         st.subheader("📈 Strategy Backtesting")
