@@ -3056,8 +3056,6 @@ def main():
                                 results = analyzer.analyze_for_intraday()
                             else:
                                 results = analyzer.analyze_for_swing()
-            
-                            if results:
 
                     if results:
                         # Add Fibonacci
