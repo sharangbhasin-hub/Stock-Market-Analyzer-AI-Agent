@@ -2247,161 +2247,161 @@ class StockAnalyzer:
         
         return impact
 
-        def detect_inside_bar_pattern(self, data):
-            """Detect Inside Bar"""
-            if len(data) < 2:
-                return {"detected": False, "message": "Insufficient data"}
+    def detect_inside_bar_pattern(self, data):
+        """Detect Inside Bar"""
+        if len(data) < 2:
+            return {"detected": False, "message": "Insufficient data"}
 
-            try:
-                high_col = 'High' if 'High' in data.columns else 'high'
-                low_col = 'Low' if 'Low' in data.columns else 'low'
-                close_col = 'Close' if 'Close' in data.columns else 'close'
+        try:
+            high_col = 'High' if 'High' in data.columns else 'high'
+            low_col = 'Low' if 'Low' in data.columns else 'low'
+            close_col = 'Close' if 'Close' in data.columns else 'close'
 
-                mother_bar = data.iloc[-2]
-                inside_bar = data.iloc[-1]
+            mother_bar = data.iloc[-2]
+            inside_bar = data.iloc[-1]
 
-                is_inside_bar = (
-                    inside_bar[high_col] <= mother_bar[high_col] and
-                    inside_bar[low_col] >= mother_bar[low_col]
-                )
+            is_inside_bar = (
+                inside_bar[high_col] <= mother_bar[high_col] and
+                inside_bar[low_col] >= mother_bar[low_col]
+            )
 
-                if is_inside_bar:
-                    return {
-                        "detected": True,
-                        "mother_high": mother_bar[high_col],
-                        "mother_low": mother_bar[low_col],
-                        "current_price": data[close_col].iloc[-1],
-                        "buy_trigger": mother_bar[high_col],
-                        "sell_trigger": mother_bar[low_col],
-                        "message": f"Inside Bar detected. Buy above {mother_bar[high_col]:.2f} or Sell below {mother_bar[low_col]:.2f}"
-                    }
-                else:
-                    return {"detected": False, "message": "No Inside Bar pattern"}
-            except:
-                return {"detected": False, "message": "Error"}
-
-        def detect_breakout_retest(self, five_min_data, resistance):
-            """Detect breakout and retest"""
-            if five_min_data.empty or resistance == 0:
-                return "Not Analyzed"
-
-            high_col = 'High' if 'High' in five_min_data.columns else 'high'
-            low_col = 'Low' if 'Low' in five_min_data.columns else 'low'
-            close_col = 'Close' if 'Close' in five_min_data.columns else 'close'
-
-            recent_data = five_min_data.tail(20)
-
-            breakout_candle_index = -1
-            retest_candle_index = -1
-
-            for i in range(1, len(recent_data)):
-                prev_high = recent_data[high_col].iloc[i-1]
-                current_high = recent_data[high_col].iloc[i]
-
-                if current_high > resistance and prev_high <= resistance:
-                    breakout_candle_index = i
-                    break
-
-            if breakout_candle_index == -1:
-                return "No Breakout Detected"
-
-            for i in range(breakout_candle_index + 1, len(recent_data)):
-                current_low = recent_data[low_col].iloc[i]
-
-                if current_low <= resistance:
-                    retest_candle_index = i
-                    break
-
-            if retest_candle_index == -1:
-                return f"Breakout Occurred. Awaiting Retest."
-
-            if retest_candle_index < len(recent_data) - 1:
-                confirmation_candle = recent_data.iloc[retest_candle_index + 1]
-
-                if confirmation_candle[close_col] > resistance:
-                    return f"✅ Retest Confirmed. Potential Entry."
-
-            return f"Retest in Progress. Awaiting Confirmation."
-
-        def run_confirmation_checklist(self, analysis_results):
-            """Run 5-point checklist"""
-            checklist = {
-                "1. At Key S/R Level": "⚠️ PENDING",
-                "2. Price Rejection": "⚠️ PENDING",
-                "3. Chart Pattern Confirmed": "⚠️ PENDING",
-                "4. Candlestick Signal": "⚠️ PENDING",
-                "5. Indicator Alignment": "⚠️ PENDING",
-                "FINAL_SIGNAL": "HOLD"
-            }
-
-            five_min_df = analysis_results.get('5m_data')
-            if five_min_df is None or five_min_df.empty:
-                return checklist
-
-            close_col = 'Close' if 'Close' in five_min_df.columns else 'close'
-            high_col = 'High' if 'High' in five_min_df.columns else 'high'
-            low_col = 'Low' if 'Low' in five_min_df.columns else 'low'
-
-            resistance = analysis_results.get('resistance', 0)
-            support = analysis_results.get('support', 0)
-            latest_price = analysis_results.get('latest_price', 0)
-
-            at_resistance = abs(latest_price - resistance) / resistance < 0.005 if resistance > 0 else False
-            at_support = abs(latest_price - support) / support < 0.005 if support > 0 else False
-
-            if at_support:
-                checklist["1. At Key S/R Level"] = "✅ At Support"
-                last_candle = five_min_df.iloc[-1]
-                if (last_candle[low_col] < support) and (last_candle[close_col] > support):
-                    checklist["2. Price Rejection"] = "✅ Bullish Rejection"
-            elif at_resistance:
-                checklist["1. At Key S/R Level"] = "✅ At Resistance"
-                last_candle = five_min_df.iloc[-1]
-                if (last_candle[high_col] > resistance) and (last_candle[close_col] < resistance):
-                    checklist["2. Price Rejection"] = "✅ Bearish Rejection"
+            if is_inside_bar:
+                return {
+                    "detected": True,
+                    "mother_high": mother_bar[high_col],
+                    "mother_low": mother_bar[low_col],
+                    "current_price": data[close_col].iloc[-1],
+                    "buy_trigger": mother_bar[high_col],
+                    "sell_trigger": mother_bar[low_col],
+                    "message": f"Inside Bar detected. Buy above {mother_bar[high_col]:.2f} or Sell below {mother_bar[low_col]:.2f}"
+                }
             else:
-                checklist["1. At Key S/R Level"] = "❌ Not at a key level"
-                checklist["2. Price Rejection"] = "❌ No Rejection"
+                return {"detected": False, "message": "No Inside Bar pattern"}
+        except:
+            return {"detected": False, "message": "Error"}
 
-            pattern_status = self.detect_breakout_retest(five_min_df, resistance)
-            if "✅ Retest Confirmed" in pattern_status:
-                checklist["3. Chart Pattern Confirmed"] = "✅ Breakout/Retest"
-            else:
-                checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
+    def detect_breakout_retest(self, five_min_data, resistance):
+        """Detect breakout and retest"""
+        if five_min_data.empty or resistance == 0:
+            return "Not Analyzed"
 
-            candle_pattern = self.check_candlestick_pattern(five_min_df)
-            if "No significant" not in candle_pattern:
-                checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}"
-            else:
-                checklist["4. Candlestick Signal"] = "❌ No Signal"
+        high_col = 'High' if 'High' in five_min_data.columns else 'high'
+        low_col = 'Low' if 'Low' in five_min_data.columns else 'low'
+        close_col = 'Close' if 'Close' in five_min_data.columns else 'close'
 
-            rsi = analysis_results.get('rsi', 50)
-            five_min_df = self.compute_vwap(five_min_df)
-            vwap = five_min_df['vwap'].iloc[-1]
+        recent_data = five_min_data.tail(20)
 
-            if (checklist["1. At Key S/R Level"] == "✅ At Support" and
-                rsi < 70 and latest_price > vwap):
-                checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
-            elif (checklist["1. At Key S/R Level"] == "✅ At Resistance" and
-                  rsi > 30 and latest_price < vwap):
-                checklist["5. Indicator Alignment"] = "✅ Bearish Alignment"
-            else:
-                checklist["5. Indicator Alignment"] = "❌ No Alignment"
+        breakout_candle_index = -1
+        retest_candle_index = -1
 
-            bullish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and ("Bullish" in str(v) or "Breakout" in str(v)))
-            bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
+        for i in range(1, len(recent_data)):
+            prev_high = recent_data[high_col].iloc[i-1]
+            current_high = recent_data[high_col].iloc[i]
 
-            # Add pattern signal boost
-            pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
-            
-            # Adjust checks with pattern influence
-            if bullish_checks + pattern_boost >= 3:
-                checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
-            elif bearish_checks - pattern_boost >= 3:
-                checklist['FINAL_SIGNAL'] = "🔴 SELL"
-            else:
-                checklist['FINAL_SIGNAL'] = "⚪ HOLD"
+            if current_high > resistance and prev_high <= resistance:
+                breakout_candle_index = i
+                break
+
+        if breakout_candle_index == -1:
+            return "No Breakout Detected"
+
+        for i in range(breakout_candle_index + 1, len(recent_data)):
+            current_low = recent_data[low_col].iloc[i]
+
+            if current_low <= resistance:
+                retest_candle_index = i
+                break
+
+        if retest_candle_index == -1:
+            return f"Breakout Occurred. Awaiting Retest."
+
+        if retest_candle_index < len(recent_data) - 1:
+            confirmation_candle = recent_data.iloc[retest_candle_index + 1]
+
+            if confirmation_candle[close_col] > resistance:
+                return f"✅ Retest Confirmed. Potential Entry."
+
+        return f"Retest in Progress. Awaiting Confirmation."
+
+    def run_confirmation_checklist(self, analysis_results):
+        """Run 5-point checklist"""
+        checklist = {
+            "1. At Key S/R Level": "⚠️ PENDING",
+            "2. Price Rejection": "⚠️ PENDING",
+            "3. Chart Pattern Confirmed": "⚠️ PENDING",
+            "4. Candlestick Signal": "⚠️ PENDING",
+            "5. Indicator Alignment": "⚠️ PENDING",
+            "FINAL_SIGNAL": "HOLD"
+        }
+
+        five_min_df = analysis_results.get('5m_data')
+        if five_min_df is None or five_min_df.empty:
             return checklist
+
+        close_col = 'Close' if 'Close' in five_min_df.columns else 'close'
+        high_col = 'High' if 'High' in five_min_df.columns else 'high'
+        low_col = 'Low' if 'Low' in five_min_df.columns else 'low'
+
+        resistance = analysis_results.get('resistance', 0)
+        support = analysis_results.get('support', 0)
+        latest_price = analysis_results.get('latest_price', 0)
+
+        at_resistance = abs(latest_price - resistance) / resistance < 0.005 if resistance > 0 else False
+        at_support = abs(latest_price - support) / support < 0.005 if support > 0 else False
+
+        if at_support:
+            checklist["1. At Key S/R Level"] = "✅ At Support"
+            last_candle = five_min_df.iloc[-1]
+            if (last_candle[low_col] < support) and (last_candle[close_col] > support):
+                checklist["2. Price Rejection"] = "✅ Bullish Rejection"
+        elif at_resistance:
+            checklist["1. At Key S/R Level"] = "✅ At Resistance"
+            last_candle = five_min_df.iloc[-1]
+            if (last_candle[high_col] > resistance) and (last_candle[close_col] < resistance):
+                checklist["2. Price Rejection"] = "✅ Bearish Rejection"
+        else:
+            checklist["1. At Key S/R Level"] = "❌ Not at a key level"
+            checklist["2. Price Rejection"] = "❌ No Rejection"
+
+        pattern_status = self.detect_breakout_retest(five_min_df, resistance)
+        if "✅ Retest Confirmed" in pattern_status:
+            checklist["3. Chart Pattern Confirmed"] = "✅ Breakout/Retest"
+        else:
+            checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
+
+        candle_pattern = self.check_candlestick_pattern(five_min_df)
+        if "No significant" not in candle_pattern:
+            checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}"
+        else:
+            checklist["4. Candlestick Signal"] = "❌ No Signal"
+
+        rsi = analysis_results.get('rsi', 50)
+        five_min_df = self.compute_vwap(five_min_df)
+        vwap = five_min_df['vwap'].iloc[-1]
+
+        if (checklist["1. At Key S/R Level"] == "✅ At Support" and
+            rsi < 70 and latest_price > vwap):
+            checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
+        elif (checklist["1. At Key S/R Level"] == "✅ At Resistance" and
+              rsi > 30 and latest_price < vwap):
+            checklist["5. Indicator Alignment"] = "✅ Bearish Alignment"
+        else:
+            checklist["5. Indicator Alignment"] = "❌ No Alignment"
+
+        bullish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and ("Bullish" in str(v) or "Breakout" in str(v)))
+        bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
+
+        # Add pattern signal boost
+        pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
+        
+        # Adjust checks with pattern influence
+        if bullish_checks + pattern_boost >= 3:
+            checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
+        elif bearish_checks - pattern_boost >= 3:
+            checklist['FINAL_SIGNAL'] = "🔴 SELL"
+        else:
+            checklist['FINAL_SIGNAL'] = "⚪ HOLD"
+        return checklist
 
     def analyze_for_intraday(self):
         """Complete intraday analysis WITH STOP-LOSS - Error Handled Version"""
