@@ -454,23 +454,57 @@ class OptionsAnalyzer:
         return self.expiry_schedule.get(today, "No expiry today")
 
     def fetch_options_chain(self, ticker):
-        """Fetch options chain data"""
+        """Fetch options chain data with improved error handling and multiple ticker formats"""
         try:
-            stock = yf.Ticker(ticker)
-            expiry_dates = stock.options
-
-            if not expiry_dates:
-                return None
-
-            nearest_expiry = expiry_dates[0]
-            options = stock.option_chain(nearest_expiry)
-
-            return {
-                'calls': options.calls,
-                'puts': options.puts,
-                'expiry': nearest_expiry
-            }
+            # Try different ticker format variations
+            ticker_variations = [
+                ticker,                          # Original input (e.g., ^NSEI)
+                ticker.upper(),                  # Uppercase version
+                ticker.replace('.NS', ''),       # Remove NSE suffix
+                ticker.replace('.BO', ''),       # Remove BSE suffix
+            ]
+            
+            # For common Indian indices, add standard formats
+            if 'NIFTY' in ticker.upper() or 'NSEI' in ticker.upper():
+                ticker_variations.extend(['^NSEI', 'NIFTY'])
+            if 'BANK' in ticker.upper():
+                ticker_variations.extend(['^NSEBANK', 'BANKNIFTY'])
+            
+            # Try each ticker variation
+            for test_ticker in ticker_variations:
+                try:
+                    stock = yf.Ticker(test_ticker)
+                    expiry_dates = stock.options
+                    
+                    # Check if options data exists
+                    if not expiry_dates or len(expiry_dates) == 0:
+                        continue
+                    
+                    # Get nearest expiry
+                    nearest_expiry = expiry_dates[0]
+                    options = stock.option_chain(nearest_expiry)
+                    
+                    # Validate that we actually have data
+                    if options.calls is not None and not options.calls.empty and \
+                       options.puts is not None and not options.puts.empty:
+                        
+                        return {
+                            'calls': options.calls,
+                            'puts': options.puts,
+                            'expiry': nearest_expiry,
+                            'ticker': test_ticker,  # Return the working ticker
+                            'all_expiries': expiry_dates  # For future use
+                        }
+                except Exception:
+                    # Silently try next variation
+                    continue
+            
+            # If all variations failed, return None
+            return None
+            
         except Exception as e:
+            # Log error but don't crash
+            st.warning(f"Options data fetch failed: {str(e)}")
             return None
 
     def calculate_pcr(self, options_data):
