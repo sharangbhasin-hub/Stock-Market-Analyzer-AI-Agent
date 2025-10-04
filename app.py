@@ -2046,18 +2046,18 @@ class StockAnalyzer:
         c1, c2, c3, c4, c5 = data.iloc[-5], data.iloc[-4], data.iloc[-3], data.iloc[-2], data.iloc[-1]
         
         # Current candle (most recent)
-        curr_open = c5['Open']
-        curr_high = c5['High']
-        curr_low = c5['Low']
-        curr_close = c5['Close']
+        curr_open = c5['Open'] if 'Open' in c5.index else c5['open']
+        curr_high = c5['High'] if 'High' in c5.index else c5['high']
+        curr_low = c5['Low'] if 'Low' in c5.index else c5['low']
+        curr_close = c5['Close'] if 'Close' in c5.index else c5['close']
         curr_body = abs(curr_close - curr_open)
         curr_range = curr_high - curr_low
         
         # Previous candle
-        prev_open = c4['Open']
-        prev_high = c4['High']
-        prev_low = c4['Low']
-        prev_close = c4['Close']
+        prev_open = c4['Open'] if 'Open' in c4.index else c4['open']
+        prev_high = c4['High'] if 'High' in c4.index else c4['high']
+        prev_low = c4['Low'] if 'Low' in c4.index else c4['low']
+        prev_close = c4['Close'] if 'Close' in c4.index else c4['close']
         prev_body = abs(prev_close - prev_open)
         prev_range = prev_high - prev_low
         
@@ -2114,10 +2114,18 @@ class StockAnalyzer:
             })
         
         # 4. MORNING STAR (3-Candle Bullish Reversal)
-        if (c3['Close'] < c3['Open'] and  # First red
-            abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
+        c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
+        c3_close = c3['Close'] if 'Close' in c3.index else c3['close']
+        c3_high = c3['High'] if 'High' in c3.index else c3['high']
+        c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
+        
+        c4_open = c4['Open'] if 'Open' in c4.index else c4['open']
+        c4_close = c4['Close'] if 'Close' in c4.index else c4['close']
+        
+        if (c3_close < c3_open and  # First red
+            abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and  # Small middle
             curr_is_green and
-            curr_close > (c3['Open'] + c3['Close']) / 2):
+            curr_close > (c3_open + c3_close) / 2):
             patterns_found.append({
                 'pattern': 'Morning Star',
                 'type': 'bullish',
@@ -2142,11 +2150,11 @@ class StockAnalyzer:
             })
         
         # 6. THREE WHITE SOLDIERS (Bullish Continuation)
-        if (c3['Close'] > c3['Open'] and
-            c4['Close'] > c4['Open'] and
+        if (c3_close > c3_open and
+            c4_close > c4_open and
             curr_is_green and
-            c4['Close'] > c3['Close'] and
-            curr_close > c4['Close']):
+            c4_close > c3_close and
+            curr_close > c4_close):
             patterns_found.append({
                 'pattern': 'Three White Soldiers',
                 'type': 'bullish',
@@ -2228,10 +2236,10 @@ class StockAnalyzer:
             })
         
         # 12. EVENING STAR (3-Candle Bearish Reversal)
-        if (c3['Close'] > c3['Open'] and  # First green
-            abs(c4['Close'] - c4['Open']) < (c3['High'] - c3['Low']) * 0.3 and  # Small middle
+        if (c3_close > c3_open and  # First green
+            abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and  # Small middle
             curr_is_red and
-            curr_close < (c3['Open'] + c3['Close']) / 2):
+            curr_close < (c3_open + c3_close) / 2):
             patterns_found.append({
                 'pattern': 'Evening Star',
                 'type': 'bearish',
@@ -2256,11 +2264,11 @@ class StockAnalyzer:
             })
         
         # 14. THREE BLACK CROWS (Bearish Continuation)
-        if (c3['Close'] < c3['Open'] and
-            c4['Close'] < c4['Open'] and
+        if (c3_close < c3_open and
+            c4_close < c4_open and
             curr_is_red and
-            c4['Close'] < c3['Close'] and
-            curr_close < c4['Close']):
+            c4_close < c3_close and
+            curr_close < c4_close):
             patterns_found.append({
                 'pattern': 'Three Black Crows',
                 'type': 'bearish',
@@ -2322,7 +2330,7 @@ class StockAnalyzer:
                 'category': 'none',
                 'description': 'No clear candlestick pattern detected'
             }
-
+        
     def get_pattern_description(self, pattern_name, pattern_type, category):
         """Get professional description for each pattern"""
         descriptions = {
