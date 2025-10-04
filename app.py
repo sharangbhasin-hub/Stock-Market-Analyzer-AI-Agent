@@ -1557,277 +1557,277 @@ class StockAnalyzer:
                 except:
                     self.sentiment_analyzer = None
 
-        def analyze_sentiment_detailed(self, headlines):
-            """Analyze sentiment with per-article breakdown"""
-            if not headlines or not self.sentiment_analyzer:
-                return {
-                    'overall_sentiment': 'Neutral',
-                    'overall_score': 0.0,
-                    'articles': []
-                }
+    def analyze_sentiment_detailed(self, headlines):
+        """Analyze sentiment with per-article breakdown"""
+        if not headlines or not self.sentiment_analyzer:
+            return {
+                'overall_sentiment': 'Neutral',
+                'overall_score': 0.0,
+                'articles': []
+            }
+        
+        try:
+            article_sentiments = []
+            sentiment_scores = []
             
-            try:
-                article_sentiments = []
-                sentiment_scores = []
-                
-                for headline in headlines:
-                    if len(headline) > 15:
-                        result = self.sentiment_analyzer(headline[:512])
+            for headline in headlines:
+                if len(headline) > 15:
+                    result = self.sentiment_analyzer(headline[:512])
+                    
+                    if isinstance(result[0], list):
+                        sentiment_dict = {item['label']: item['score'] for item in result[0]}
+                        score = sentiment_dict.get('positive', 0) - sentiment_dict.get('negative', 0)
+                        label = 'Positive' if score > 0.1 else 'Negative' if score < -0.1 else 'Neutral'
                         
-                        if isinstance(result[0], list):
-                            sentiment_dict = {item['label']: item['score'] for item in result[0]}
-                            score = sentiment_dict.get('positive', 0) - sentiment_dict.get('negative', 0)
-                            label = 'Positive' if score > 0.1 else 'Negative' if score < -0.1 else 'Neutral'
-                            
-                            article_sentiments.append({
-                                'headline': headline,
-                                'sentiment': label,
-                                'score': round(score, 3),
-                                'positive': round(sentiment_dict.get('positive', 0), 3),
-                                'negative': round(sentiment_dict.get('negative', 0), 3),
-                                'neutral': round(sentiment_dict.get('neutral', 0), 3)
-                            })
-                            sentiment_scores.append(score)
-                        else:
-                            score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
-                            
-                            article_sentiments.append({
-                                'headline': headline,
-                                'sentiment': result[0]['label'],
-                                'score': round(score, 3),
-                                'confidence': round(result[0]['score'], 3)
-                            })
-                            sentiment_scores.append(score)
-                
-                if sentiment_scores:
-                    avg_sentiment = np.mean(sentiment_scores)
-                    overall = 'Positive' if avg_sentiment > 0.1 else 'Negative' if avg_sentiment < -0.1 else 'Neutral'
-                else:
-                    avg_sentiment = 0.0
-                    overall = 'Neutral'
-                
-                return {
-                    'overall_sentiment': overall,
-                    'overall_score': round(avg_sentiment, 3),
-                    'articles': article_sentiments,
-                    'total_articles': len(article_sentiments),
-                    'positive_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Positive', 'POSITIVE']),
-                    'negative_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Negative', 'NEGATIVE']),
-                    'neutral_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Neutral', 'NEUTRAL'])
-                }
-            except Exception as e:
-                return {
-                    'overall_sentiment': 'Neutral',
-                    'overall_score': 0.0,
-                    'articles': [],
-                    'error': str(e)
-                }
-
-
-        def fetch_stock_data(self, ticker, period="60d"):
-            """Fetch stock data"""
-            try:
-                stock = yf.Ticker(ticker)
-                hist = stock.history(period=period)
-                if hist.empty:
-                    return None
-                return hist
-            except:
-                return None
-
-        def compute_rsi(self, data, window=14):
-            """Calculate RSI"""
-            try:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                delta = data[close_col].diff()
-                gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
-                loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
-                rs = gain / loss
-                rsi = 100 - (100 / (1 + rs))
-                return rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50.0
-            except:
-                return 50.0
-
-        def compute_macd(self, data):
-            """Calculate MACD"""
-            try:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                exp1 = data[close_col].ewm(span=12, adjust=False).mean()
-                exp2 = data[close_col].ewm(span=26, adjust=False).mean()
-                macd = exp1 - exp2
-                signal = macd.ewm(span=9).mean()
-                histogram = macd - signal
-
-                return {
-                    'line': macd.iloc[-1] if not pd.isna(macd.iloc[-1]) else 0.0,
-                    'signal': signal.iloc[-1] if not pd.isna(signal.iloc[-1]) else 0.0,
-                    'histogram': histogram.iloc[-1] if not pd.isna(histogram.iloc[-1]) else 0.0
-                }
-            except:
-                return {'line': 0.0, 'signal': 0.0, 'histogram': 0.0}
-
-        def compute_moving_averages(self, data):
-            """Calculate moving averages"""
-            try:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                current_price = data[close_col].iloc[-1]
-
-                ma_20 = data[close_col].rolling(window=20).mean().iloc[-1] if len(data) >= 20 else current_price
-                ma_25 = data[close_col].rolling(window=25).mean().iloc[-1] if len(data) >= 25 else current_price
-                ma_50 = data[close_col].rolling(window=50).mean().iloc[-1] if len(data) >= 50 else current_price
-                ma_200 = data[close_col].rolling(window=200).mean().iloc[-1] if len(data) >= 200 else current_price
-
-                return {
-                    'MA_20': ma_20 if not pd.isna(ma_20) else current_price,
-                    'MA_25': ma_25 if not pd.isna(ma_25) else current_price,
-                    'MA_50': ma_50 if not pd.isna(ma_50) else current_price,
-                    'MA_200': ma_200 if not pd.isna(ma_200) else current_price
-                }
-            except:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                current_price = data[close_col].iloc[-1]
-                return {'MA_20': current_price, 'MA_25': current_price, 'MA_50': current_price, 'MA_200': current_price}
-
-        def compute_bollinger_bands(self, data, window=20, num_std=2):
-            """Calculate Bollinger Bands"""
-            try:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                sma = data[close_col].rolling(window=window).mean()
-                std = data[close_col].rolling(window=window).std()
-                upper_band = sma + (std * num_std)
-                lower_band = sma - (std * num_std)
-
-                return {
-                    'upper': upper_band.iloc[-1] if not pd.isna(upper_band.iloc[-1]) else data[close_col].iloc[-1],
-                    'middle': sma.iloc[-1] if not pd.isna(sma.iloc[-1]) else data[close_col].iloc[-1],
-                    'lower': lower_band.iloc[-1] if not pd.isna(lower_band.iloc[-1]) else data[close_col].iloc[-1]
-                }
-            except:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                current_price = data[close_col].iloc[-1]
-                return {'upper': current_price, 'middle': current_price, 'lower': current_price}
-
-        def compute_stochastic_momentum(self, data, k_period=14, d_period=3):
-            """Calculate SMI"""
-            try:
-                high_col = 'High' if 'High' in data.columns else 'high'
-                low_col = 'Low' if 'Low' in data.columns else 'low'
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-
-                highest_high = data[high_col].rolling(window=k_period).max()
-                lowest_low = data[low_col].rolling(window=k_period).min()
-
-                k_line = 100 * ((data[close_col] - lowest_low) / (highest_high - lowest_low))
-                d_line = k_line.rolling(window=d_period).mean()
-
-                crossover = 'none'
-                if len(k_line) > 1 and len(d_line) > 1:
-                    if k_line.iloc[-1] > d_line.iloc[-1] and k_line.iloc[-2] <= d_line.iloc[-2]:
-                        crossover = 'bullish'
-                    elif k_line.iloc[-1] < d_line.iloc[-1] and k_line.iloc[-2] >= d_line.iloc[-2]:
-                        crossover = 'bearish'
-
-                return {
-                    'k': k_line.iloc[-1] if not pd.isna(k_line.iloc[-1]) else 50.0,
-                    'd': d_line.iloc[-1] if not pd.isna(d_line.iloc[-1]) else 50.0,
-                    'crossover': crossover
-                }
-            except:
-                return {'k': 50.0, 'd': 50.0, 'crossover': 'none'}
-
-        def compute_vwap(self, data):
-            """Calculate VWAP"""
-            try:
-                high_col = 'High' if 'High' in data.columns else 'high'
-                low_col = 'Low' if 'Low' in data.columns else 'low'
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
-
-                typical_price = (data[high_col] + data[low_col] + data[close_col]) / 3
-                vwap = (typical_price * data[volume_col]).cumsum() / data[volume_col].cumsum()
-                data['vwap'] = vwap
-                return data
-            except:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                data['vwap'] = data[close_col]
-                return data
-
-        def compute_vwma(self, data, period=20):
-            """Calculate VWMA"""
-            try:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
-
-                vwma = (data[close_col] * data[volume_col]).rolling(window=period).sum() / data[volume_col].rolling(window=period).sum()
-                return vwma.iloc[-1] if not pd.isna(vwma.iloc[-1]) else data[close_col].iloc[-1]
-            except:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                return data[close_col].iloc[-1]
-
-        def compute_supertrend(self, data, period=10, multiplier=3):
-            """Calculate Supertrend"""
-            try:
-                high_col = 'High' if 'High' in data.columns else 'high'
-                low_col = 'Low' if 'Low' in data.columns else 'low'
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-
-                high_low = data[high_col] - data[low_col]
-                high_close = abs(data[high_col] - data[close_col].shift())
-                low_close = abs(data[low_col] - data[close_col].shift())
-                tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-                atr = tr.rolling(window=period).mean()
-
-                hl_avg = (data[high_col] + data[low_col]) / 2
-                upper_band = hl_avg + (multiplier * atr)
-                lower_band = hl_avg - (multiplier * atr)
-
-                supertrend = pd.Series(index=data.index, dtype=float)
-                trend = pd.Series(index=data.index, dtype=int)
-
-                for i in range(period, len(data)):
-                    if data[close_col].iloc[i] > upper_band.iloc[i-1]:
-                        trend.iloc[i] = 1
-                        supertrend.iloc[i] = lower_band.iloc[i]
-                    elif data[close_col].iloc[i] < lower_band.iloc[i-1]:
-                        trend.iloc[i] = -1
-                        supertrend.iloc[i] = upper_band.iloc[i]
+                        article_sentiments.append({
+                            'headline': headline,
+                            'sentiment': label,
+                            'score': round(score, 3),
+                            'positive': round(sentiment_dict.get('positive', 0), 3),
+                            'negative': round(sentiment_dict.get('negative', 0), 3),
+                            'neutral': round(sentiment_dict.get('neutral', 0), 3)
+                        })
+                        sentiment_scores.append(score)
                     else:
-                        trend.iloc[i] = trend.iloc[i-1] if i > period else 0
-                        if trend.iloc[i] == 1:
-                            supertrend.iloc[i] = lower_band.iloc[i]
-                        else:
-                            supertrend.iloc[i] = upper_band.iloc[i]
+                        score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
+                        
+                        article_sentiments.append({
+                            'headline': headline,
+                            'sentiment': result[0]['label'],
+                            'score': round(score, 3),
+                            'confidence': round(result[0]['score'], 3)
+                        })
+                        sentiment_scores.append(score)
+            
+            if sentiment_scores:
+                avg_sentiment = np.mean(sentiment_scores)
+                overall = 'Positive' if avg_sentiment > 0.1 else 'Negative' if avg_sentiment < -0.1 else 'Neutral'
+            else:
+                avg_sentiment = 0.0
+                overall = 'Neutral'
+            
+            return {
+                'overall_sentiment': overall,
+                'overall_score': round(avg_sentiment, 3),
+                'articles': article_sentiments,
+                'total_articles': len(article_sentiments),
+                'positive_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Positive', 'POSITIVE']),
+                'negative_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Negative', 'NEGATIVE']),
+                'neutral_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Neutral', 'NEUTRAL'])
+            }
+        except Exception as e:
+            return {
+                'overall_sentiment': 'Neutral',
+                'overall_score': 0.0,
+                'articles': [],
+                'error': str(e)
+            }
 
-                return {
-                    'value': supertrend.iloc[-1] if not pd.isna(supertrend.iloc[-1]) else data[close_col].iloc[-1],
-                    'trend': 'uptrend' if trend.iloc[-1] == 1 else 'downtrend'
-                }
-            except:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                return {'value': data[close_col].iloc[-1], 'trend': 'neutral'}
 
-        def detect_support_resistance(self, data, window=20):
-            """Detect S/R levels"""
-            try:
-                high_col = 'High' if 'High' in data.columns else 'high'
-                low_col = 'Low' if 'Low' in data.columns else 'low'
-                close_col = 'Close' if 'Close' in data.columns else 'close'
+    def fetch_stock_data(self, ticker, period="60d"):
+        """Fetch stock data"""
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=period)
+            if hist.empty:
+                return None
+            return hist
+        except:
+            return None
 
-                highs = data[high_col].rolling(window=window, center=True).max()
-                lows = data[low_col].rolling(window=window, center=True).min()
+    def compute_rsi(self, data, window=14):
+        """Calculate RSI"""
+        try:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            delta = data[close_col].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+            return rsi.iloc[-1] if not pd.isna(rsi.iloc[-1]) else 50.0
+        except:
+            return 50.0
 
-                resistance = highs.iloc[-window:].max()
-                support = lows.iloc[-window:].min()
+    def compute_macd(self, data):
+        """Calculate MACD"""
+        try:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            exp1 = data[close_col].ewm(span=12, adjust=False).mean()
+            exp2 = data[close_col].ewm(span=26, adjust=False).mean()
+            macd = exp1 - exp2
+            signal = macd.ewm(span=9).mean()
+            histogram = macd - signal
 
-                return {
-                    'resistance': resistance,
-                    'support': support,
-                    'current_price': data[close_col].iloc[-1]
-                }
-            except:
-                close_col = 'Close' if 'Close' in data.columns else 'close'
-                current_price = data[close_col].iloc[-1]
-                return {'resistance': current_price * 1.02, 'support': current_price * 0.98, 'current_price': current_price}
+            return {
+                'line': macd.iloc[-1] if not pd.isna(macd.iloc[-1]) else 0.0,
+                'signal': signal.iloc[-1] if not pd.isna(signal.iloc[-1]) else 0.0,
+                'histogram': histogram.iloc[-1] if not pd.isna(histogram.iloc[-1]) else 0.0
+            }
+        except:
+            return {'line': 0.0, 'signal': 0.0, 'histogram': 0.0}
+
+    def compute_moving_averages(self, data):
+        """Calculate moving averages"""
+        try:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            current_price = data[close_col].iloc[-1]
+
+            ma_20 = data[close_col].rolling(window=20).mean().iloc[-1] if len(data) >= 20 else current_price
+            ma_25 = data[close_col].rolling(window=25).mean().iloc[-1] if len(data) >= 25 else current_price
+            ma_50 = data[close_col].rolling(window=50).mean().iloc[-1] if len(data) >= 50 else current_price
+            ma_200 = data[close_col].rolling(window=200).mean().iloc[-1] if len(data) >= 200 else current_price
+
+            return {
+                'MA_20': ma_20 if not pd.isna(ma_20) else current_price,
+                'MA_25': ma_25 if not pd.isna(ma_25) else current_price,
+                'MA_50': ma_50 if not pd.isna(ma_50) else current_price,
+                'MA_200': ma_200 if not pd.isna(ma_200) else current_price
+            }
+        except:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            current_price = data[close_col].iloc[-1]
+            return {'MA_20': current_price, 'MA_25': current_price, 'MA_50': current_price, 'MA_200': current_price}
+
+    def compute_bollinger_bands(self, data, window=20, num_std=2):
+        """Calculate Bollinger Bands"""
+        try:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            sma = data[close_col].rolling(window=window).mean()
+            std = data[close_col].rolling(window=window).std()
+            upper_band = sma + (std * num_std)
+            lower_band = sma - (std * num_std)
+
+            return {
+                'upper': upper_band.iloc[-1] if not pd.isna(upper_band.iloc[-1]) else data[close_col].iloc[-1],
+                'middle': sma.iloc[-1] if not pd.isna(sma.iloc[-1]) else data[close_col].iloc[-1],
+                'lower': lower_band.iloc[-1] if not pd.isna(lower_band.iloc[-1]) else data[close_col].iloc[-1]
+            }
+        except:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            current_price = data[close_col].iloc[-1]
+            return {'upper': current_price, 'middle': current_price, 'lower': current_price}
+
+    def compute_stochastic_momentum(self, data, k_period=14, d_period=3):
+        """Calculate SMI"""
+        try:
+            high_col = 'High' if 'High' in data.columns else 'high'
+            low_col = 'Low' if 'Low' in data.columns else 'low'
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+
+            highest_high = data[high_col].rolling(window=k_period).max()
+            lowest_low = data[low_col].rolling(window=k_period).min()
+
+            k_line = 100 * ((data[close_col] - lowest_low) / (highest_high - lowest_low))
+            d_line = k_line.rolling(window=d_period).mean()
+
+            crossover = 'none'
+            if len(k_line) > 1 and len(d_line) > 1:
+                if k_line.iloc[-1] > d_line.iloc[-1] and k_line.iloc[-2] <= d_line.iloc[-2]:
+                    crossover = 'bullish'
+                elif k_line.iloc[-1] < d_line.iloc[-1] and k_line.iloc[-2] >= d_line.iloc[-2]:
+                    crossover = 'bearish'
+
+            return {
+                'k': k_line.iloc[-1] if not pd.isna(k_line.iloc[-1]) else 50.0,
+                'd': d_line.iloc[-1] if not pd.isna(d_line.iloc[-1]) else 50.0,
+                'crossover': crossover
+            }
+        except:
+            return {'k': 50.0, 'd': 50.0, 'crossover': 'none'}
+
+    def compute_vwap(self, data):
+        """Calculate VWAP"""
+        try:
+            high_col = 'High' if 'High' in data.columns else 'high'
+            low_col = 'Low' if 'Low' in data.columns else 'low'
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
+
+            typical_price = (data[high_col] + data[low_col] + data[close_col]) / 3
+            vwap = (typical_price * data[volume_col]).cumsum() / data[volume_col].cumsum()
+            data['vwap'] = vwap
+            return data
+        except:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            data['vwap'] = data[close_col]
+            return data
+
+    def compute_vwma(self, data, period=20):
+        """Calculate VWMA"""
+        try:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            volume_col = 'Volume' if 'Volume' in data.columns else 'volume'
+
+            vwma = (data[close_col] * data[volume_col]).rolling(window=period).sum() / data[volume_col].rolling(window=period).sum()
+            return vwma.iloc[-1] if not pd.isna(vwma.iloc[-1]) else data[close_col].iloc[-1]
+        except:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            return data[close_col].iloc[-1]
+
+    def compute_supertrend(self, data, period=10, multiplier=3):
+        """Calculate Supertrend"""
+        try:
+            high_col = 'High' if 'High' in data.columns else 'high'
+            low_col = 'Low' if 'Low' in data.columns else 'low'
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+
+            high_low = data[high_col] - data[low_col]
+            high_close = abs(data[high_col] - data[close_col].shift())
+            low_close = abs(data[low_col] - data[close_col].shift())
+            tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+            atr = tr.rolling(window=period).mean()
+
+            hl_avg = (data[high_col] + data[low_col]) / 2
+            upper_band = hl_avg + (multiplier * atr)
+            lower_band = hl_avg - (multiplier * atr)
+
+            supertrend = pd.Series(index=data.index, dtype=float)
+            trend = pd.Series(index=data.index, dtype=int)
+
+            for i in range(period, len(data)):
+                if data[close_col].iloc[i] > upper_band.iloc[i-1]:
+                    trend.iloc[i] = 1
+                    supertrend.iloc[i] = lower_band.iloc[i]
+                elif data[close_col].iloc[i] < lower_band.iloc[i-1]:
+                    trend.iloc[i] = -1
+                    supertrend.iloc[i] = upper_band.iloc[i]
+                else:
+                    trend.iloc[i] = trend.iloc[i-1] if i > period else 0
+                    if trend.iloc[i] == 1:
+                        supertrend.iloc[i] = lower_band.iloc[i]
+                    else:
+                        supertrend.iloc[i] = upper_band.iloc[i]
+
+            return {
+                'value': supertrend.iloc[-1] if not pd.isna(supertrend.iloc[-1]) else data[close_col].iloc[-1],
+                'trend': 'uptrend' if trend.iloc[-1] == 1 else 'downtrend'
+            }
+        except:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            return {'value': data[close_col].iloc[-1], 'trend': 'neutral'}
+
+    def detect_support_resistance(self, data, window=20):
+        """Detect S/R levels"""
+        try:
+            high_col = 'High' if 'High' in data.columns else 'high'
+            low_col = 'Low' if 'Low' in data.columns else 'low'
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+
+            highs = data[high_col].rolling(window=window, center=True).max()
+            lows = data[low_col].rolling(window=window, center=True).min()
+
+            resistance = highs.iloc[-window:].max()
+            support = lows.iloc[-window:].min()
+
+            return {
+                'resistance': resistance,
+                'support': support,
+                'current_price': data[close_col].iloc[-1]
+            }
+        except:
+            close_col = 'Close' if 'Close' in data.columns else 'close'
+            current_price = data[close_col].iloc[-1]
+            return {'resistance': current_price * 1.02, 'support': current_price * 0.98, 'current_price': current_price}
 
     def detect_candlestick_patterns_talib(self, data):
         """
