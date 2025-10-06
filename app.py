@@ -3406,10 +3406,10 @@ def main():
 
                 # ========== TRADINGVIEW WIDGET ==========
                 st.markdown("---")
-                st.subheader("📊 TradingView Live Chart")
-                tradingview_html = embed_tradingview_widget(results['ticker'])
-                components.html(tradingview_html, height=550)
-                
+                with st.expander("📊 TradingView Live Chart", expanded=False):
+                    st.caption("⚠️ Some symbols may not be available for embedded viewing")
+                    tradingview_html = embed_tradingview_widget(results['ticker'])
+                    components.html(tradingview_html, height=550)
                 st.markdown("---")
                 
                 # Stop-Loss & Targets
