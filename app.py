@@ -2597,7 +2597,6 @@ class StockAnalyzer:
             # POINT 4: Candlestick Signal
             candle_pattern_result = self.detect_candlestick_patterns_talib(five_min_df)
             
-
             if isinstance(candle_pattern_result, dict) and 'primary_pattern' in candle_pattern_result:
                 candle_pattern = candle_pattern_result.get('primary_pattern', {})
                 pattern_name = candle_pattern.get('pattern', 'No Pattern')
@@ -2730,19 +2729,28 @@ class StockAnalyzer:
                 results['pattern_description'] = primary.get('description', 'No pattern')
                 
                 # Calculate impact based on PRIMARY pattern with FALLBACK
-                if primary and primary.get('pattern') and primary.get('pattern') != 'None':
-                    results['pattern_impact'] = self.calculate_pattern_impact(
-                        primary, 
-                        results['latest_price']
-                    )
+                # Calculate impact with validation
+                if primary and primary.get('pattern') not in [None, 'None', '']:
+                    try:
+                        results['pattern_impact'] = self.calculate_pattern_impact(
+                            primary, 
+                            results['latest_price']
+                        )
+                    except Exception:
+                        results['pattern_impact'] = {
+                            'signal_boost': 0,
+                            'confidence_boost': 0,
+                            'stop_loss_adjustment': 1.0,
+                            'target_multiplier': 1.0,
+                            'description': 'Pattern impact calculation failed'
+                        }
                 else:
-                    # No significant pattern detected
                     results['pattern_impact'] = {
                         'signal_boost': 0,
                         'confidence_boost': 0,
                         'stop_loss_adjustment': 1.0,
                         'target_multiplier': 1.0,
-                        'description': 'No significant pattern detected'
+                        'description': 'No valid pattern detected'
                     }
 
             except Exception as e:
@@ -2755,6 +2763,15 @@ class StockAnalyzer:
                 results['pattern_confidence'] = 0
                 results['pattern_category'] = 'none'
                 results['pattern_description'] = 'Pattern detection failed'
+                results['pattern_type'] = 'neutral'
+                results['pattern_impact'] = {
+                    'signal_boost': 0,
+                    'confidence_boost': 0,
+                    'stop_loss_adjustment': 1.0,
+                    'target_multiplier': 1.0,
+                    'description': 'Analysis error'
+                }
+
                 
                 # ✅ CRITICAL: Provide default pattern_impact to prevent downstream errors
                 results['pattern_impact'] = {
