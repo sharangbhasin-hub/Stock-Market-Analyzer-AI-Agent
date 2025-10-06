@@ -2314,7 +2314,7 @@ class StockAnalyzer:
         if patterns_found:
             # Sort by strength, then confidence
             patterns_found.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
-            return patterns_found[3]
+            return patterns_found[0]
         else:
             return {
                 'pattern': 'No Significant Pattern',
