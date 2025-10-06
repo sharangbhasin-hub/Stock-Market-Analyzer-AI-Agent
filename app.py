@@ -2550,8 +2550,8 @@ class StockAnalyzer:
             return checklist
         
         if len(five_min_df) < 2:
-            st.warning("⚠️ Insufficient 5-minute data to calculate patterns.")
-            return
+            checklist['error'] = 'Insufficient candles (need at least 2)'
+            return checklist
         
         if resistance == 0 or support == 0 or latest_price == 0:
             checklist['error'] = 'Support/Resistance levels not calculated'
@@ -2676,10 +2676,9 @@ class StockAnalyzer:
                 fifteen_min_data = daily_data.copy()
                 fifteen_min_data.columns = [col.lower() for col in fifteen_min_data.columns]
     
-            five_min_data = fetch_intraday_data(ticker_input, interval="5m", period="5d")
+            five_min_data = fetch_intraday_data(self.ticker, interval="5m", period="5d")
             if five_min_data is None or five_min_data.empty:
-                st.warning("⚠️ No 5-minute data available.")
-                return
+                five_min_data = fifteen_min_data.copy()
     
             # Normalize column names
             daily_data.columns = [col.capitalize() for col in daily_data.columns]
@@ -2707,10 +2706,9 @@ class StockAnalyzer:
             results['supertrend'] = self.compute_supertrend(five_min_data)
     
             # Support/Resistance
-            sr_levels = detect_support_resistance(fifteen_min_data)
-            if not sr_levels or 'support' not in sr_levels or 'resistance' not in sr_levels:
-                st.warning("⚠️ Support/Resistance levels not calculated properly.")
-                return
+            sr_levels = self.detect_support_resistance(fifteen_min_data)
+            results['resistance'] = float(sr_levels.get('resistance', results['latest_price'] * 1.02))
+            results['support'] = float(sr_levels.get('support', results['latest_price'] * 0.98))
     
             # ========== CANDLESTICK PATTERN ANALYSIS ==========    
             try:
@@ -3438,12 +3436,7 @@ def main():
                 if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
                     # 5-Point Confirmation Checklist
                     if 'confirmation_checklist' in results and results['confirmation_checklist']:
-                        checklist = run_confirmation_checklist(results)
-                        if checklist.get('data_available', False):
-                            st.success("✅ Checklist generated")
-                        else:
-                            st.warning("⚠️ Checklist could not be generated.")
-
+                        checklist = results['confirmation_checklist']
                         
                         # Check if data was actually available
                         if checklist.get('data_available', False):
