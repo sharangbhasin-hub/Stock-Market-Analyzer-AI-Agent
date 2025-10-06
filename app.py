@@ -2000,17 +2000,18 @@ class StockAnalyzer:
 
 
         # 4. MORNING STAR - 3-Candle Bullish Reversal
+        c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
+        c3_close = c3['Close'] if 'Close' in c3.index else c3['close']
+        c4_open = c4['Open'] if 'Open' in c4.index else c4['open']
+        c4_close = c4['Close'] if 'Close' in c4.index else c4['close']
+        
         if c3_close > c3_open and \
            abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and \
            curr_is_green and curr_close > (c3_open + c3_close) / 2:
             
             # Check for gaps (classic Morning Star feature)
-            c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
-            c3_close = c3['Close'] if 'Close' in c3.index else c3['close']
             c3_high = c3['High'] if 'High' in c3.index else c3['high']
             c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
-            c4_open = c4['Open'] if 'Open' in c4.index else c4['open']
-            c4_close = c4['Close'] if 'Close' in c4.index else c4['close']
             c4_high = c4['High'] if 'High' in c4.index else c4['high']
             c4_low = c4['Low'] if 'Low' in c4.index else c4['low']
             c5_low = c5['Low'] if 'Low' in c5.index else c5['low']
@@ -2167,6 +2168,13 @@ class StockAnalyzer:
             })
         
         # 12. EVENING STAR (3-Candle Bearish Reversal)
+        c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
+        c3_close = c3['Close'] if 'Close' in c3.index else c3['close']
+        c3_high = c3['High'] if 'High' in c3.index else c3['high']
+        c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
+        c4_open = c4['Open'] if 'Open' in c4.index else c4['open']
+        c4_close = c4['Close'] if 'Close' in c4.index else c4['close']
+
         if c3_close > c3_open and \
            abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and \
            curr_is_green and curr_close > (c3_open + c3_close) / 2:
