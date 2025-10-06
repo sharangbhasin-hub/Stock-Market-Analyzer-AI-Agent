@@ -2941,11 +2941,12 @@ def main():
     st.title("🤖 AI Trading Agent Pro - Complete Trading System")
     st.markdown("**Intraday | Swing | Options | Live Execution | Backtesting | AI Analysis**")
 
+    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+
     if 'analysis_history' not in st.session_state:
         st.session_state['analysis_history'] = []
     if 'broker' not in st.session_state:
         st.session_state['broker'] = BrokerAPI()
-        currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
         
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
