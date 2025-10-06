@@ -2167,8 +2167,8 @@ class StockAnalyzer:
             })
         
         # 12. EVENING STAR (3-Candle Bearish Reversal)
-        if c3_close > c3_open and \        # First green
-           abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and \     # Small middle
+        if c3_close > c3_open and        
+           abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and   
            curr_is_red and curr_close < (c3_open + c3_close) / 2:
             
             # Check for gaps (classic Evening Star feature)
