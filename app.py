@@ -816,7 +816,10 @@ GLOBAL_MARKETS = {
 def get_currency_symbol(ticker, selected_market=None):
     """Get currency symbol based on ticker suffix or selected market"""
     
-    # Check ticker suffix first
+    # Add safety check for None or non-string ticker
+    if ticker is None or not isinstance(ticker, str):
+        ticker = ""
+    
     if '.NS' in ticker or '.BO' in ticker:
         return '₹'  # Indian Rupee
     elif '.L' in ticker:
@@ -824,7 +827,6 @@ def get_currency_symbol(ticker, selected_market=None):
     elif '.T' in ticker:
         return '¥'  # Japanese Yen
     
-    # Check selected market as fallback
     if selected_market:
         if 'India' in selected_market:
             return '₹'
@@ -833,9 +835,8 @@ def get_currency_symbol(ticker, selected_market=None):
         elif 'Japan' in selected_market:
             return '¥'
     
-    # Default to USD
-    return '$'
-    
+    return '$'  # Default to USD
+
 def fetchintradaydataticker(ticker, interval='5m', period='5d'):
     stock = yf.Ticker(ticker)
     hist = stock.history(period=period, interval=interval)
