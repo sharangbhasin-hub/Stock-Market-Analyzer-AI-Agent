@@ -1915,18 +1915,24 @@ class StockAnalyzer:
         # ==================== BULLISH PATTERNS ====================
         
         # 1. HAMMER (Bullish Reversal) - Strong at support
-        if (lower_shadow > curr_body * 2 and 
-            upper_shadow < curr_body * 0.3 and
-            curr_is_green and
-            curr_range > 0):
+        if lower_shadow > curr_body * 1.5 and upper_shadow < curr_body * 0.3 and curr_is_green and curr_range > 0:
+            # Add volume confirmation for stronger signal
+            strength = 85
+            if len(data) > 5:
+                avg_vol = data['Volume'].iloc[-6:-1].mean() if 'Volume' in data.columns else 0
+                cur_vol = data['Volume'].iloc[-1] if 'Volume' in data.columns else 0
+                if cur_vol > avg_vol * 1.2:  # Above-average volume = stronger signal
+                    strength = 90
+            
             patterns_found.append({
                 'pattern': 'Hammer',
                 'type': 'bullish',
-                'strength': 85,
+                'strength': strength,
                 'confidence': 85,
                 'category': 'reversal',
                 'description': 'Strong bullish reversal at support - Buyers regained control after selling pressure'
             })
+
         
         # 2. INVERTED HAMMER (Bullish Reversal)
         elif (upper_shadow > curr_body * 2 and 
@@ -1942,19 +1948,34 @@ class StockAnalyzer:
             })
         
         # 3. BULLISH ENGULFING (Very Strong)
-        if (prev_is_red and curr_is_green and
-            curr_open < prev_close and
-            curr_close > prev_open and
-            curr_body > prev_body * 1.3):
+        if prev_is_red and curr_is_green and curr_open <= prev_close and \
+           curr_close >= prev_open and curr_body > prev_body * 1.3:
+            
+            # Add volume confirmation for stronger signal
+            strength = 90
+            confidence = 90
+            
+            # Check if current volume is significantly higher than previous
+            prev_vol = c4['Volume'] if 'Volume' in c4.index else 0
+            cur_vol = c5['Volume'] if 'Volume' in c5.index else 0
+            
+            if prev_vol > 0 and cur_vol > prev_vol * 1.5:
+                # Volume surge = very strong engulfing
+                strength = 95
+                confidence = 95
+                description = 'VERY STRONG bullish engulfing with volume surge - Extremely high buying pressure'
+            else:
+                description = 'Very strong bullish reversal - Large buying pressure overwhelmed sellers'
+            
             patterns_found.append({
                 'pattern': 'Bullish Engulfing',
                 'type': 'bullish',
-                'strength': 90,
-                'confidence': 90,
+                'strength': strength,
+                'confidence': confidence,
                 'category': 'reversal',
-                'description': 'Very strong bullish reversal - Large buying pressure overwhelmed sellers'
+                'description': description
             })
-        
+
         # 4. MORNING STAR (3-Candle Bullish Reversal)
         c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
         c3_close = c3['Close'] if 'Close' in c3.index else c3['close']
@@ -1976,6 +1997,49 @@ class StockAnalyzer:
                 'category': 'reversal',
                 'description': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern'
             })
+
+
+        # 4. MORNING STAR - 3-Candle Bullish Reversal
+        if c3_close > c3_open and \
+           abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and \
+           curr_is_green and curr_close > (c3_open + c3_close) / 2:
+            
+            # Check for gaps (classic Morning Star feature)
+            c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
+            c3_close = c3['Close'] if 'Close' in c3.index else c3['close']
+            c3_high = c3['High'] if 'High' in c3.index else c3['high']
+            c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
+            c4_open = c4['Open'] if 'Open' in c4.index else c4['open']
+            c4_close = c4['Close'] if 'Close' in c4.index else c4['close']
+            c4_high = c4['High'] if 'High' in c4.index else c4['high']
+            c4_low = c4['Low'] if 'Low' in c4.index else c4['low']
+            c5_low = c5['Low'] if 'Low' in c5.index else c5['low']
+        
+            # Gap 1: Gap down into middle candle
+            gap1 = c4_high < c3_low
+            # Gap 2: Gap up from middle candle
+            gap2 = c5_low > c4_high
+            
+            strength = 95
+            if gap1 and gap2:
+                strength = 98  # Perfect Morning Star with gaps on both sides
+                description = 'PERFECT Morning Star with gaps - Extremely strong bullish reversal'
+            elif gap1 or gap2:
+                strength = 96  # One gap present
+                description = 'Strong Morning Star with gap - Extremely strong bullish reversal'
+            else:
+                description = 'Morning Star - Classic 3-candle bottom pattern'
+            
+            patterns_found.append({
+                'pattern': 'Morning Star',
+                'type': 'bullish',
+                'strength': strength,
+                'confidence': 95,
+                'category': 'reversal',
+                'description': description
+            })
+
+
         
         # 5. PIERCING PATTERN
         if (prev_is_red and curr_is_green and
@@ -2136,16 +2200,26 @@ class StockAnalyzer:
         # ==================== NEUTRAL PATTERNS ====================
         
         # 16. DOJI (Indecision)
-        if curr_body < curr_range * 0.1 and curr_range > 0:
+        if curr_body / curr_body <= 0.15 and curr_range > 0:  # Relaxed from 0.1 to 0.15
+            # Check for balanced shadows (true Doji has roughly equal shadows)
+            shadow_ratio = abs(lower_shadow - upper_shadow) / curr_range if curr_range > 0 else 1
+            
+            if shadow_ratio < 0.3:  # Balanced shadows = stronger Doji
+                strength = 60
+                description = 'Strong Doji - Balanced indecision, likely reversal point'
+            else:
+                strength = 50
+                description = 'Doji - Market indecision, wait for confirmation'
+            
             patterns_found.append({
                 'pattern': 'Doji',
                 'type': 'neutral',
-                'strength': 50,
+                'strength': strength,
                 'confidence': 70,
                 'category': 'indecision',
-                'description': 'Market indecision - Potential trend reversal point, wait for confirmation'
+                'description': description
             })
-        
+
         # 17. SPINNING TOP
         if (curr_body > curr_range * 0.1 and curr_body < curr_range * 0.3 and
             upper_shadow > curr_body and lower_shadow > curr_body):
