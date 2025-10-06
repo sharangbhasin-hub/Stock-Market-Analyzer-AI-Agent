@@ -919,7 +919,9 @@ def generate_comprehensive_analysis(ticker, results, sentiment, news_headlines):
         results = {}
     if not isinstance(news_headlines, list):
         news_headlines = []
-    
+    price = results.get('latestprice', 0)
+    currency = results.get('currency', '$')
+
     # Get sentiment safely
     sentiment = results.get('sentiment', {})
     if not isinstance(sentiment, dict):
