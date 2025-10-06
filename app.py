@@ -2945,7 +2945,12 @@ def main():
         st.session_state['analysis_history'] = []
     if 'broker' not in st.session_state:
         st.session_state['broker'] = BrokerAPI()
+
+    if 'analysis_results' not in st.session_state:
+            st.session_state['analysis_results'] = {}
         
+        results = st.session_state.get('analysis_results', {})
+
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
     # ===========================================================================
@@ -3320,9 +3325,7 @@ def main():
                     # END OF try-except block - properly closed now
             
                 # This is now properly outside the button's if-else
-                with col2:
-                    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
-                    
+                with col2:                    
                     if 'analysis_results' in st.session_state:
                         results = st.session_state['analysis_results']
                         currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
