@@ -3061,9 +3061,10 @@ def main():
                         # Create formatted options
                         stock_options = {}
                         for ticker, data in st.session_state['screened_stocks'].items():
-                            display_name = f"{ticker} - ${data['price']:.2f} ({data['change_pct']:+.2f}%)"
+                            ticker_currency = data.get('currency', get_currency_symbol(ticker, selected_market))
+                            display_name = f"{ticker} - {ticker_currency}{data['price']:.2f} ({data['change_pct']:.2f}%)"
                             stock_options[display_name] = ticker
-                        
+
                         selected_display = st.selectbox(
                             f"Select from {selected_market} Scanner Results:",
                             list(stock_options.keys())
@@ -3073,10 +3074,12 @@ def main():
                         # Show stock details
                         if ticker_input in st.session_state['screened_stocks']:
                             stock_data = st.session_state['screened_stocks'][ticker_input]
+                            display_currency = stock_data.get('currency', get_currency_symbol(ticker_input, selected_market))
                             detail_col1, detail_col2, detail_col3 = st.columns(3)
-                            detail_col1.metric("Price", f"${stock_data['price']:.2f}")
+                            detail_col1.metric("Price", f"{display_currency}{stock_data['price']:.2f}")
                             detail_col2.metric("Volume", f"{stock_data['volume']:,}")
-                            detail_col3.metric("Change", f"{stock_data['change_pct']:+.2f}%")
+                            detail_col3.metric("Change", f"{stock_data['change_pct']:.2f}%")
+    
                     else:
                         st.warning("⚠️ No stocks in scanner. Run 'Pre-Market Scan' from sidebar first.")
                         st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
