@@ -2407,10 +2407,24 @@ class StockAnalyzer:
             checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
 
         candle_pattern = self.detect_candlestick_patterns_talib(five_min_df)
-        if "No significant" not in candle_pattern:
-            checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}"
+        # Extract pattern details from dictionary
+        if isinstance(candle_pattern, dict):
+            pattern_name = candle_pattern.get('pattern', 'No Pattern')
+            pattern_type = candle_pattern.get('type', 'neutral')
+            pattern_strength = candle_pattern.get('strength', 0)
+            
+            # Format the display based on pattern type
+            if "No Significant Pattern" in pattern_name or pattern_strength == 0:
+                checklist["4. Candlestick Signal"] = "❌ No Signal"
+            elif pattern_type == 'bullish':
+                checklist["4. Candlestick Signal"] = f"✅ {pattern_name} (Bullish, {pattern_strength}%)"
+            elif pattern_type == 'bearish':
+                checklist["4. Candlestick Signal"] = f"⚠️ {pattern_name} (Bearish, {pattern_strength}%)"
+            else:
+                checklist["4. Candlestick Signal"] = f"⚠️ {pattern_name} (Neutral)"
         else:
             checklist["4. Candlestick Signal"] = "❌ No Signal"
+
 
         rsi = analysis_results.get('rsi', 50)
         five_min_df = self.compute_vwap(five_min_df)
