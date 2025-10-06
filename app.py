@@ -2595,9 +2595,11 @@ class StockAnalyzer:
                 checklist['3. Chart Pattern Confirmed'] = f"❌ {pattern_status}"
             
             # POINT 4: Candlestick Signal
-            candle_pattern = self.detect_candlestick_patterns_talib(five_min_df)
+            candle_pattern_result = self.detect_candlestick_patterns_talib(five_min_df)
             
-            if isinstance(candle_pattern, dict):
+
+            if isinstance(candle_pattern_result, dict) and 'primary_pattern' in candle_pattern_result:
+                candle_pattern = candle_pattern_result.get('primary_pattern', {})
                 pattern_name = candle_pattern.get('pattern', 'No Pattern')
                 pattern_type = candle_pattern.get('type', 'neutral')
                 pattern_strength = candle_pattern.get('strength', 0)
@@ -2727,21 +2729,42 @@ class StockAnalyzer:
                 results['pattern_category'] = primary.get('category', 'none')
                 results['pattern_description'] = primary.get('description', 'No pattern')
                 
-                # Calculate impact based on PRIMARY pattern
-                results['pattern_impact'] = self.calculate_pattern_impact(
-                    primary, 
-                    results['latest_price']
-                )
-                
+                # Calculate impact based on PRIMARY pattern with FALLBACK
+                if primary and primary.get('pattern') and primary.get('pattern') != 'None':
+                    results['pattern_impact'] = self.calculate_pattern_impact(
+                        primary, 
+                        results['latest_price']
+                    )
+                else:
+                    # No significant pattern detected
+                    results['pattern_impact'] = {
+                        'signal_boost': 0,
+                        'confidence_boost': 0,
+                        'stop_loss_adjustment': 1.0,
+                        'target_multiplier': 1.0,
+                        'description': 'No significant pattern detected'
+                    }
+
             except Exception as e:
                 st.warning(f"Pattern detection skipped: {str(e)}")
                 results['all_patterns'] = []
                 results['pattern_count'] = 0
                 results['candlestick_pattern'] = 'Analysis Error'
-                # ... [rest of error handling]
-            
-            # ... [REST OF YOUR analyze_for_intraday CODE] ...
-            
+                results['pattern_type'] = 'neutral'
+                results['pattern_strength'] = 0
+                results['pattern_confidence'] = 0
+                results['pattern_category'] = 'none'
+                results['pattern_description'] = 'Pattern detection failed'
+                
+                # ✅ CRITICAL: Provide default pattern_impact to prevent downstream errors
+                results['pattern_impact'] = {
+                    'signal_boost': 0,
+                    'confidence_boost': 0,
+                    'stop_loss_adjustment': 1.0,
+                    'target_multiplier': 1.0,
+                    'description': 'Pattern analysis failed'
+                }
+
             return results
         
         except Exception as e:
@@ -3694,6 +3717,88 @@ def main():
                     components.html(tradingview_html, height=550)
                 st.markdown("---")
                 
+                # ===== INSERT THIS ENTIRE BLOCK BEFORE st.subheader("🎯 Stop-Loss & Targets") =====
+                # Calculate Stop-Loss and Profit Targets if not already calculated
+                if results.get('signal') in ['BUY', 'STRONG BUY', 'SELL', 'STRONG SELL']:
+                    latest_price = results.get('latest_price', 0)
+                    support = results.get('support', 0)
+                    resistance = results.get('resistance', 0)
+                    atr = results.get('atr', 0)
+                    
+                    # Get pattern impact boost (with fallback)
+                    pattern_impact = results.get('pattern_impact', {})
+                    signal_boost = pattern_impact.get('signal_boost', 0)
+                    
+                    # Calculate Stop-Loss
+                    if results['signal'] in ['BUY', 'STRONG BUY']:
+                        # For BUY signals
+                        if support > 0:
+                            results['stop_loss'] = support * 0.995  # 0.5% below support
+                        else:
+                            results['stop_loss'] = latest_price * 0.98  # 2% below entry
+                        
+                        # Calculate risk
+                        results['risk_amount'] = latest_price - results['stop_loss']
+                        results['risk_percent'] = (results['risk_amount'] / latest_price) * 100
+                        
+                        # Calculate Profit Targets
+                        if not results.get('targets'):
+                            results['targets'] = []
+                            if resistance > 0:
+                                target1_price = latest_price + (resistance - latest_price) * 0.5
+                                target2_price = resistance
+                            else:
+                                target1_price = latest_price * 1.015  # 1.5% profit
+                                target2_price = latest_price * 1.03   # 3% profit
+                            
+                            results['targets'] = [
+                                {
+                                    'level': 'Target 1 (50%)',
+                                    'price': target1_price,
+                                    'profit_potential': target1_price - latest_price
+                                },
+                                {
+                                    'level': 'Target 2 (100%)',
+                                    'price': target2_price,
+                                    'profit_potential': target2_price - latest_price
+                                }
+                            ]
+                    
+                    elif results['signal'] in ['SELL', 'STRONG SELL']:
+                        # For SELL signals
+                        if resistance > 0:
+                            results['stop_loss'] = resistance * 1.005  # 0.5% above resistance
+                        else:
+                            results['stop_loss'] = latest_price * 1.02  # 2% above entry
+                        
+                        # Calculate risk
+                        results['risk_amount'] = results['stop_loss'] - latest_price
+                        results['risk_percent'] = (results['risk_amount'] / latest_price) * 100
+                        
+                        # Calculate Profit Targets
+                        if not results.get('targets'):
+                            results['targets'] = []
+                            if support > 0:
+                                target1_price = latest_price - (latest_price - support) * 0.5
+                                target2_price = support
+                            else:
+                                target1_price = latest_price * 0.985  # 1.5% profit
+                                target2_price = latest_price * 0.97   # 3% profit
+                            
+                            results['targets'] = [
+                                {
+                                    'level': 'Target 1 (50%)',
+                                    'price': target1_price,
+                                    'profit_potential': latest_price - target1_price
+                                },
+                                {
+                                    'level': 'Target 2 (100%)',
+                                    'price': target2_price,
+                                    'profit_potential': latest_price - target2_price
+                                }
+                            ]
+                # ===== END OF CALCULATION BLOCK =====
+
                 # Stop-Loss & Targets
                 st.subheader("🎯 Stop-Loss & Targets")
                 col1, col2, col3 = st.columns(3)
