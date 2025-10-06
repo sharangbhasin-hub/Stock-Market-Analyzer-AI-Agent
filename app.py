@@ -2941,8 +2941,6 @@ def main():
     st.title("🤖 AI Trading Agent Pro - Complete Trading System")
     st.markdown("**Intraday | Swing | Options | Live Execution | Backtesting | AI Analysis**")
 
-    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
-
     if 'analysis_history' not in st.session_state:
         st.session_state['analysis_history'] = []
     if 'broker' not in st.session_state:
@@ -3323,9 +3321,14 @@ def main():
             
                 # This is now properly outside the button's if-else
                 with col2:
+                    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+                    
                     if 'analysis_results' in st.session_state:
                         results = st.session_state['analysis_results']
                         currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+                    else:
+                        currency = get_currency_symbol(ticker_input, selected_market)
+                        
                         st.metric("Price", f"{currency}{results['latest_price']:.2f}")
                         st.metric("Signal", results.get('signal', 'HOLD'))
                         st.metric("RSI", f"{results['rsi']:.2f}")
