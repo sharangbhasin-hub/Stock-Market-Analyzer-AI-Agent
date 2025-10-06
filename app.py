@@ -2056,20 +2056,45 @@ class StockAnalyzer:
             })
         
         # 6. THREE WHITE SOLDIERS (Bullish Continuation)
-        if (c3_close > c3_open and
-            c4_close > c4_open and
-            curr_is_green and
-            c4_close > c3_close and
-            curr_close > c4_close):
+        if c3_close > c3_open and c4_close > c4_open and curr_is_green and \
+           c4_close > c3_close and curr_close > c4_close:
+            
+            # Calculate body sizes
+            c3_body = abs(c3_close - c3_open)
+            c4_body = abs(c4_close - c4_open)
+            c5_body = abs(curr_close - curr_open)
+            
+            # Check for progressive size increase (each candle should be similar or larger)
+            strength = 92
+            confidence = 90
+            
+            if c4_body >= c3_body * 0.8 and c5_body >= c4_body * 0.8:
+                # Good progression - each candle maintains or grows
+                strength = 92
+                description = 'Strong bullish continuation - Steady upward momentum with consistent buying'
+            else:
+                # Weak progression - candles getting smaller (momentum fading)
+                strength = 85
+                confidence = 85
+                description = 'Bullish continuation but momentum weakening - Watch for reversal'
+            
+            # BONUS: Check if all three open near previous close (small gaps)
+            small_gaps = (abs(c4_open - c3_close) / c3_close < 0.01) and \
+                         (abs(curr_open - c4_close) / c4_close < 0.01)
+            
+            if small_gaps and c5_body >= c4_body * 0.8:
+                strength = 95  # Perfect Three White Soldiers
+                description = 'PERFECT Three White Soldiers - Strong sustained buying pressure'
+            
             patterns_found.append({
                 'pattern': 'Three White Soldiers',
                 'type': 'bullish',
-                'strength': 92,
-                'confidence': 90,
+                'strength': strength,
+                'confidence': confidence,
                 'category': 'continuation',
-                'description': 'Strong bullish continuation - Steady upward momentum'
+                'description': description
             })
-        
+
         # 7. BULLISH HARAMI
         if (prev_is_red and curr_is_green and
             curr_open > prev_close and
@@ -2142,19 +2167,43 @@ class StockAnalyzer:
             })
         
         # 12. EVENING STAR (3-Candle Bearish Reversal)
-        if (c3_close > c3_open and  # First green
-            abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and  # Small middle
-            curr_is_red and
-            curr_close < (c3_open + c3_close) / 2):
+        if c3_close > c3_open and \        # First green
+           abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and \     # Small middle
+           curr_is_red and curr_close < (c3_open + c3_close) / 2:
+            
+            # Check for gaps (classic Evening Star feature)
+            c3_high = c3['High'] if 'High' in c3.index else c3['high']
+            c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
+            c4_high = c4['High'] if 'High' in c4.index else c4['high']
+            c4_low = c4['Low'] if 'Low' in c4.index else c4['low']
+            c5_high = c5['High'] if 'High' in c5.index else c5['high']
+            
+            # Gap 1: Gap up into middle candle
+            gap1 = c4_low > c3_high
+            # Gap 2: Gap down from middle candle
+            gap2 = c5_high < c_4low
+            
+            strength = 95
+            if gap1 and gap2:
+                strength = 98  # Perfect Evening Star with gaps
+                description = 'PERFECT Evening Star with gaps - Extremely strong bearish reversal'
+            elif gap1 or gap2:
+                strength = 96  # One gap present
+                description = 'Strong Evening Star with gap - Extremely strong bearish reversal'
+            else:
+                description = 'Evening Star - Classic 3-candle top pattern'
+            
             patterns_found.append({
                 'pattern': 'Evening Star',
                 'type': 'bearish',
-                'strength': 95,
+                'strength': strength,
                 'confidence': 95,
                 'category': 'reversal',
-                'description': 'Extremely strong bearish reversal - Classic 3-candle top pattern'
+                'description': description
             })
-        
+
+
+
         # 13. DARK CLOUD COVER
         if (prev_is_green and curr_is_red and
             curr_open > prev_high and
@@ -2170,20 +2219,45 @@ class StockAnalyzer:
             })
         
         # 14. THREE BLACK CROWS (Bearish Continuation)
-        if (c3_close < c3_open and
-            c4_close < c4_open and
-            curr_is_red and
-            c4_close < c3_close and
-            curr_close < c4_close):
+        if c3_close < c3_open and c4_close < c4_open and curr_is_red and \
+           c4_close < c3_close and curr_close < c4_close:
+            
+            # Calculate body sizes
+            c3_body = abs(c3_close - c3_open)
+            c4_body = abs(c4_close - c4_open)
+            c5_body = abs(curr_close - curr_open)
+            
+            # Check for progressive size increase
+            strength = 92
+            confidence = 90
+            
+            if c4_body >= c3_body * 0.8 and c5_body >= c4_body * 0.8:
+                # Good progression - each candle maintains or grows
+                strength = 92
+                description = 'Strong bearish continuation - Steady downward momentum with consistent selling'
+            else:
+                # Weak progression - candles getting smaller (momentum fading)
+                strength = 85
+                confidence = 85
+                description = 'Bearish continuation but momentum weakening - Watch for reversal'
+            
+            # BONUS: Check if all three open near previous close
+            small_gaps = (abs(c4_open - c3_close) / c3_close < 0.01) and \
+                         (abs(curr_open - c4_close) / c4_close < 0.01)
+            
+            if small_gaps and c5_body >= c4_body * 0.8:
+                strength = 95  # Perfect Three Black Crows
+                description = 'PERFECT Three Black Crows - Strong sustained selling pressure'
+            
             patterns_found.append({
                 'pattern': 'Three Black Crows',
                 'type': 'bearish',
-                'strength': 92,
-                'confidence': 90,
+                'strength': strength,
+                'confidence': confidence,
                 'category': 'continuation',
-                'description': 'Strong bearish continuation - Steady downward momentum'
+                'description': description
             })
-        
+
         # 15. GRAVESTONE DOJI (Bearish at resistance)
         if (curr_body < curr_range * 0.1 and
             upper_shadow > lower_shadow * 2 and
