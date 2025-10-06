@@ -2430,12 +2430,23 @@ class StockAnalyzer:
         five_min_df = self.compute_vwap(five_min_df)
         vwap = five_min_df['vwap'].iloc[-1]
 
-        if (checklist["1. At Key S/R Level"] == "✅ At Support" and
-            rsi < 70 and latest_price > vwap):
-            checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
-        elif (checklist["1. At Key S/R Level"] == "✅ At Resistance" and
-              rsi > 30 and latest_price < vwap):
-            checklist["5. Indicator Alignment"] = "✅ Bearish Alignment"
+        if checklist["1. At Key S/R Level"] == "At Support":
+            if rsi < 40 and latest_price > vwap:  # Oversold with price above VWAP
+                checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
+            elif rsi < 50 and latest_price > vwap * 1.002:  # Momentum building
+                checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
+            else:
+                checklist["5. Indicator Alignment"] = "⚠️ Weak Bullish"
+        
+        # Bearish Alignment - At resistance with overbought or momentum turning down
+        elif checklist["1. At Key S/R Level"] == "At Resistance":
+            if rsi > 60 and latest_price < vwap:  # Overbought with price below VWAP
+                checklist["5. Indicator Alignment"] = "⚠️ Bearish Alignment"
+            elif rsi > 50 and latest_price < vwap * 0.998:  # Momentum weakening
+                checklist["5. Indicator Alignment"] = "⚠️ Bearish Alignment"
+            else:
+                checklist["5. Indicator Alignment"] = "❌ Weak Bearish"
+
         else:
             checklist["5. Indicator Alignment"] = "❌ No Alignment"
 
