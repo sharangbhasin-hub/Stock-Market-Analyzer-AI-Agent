@@ -1580,15 +1580,15 @@ class StockAnalyzer:
             print(f"Warning: Could not load sentiment analyzer: {e}")
             self.sentiment_analyzer = None
 
-        def setup_sentiment_analyzer(self):
-            """Initialize sentiment analysis"""
+    def setup_sentiment_analyzer(self):
+        """Initialize sentiment analysis"""
+        try:
+            self.sentiment_analyzer = pipeline("sentiment-analysis", model="ProsusAI/finbert", return_all_scores=True)
+        except:
             try:
-                self.sentiment_analyzer = pipeline("sentiment-analysis", model="ProsusAI/finbert", return_all_scores=True)
+                self.sentiment_analyzer = pipeline("sentiment-analysis")
             except:
-                try:
-                    self.sentiment_analyzer = pipeline("sentiment-analysis")
-                except:
-                    self.sentiment_analyzer = None
+                self.sentiment_analyzer = None
 
     def analyze_sentiment_detailed(self, headlines):
         """Analyze sentiment with per-article breakdown"""
@@ -2402,7 +2402,7 @@ class StockAnalyzer:
         else:
             checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
 
-        candle_pattern = self.check_candlestick_pattern(five_min_df)
+        candle_pattern = self.detect_candlestick_patterns_talib(five_min_df)
         if "No significant" not in candle_pattern:
             checklist["4. Candlestick Signal"] = f"✅ {candle_pattern}"
         else:
