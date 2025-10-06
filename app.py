@@ -3406,37 +3406,47 @@ def main():
                 st.markdown("---")
                 st.subheader("🎯 Pattern Detection & Trade Confirmation")
                 
-                # 5-Point Confirmation Checklist
-                if 'confirmation_checklist' in results and results['confirmation_checklist']:
-                    checklist = results['confirmation_checklist']
-                    
-                    st.markdown("### ✅ 5-Point Trade Confirmation Checklist")
-                    
-                    checklist_col1, checklist_col2 = st.columns(2)
-                    
-                    with checklist_col1:
-                        for key in ['1. At Key S/R Level', '2. Price Rejection', '3. Chart Pattern Confirmed']:
-                            st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
-                    
-                    with checklist_col2:
-                        for key in ['4. Candlestick Signal', '5. Indicator Alignment']:
-                            st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
-                    
-                    # Final Signal
-                    final_signal = checklist.get('FINAL_SIGNAL', 'HOLD')
-                    
-                    if final_signal == '🟢 BUY':
-                        st.success(f"### FINAL SIGNAL: {final_signal}")
-                        st.info("✅ 3+ bullish confirmations detected. Trade setup valid!")
-                    elif final_signal == '🔴 SELL':
-                        st.error(f"### FINAL SIGNAL: {final_signal}")
-                        st.info("✅ 3+ bearish confirmations detected. Trade setup valid!")
+                # Check if we have the required data
+                if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
+                    # 5-Point Confirmation Checklist
+                    if 'confirmation_checklist' in results and results['confirmation_checklist']:
+                        checklist = results['confirmation_checklist']
+                        
+                        st.markdown("### ✅ 5-Point Trade Confirmation Checklist")
+                        
+                        checklist_col1, checklist_col2 = st.columns(2)
+                        
+                        with checklist_col1:
+                            for key in ['1. At Key S/R Level', '2. Price Rejection', '3. Chart Pattern Confirmed']:
+                                st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
+                        
+                        with checklist_col2:
+                            for key in ['4. Candlestick Signal', '5. Indicator Alignment']:
+                                st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
+                        
+                        # Final Signal
+                        final_signal = checklist.get('FINAL_SIGNAL', 'HOLD')
+                        
+                        if final_signal == '🟢 BUY':
+                            st.success(f"### FINAL SIGNAL: {final_signal}")
+                            st.info("✅ 3+ bullish confirmations detected. Trade setup valid!")
+                        elif final_signal == '🔴 SELL':
+                            st.error(f"### FINAL SIGNAL: {final_signal}")
+                            st.info("✅ 3+ bearish confirmations detected. Trade setup valid!")
+                        else:
+                            st.warning(f"### FINAL SIGNAL: {final_signal}")
+                            st.info("⚠️ Insufficient confirmations. Wait for better setup.")
                     else:
-                        st.warning(f"### FINAL SIGNAL: {final_signal}")
-                        st.info("⚠️ Insufficient confirmations. Wait for better setup.")
+                        st.warning("⚠️ Confirmation checklist could not be generated")
+                        st.caption("Running checklist requires 5-minute data and key levels calculation")
                 else:
-                    st.info("⚠️ Confirmation checklist unavailable - insufficient data")
-                
+                    st.warning("⚠️ Confirmation checklist unavailable - insufficient intraday data")
+                    st.caption("Need at least 5-minute chart data to run the confirmation system")
+                    
+                    # Show what data we have
+                    if 'daily_data' in results and not results['daily_data'].empty:
+                        st.info("ℹ️ Daily data is available. Intraday confirmation requires 5-minute candles.")
+                    
                 # ========== CANDLESTICK PATTERN SECTION ==========
                 st.markdown("---")
                 st.markdown("### 🕯️ Candlestick Pattern Analysis")
@@ -3452,10 +3462,14 @@ def main():
                 ]
                 pattern_count = len(valid_patterns)
                 
-                if pattern_count > 1:
-                    st.info(f"🎯 **{pattern_count} patterns detected** - Showing all patterns ranked by strength")
+                if pattern_count > 0:
+                    # Show header with count
+                    if pattern_count == 1:
+                        st.info(f"🎯 **1 pattern detected**")
+                    else:
+                        st.info(f"🎯 **{pattern_count} patterns detected** - Showing all patterns ranked by strength")
                     
-                    # Display all patterns in expandable sections
+                    # Display ALL patterns (whether 1, 2, 3, 4, or 5)
                     for idx, pattern_data in enumerate(valid_patterns, 1):
                         pattern_name = pattern_data.get('pattern', 'Unknown')
                         pattern_type = pattern_data.get('type', 'neutral')
@@ -3467,6 +3481,7 @@ def main():
                         # Determine if this is the primary (strongest) pattern
                         is_primary = (idx == 1)
                         
+                        # Use expander for ALL patterns, auto-expand only the strongest
                         with st.expander(
                             f"{'⭐ PRIMARY: ' if is_primary else ''}"
                             f"#{idx} - {pattern_name} "
@@ -3498,8 +3513,8 @@ def main():
                             # Description
                             st.info(f"💡 **Insight:** {pattern_description}")
                             
-                            # Show impact only for strong patterns
-                            if pattern_strength >= 70 and is_primary:
+                            # Show impact only for strong patterns AND if it's the primary
+                            if pattern_strength >= 70 and is_primary and 'pattern_impact' in results:
                                 impact = results.get('pattern_impact', {})
                                 signal_boost = impact.get('signal_boost', 0)
                                 target_mult = impact.get('target_multiplier', 1.0)
@@ -3524,70 +3539,9 @@ def main():
                                 if impact_parts:
                                     st.success("🎯 **Trading Impact:** " + " | ".join(impact_parts))
                 
-                elif pattern_count == 1:
-                    # Single pattern - show directly (no expander needed)
-                    pattern_data = valid_patterns[0]
-                    pattern_name = pattern_data.get('pattern', 'Unknown')
-                    pattern_type = pattern_data.get('type', 'neutral')
-                    pattern_strength = pattern_data.get('strength', 0)
-                    pattern_confidence = pattern_data.get('confidence', 0)
-                    pattern_description = pattern_data.get('description', 'No pattern detected')
-                    pattern_category = pattern_data.get('category', 'none')
-                    
-                    pattern_col1, pattern_col2, pattern_col3, pattern_col4 = st.columns(4)
-                    
-                    with pattern_col1:
-                        if pattern_type == 'bullish':
-                            st.success(f"**{pattern_name}**")
-                            st.caption("📈 Bullish Signal")
-                        elif pattern_type == 'bearish':
-                            st.error(f"**{pattern_name}**")
-                            st.caption("📉 Bearish Signal")
-                        else:
-                            st.info(f"**{pattern_name}**")
-                            st.caption("➡️ Neutral")
-                    
-                    with pattern_col2:
-                        st.metric("Strength", f"{pattern_strength}/100")
-                    
-                    with pattern_col3:
-                        st.metric("Confidence", f"{pattern_confidence}%")
-                    
-                    with pattern_col4:
-                        st.metric("Type", pattern_category.title())
-                    
-                    # Description
-                    st.info(f"💡 **Pattern Insight:** {pattern_description}")
-                    
-                    # Show trading impact if significant
-                    if pattern_strength >= 70 and 'pattern_impact' in results:
-                        impact = results['pattern_impact']
-                        signal_boost = impact.get('signal_boost', 0)
-                        target_mult = impact.get('target_multiplier', 1.0)
-                        sl_adj = impact.get('stop_loss_adjustment', 1.0)
-                        
-                        impact_parts = []
-                        
-                        if signal_boost > 0:
-                            impact_parts.append(f"✅ Added +{signal_boost:.1f} points to BUY signal")
-                        elif signal_boost < 0:
-                            impact_parts.append(f"⚠️ Added {signal_boost:.1f} points (caution)")
-                        
-                        if target_mult > 1.1:
-                            impact_parts.append(f"📈 Targets increased by {(target_mult-1)*100:.0f}%")
-                        elif target_mult < 0.9:
-                            impact_parts.append(f"📉 Targets reduced by {(1-target_mult)*100:.0f}%")
-                        
-                        if sl_adj < 0.99:
-                            impact_parts.append(f"🎯 Stop-loss tightened by {(1-sl_adj)*100:.1f}%")
-                        elif sl_adj > 1.01:
-                            impact_parts.append(f"🛡️ Stop-loss widened by {(sl_adj-1)*100:.1f}%")
-                        
-                        if impact_parts:
-                            st.success(f"🎯 **Trading Impact:**\n" + "\n".join(f"- {part}" for part in impact_parts))
-                
                 else:
-                    st.info("⚠️ No significant candlestick patterns detected")
+                    # No patterns detected
+                    st.info("ℹ️ No significant candlestick patterns detected")
                     st.caption("Wait for clearer price action signals or check if there's sufficient data (need at least 5 candles)")
 
                 # Technical Indicators Summary
