@@ -1250,7 +1250,7 @@ def run_premarket_screener(market_name, market_config):
                         screened_list[ticker] = {
                             'price': price,
                             'volume': volume,
-                            'change_pct': change_pct
+                            'change_pct': change_pct,
                             'currency': stock_currency
                         }
                         
