@@ -2525,109 +2525,135 @@ class StockAnalyzer:
         return f"Retest in Progress. Awaiting Confirmation."
 
     def run_confirmation_checklist(self, analysis_results):
-        """Run 5-point checklist"""
+        """Run 5-point checklist with better error handling"""
+        
+        # Initialize default checklist
         checklist = {
-            "1. At Key S/R Level": "⚠️ PENDING",
-            "2. Price Rejection": "⚠️ PENDING",
-            "3. Chart Pattern Confirmed": "⚠️ PENDING",
-            "4. Candlestick Signal": "⚠️ PENDING",
-            "5. Indicator Alignment": "⚠️ PENDING",
-            "FINAL_SIGNAL": "HOLD"
+            '1. At Key S/R Level': '❌ PENDING',
+            '2. Price Rejection': '❌ PENDING',
+            '3. Chart Pattern Confirmed': '❌ PENDING',
+            '4. Candlestick Signal': '❌ PENDING',
+            '5. Indicator Alignment': '❌ PENDING',
+            'FINAL_SIGNAL': 'HOLD',
+            'data_available': False
         }
-
+        
+        # Check if we have the required data
         five_min_df = analysis_results.get('5m_data')
-        if five_min_df is None or five_min_df.empty:
-            return checklist
-
-        close_col = 'Close' if 'Close' in five_min_df.columns else 'close'
-        high_col = 'High' if 'High' in five_min_df.columns else 'high'
-        low_col = 'Low' if 'Low' in five_min_df.columns else 'low'
-
         resistance = analysis_results.get('resistance', 0)
         support = analysis_results.get('support', 0)
         latest_price = analysis_results.get('latest_price', 0)
-
-        at_resistance = abs(latest_price - resistance) / resistance < 0.005 if resistance > 0 else False
-        at_support = abs(latest_price - support) / support < 0.005 if support > 0 else False
-
-        if at_support:
-            checklist["1. At Key S/R Level"] = "✅ At Support"
-            last_candle = five_min_df.iloc[-1]
-            if (last_candle[low_col] < support) and (last_candle[close_col] > support):
-                checklist["2. Price Rejection"] = "✅ Bullish Rejection"
-        elif at_resistance:
-            checklist["1. At Key S/R Level"] = "✅ At Resistance"
-            last_candle = five_min_df.iloc[-1]
-            if (last_candle[high_col] > resistance) and (last_candle[close_col] < resistance):
-                checklist["2. Price Rejection"] = "✅ Bearish Rejection"
-        else:
-            checklist["1. At Key S/R Level"] = "❌ Not at a key level"
-            checklist["2. Price Rejection"] = "❌ No Rejection"
-
-        pattern_status = self.detect_breakout_retest(five_min_df, resistance)
-        if "✅ Retest Confirmed" in pattern_status:
-            checklist["3. Chart Pattern Confirmed"] = "✅ Breakout/Retest"
-        else:
-            checklist["3. Chart Pattern Confirmed"] = f"❌ {pattern_status}"
-
-        candle_pattern = self.detect_candlestick_patterns_talib(five_min_df)
-        # Extract pattern details from dictionary
-        if isinstance(candle_pattern, dict):
-            pattern_name = candle_pattern.get('pattern', 'No Pattern')
-            pattern_type = candle_pattern.get('type', 'neutral')
-            pattern_strength = candle_pattern.get('strength', 0)
+        
+        # Validate data availability
+        if five_min_df is None or five_min_df.empty:
+            checklist['error'] = 'No 5-minute data available'
+            return checklist
+        
+        if len(five_min_df) < 2:
+            checklist['error'] = 'Insufficient candles (need at least 2)'
+            return checklist
+        
+        if resistance == 0 or support == 0 or latest_price == 0:
+            checklist['error'] = 'Support/Resistance levels not calculated'
+            return checklist
+        
+        # Mark data as available
+        checklist['data_available'] = True
+        
+        try:
+            # Column name handling
+            close_col = 'Close' if 'Close' in five_min_df.columns else 'close'
+            high_col = 'High' if 'High' in five_min_df.columns else 'high'
+            low_col = 'Low' if 'Low' in five_min_df.columns else 'low'
             
-            # Format the display based on pattern type
-            if "No Significant Pattern" in pattern_name or pattern_strength == 0:
-                checklist["4. Candlestick Signal"] = "❌ No Signal"
-            elif pattern_type == 'bullish':
-                checklist["4. Candlestick Signal"] = f"✅ {pattern_name} (Bullish, {pattern_strength}%)"
-            elif pattern_type == 'bearish':
-                checklist["4. Candlestick Signal"] = f"⚠️ {pattern_name} (Bearish, {pattern_strength}%)"
+            # POINT 1: At Key S/R Level
+            at_resistance = abs(latest_price - resistance) / resistance <= 0.005 if resistance > 0 else False
+            at_support = abs(latest_price - support) / support <= 0.005 if support > 0 else False
+            
+            if at_support:
+                checklist['1. At Key S/R Level'] = "✅ At Support"
+            elif at_resistance:
+                checklist['1. At Key S/R Level'] = "⚠️ At Resistance"
             else:
-                checklist["4. Candlestick Signal"] = f"⚠️ {pattern_name} (Neutral)"
-        else:
-            checklist["4. Candlestick Signal"] = "❌ No Signal"
-
-
-        rsi = analysis_results.get('rsi', 50)
-        five_min_df = self.compute_vwap(five_min_df)
-        vwap = five_min_df['vwap'].iloc[-1]
-
-        if checklist["1. At Key S/R Level"] == "At Support":
-            if rsi < 40 and latest_price > vwap:  # Oversold with price above VWAP
-                checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
-            elif rsi < 50 and latest_price > vwap * 1.002:  # Momentum building
-                checklist["5. Indicator Alignment"] = "✅ Bullish Alignment"
+                checklist['1. At Key S/R Level'] = "❌ Not at key level"
+            
+            # POINT 2: Price Rejection
+            last_candle = five_min_df.iloc[-1]
+            
+            if at_support and last_candle[low_col] <= support and last_candle[close_col] > support:
+                checklist['2. Price Rejection'] = "✅ Bullish Rejection"
+            elif at_resistance and last_candle[high_col] >= resistance and last_candle[close_col] < resistance:
+                checklist['2. Price Rejection'] = "⚠️ Bearish Rejection"
             else:
-                checklist["5. Indicator Alignment"] = "⚠️ Weak Bullish"
+                checklist['2. Price Rejection'] = "❌ No Rejection"
+            
+            # POINT 3: Chart Pattern
+            pattern_status = self.detect_breakout_retest(five_min_df, resistance)
+            if "Retest Confirmed" in pattern_status:
+                checklist['3. Chart Pattern Confirmed'] = "✅ Breakout/Retest"
+            else:
+                checklist['3. Chart Pattern Confirmed'] = f"❌ {pattern_status}"
+            
+            # POINT 4: Candlestick Signal
+            candle_pattern = self.detect_candlestick_patterns_talib(five_min_df)
+            
+            if isinstance(candle_pattern, dict):
+                pattern_name = candle_pattern.get('pattern', 'No Pattern')
+                pattern_type = candle_pattern.get('type', 'neutral')
+                pattern_strength = candle_pattern.get('strength', 0)
+                
+                if "No Significant Pattern" in pattern_name or pattern_strength == 0:
+                    checklist['4. Candlestick Signal'] = "❌ No Signal"
+                elif pattern_type == 'bullish':
+                    checklist['4. Candlestick Signal'] = f"✅ {pattern_name} (Bullish, {pattern_strength}%)"
+                elif pattern_type == 'bearish':
+                    checklist['4. Candlestick Signal'] = f"⚠️ {pattern_name} (Bearish, {pattern_strength}%)"
+                else:
+                    checklist['4. Candlestick Signal'] = f"⚪ {pattern_name} (Neutral)"
+            else:
+                checklist['4. Candlestick Signal'] = "❌ No Signal"
+            
+            # POINT 5: Indicator Alignment
+            rsi = analysis_results.get('rsi', 50)
+            five_min_df = self.compute_vwap(five_min_df)
+            vwap = five_min_df['vwap'].iloc[-1]
+            
+            if checklist['1. At Key S/R Level'] == "✅ At Support":
+                if rsi < 40 and latest_price > vwap:
+                    checklist['5. Indicator Alignment'] = "✅ Bullish Alignment"
+                elif rsi < 50 and latest_price > vwap * 1.002:
+                    checklist['5. Indicator Alignment'] = "✅ Bullish Alignment"
+                else:
+                    checklist['5. Indicator Alignment'] = "⚠️ Weak Bullish"
+            
+            elif checklist['1. At Key S/R Level'] == "⚠️ At Resistance":
+                if rsi > 60 and latest_price < vwap:
+                    checklist['5. Indicator Alignment'] = "⚠️ Bearish Alignment"
+                elif rsi > 50 and latest_price < vwap * 0.998:
+                    checklist['5. Indicator Alignment'] = "⚠️ Bearish Alignment"
+                else:
+                    checklist['5. Indicator Alignment'] = "❌ Weak Bearish"
+            else:
+                checklist['5. Indicator Alignment'] = "❌ No Alignment"
+            
+            # Calculate Final Signal
+            bullish_checks = sum(1 for v in checklist.values() if '✅' in str(v) and ('Bullish' in str(v) or 'Breakout' in str(v)))
+            bearish_checks = sum(1 for v in checklist.values() if '⚠️' in str(v) and 'Bearish' in str(v))
+            
+            pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
+            
+            if bullish_checks + pattern_boost >= 3:
+                checklist['FINAL_SIGNAL'] = '🟢 BUY' if pattern_boost >= 1.5 else '🟢 BUY'
+            elif bearish_checks - pattern_boost >= 3:
+                checklist['FINAL_SIGNAL'] = '🔴 SELL'
+            else:
+                checklist['FINAL_SIGNAL'] = '⚪ HOLD'
+            
+            return checklist
         
-        # Bearish Alignment - At resistance with overbought or momentum turning down
-        elif checklist["1. At Key S/R Level"] == "At Resistance":
-            if rsi > 60 and latest_price < vwap:  # Overbought with price below VWAP
-                checklist["5. Indicator Alignment"] = "⚠️ Bearish Alignment"
-            elif rsi > 50 and latest_price < vwap * 0.998:  # Momentum weakening
-                checklist["5. Indicator Alignment"] = "⚠️ Bearish Alignment"
-            else:
-                checklist["5. Indicator Alignment"] = "❌ Weak Bearish"
-
-        else:
-            checklist["5. Indicator Alignment"] = "❌ No Alignment"
-
-        bullish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and ("Bullish" in str(v) or "Breakout" in str(v)))
-        bearish_checks = sum(1 for v in checklist.values() if "✅" in str(v) and "Bearish" in str(v))
-
-        # Add pattern signal boost
-        pattern_boost = analysis_results.get('pattern_impact', {}).get('signal_boost', 0)
-        
-        # Adjust checks with pattern influence
-        if bullish_checks + pattern_boost >= 3:
-            checklist['FINAL_SIGNAL'] = "STRONG BUY" if pattern_boost >= 1.5 else "🟢 BUY"
-        elif bearish_checks - pattern_boost >= 3:
-            checklist['FINAL_SIGNAL'] = "🔴 SELL"
-        else:
-            checklist['FINAL_SIGNAL'] = "⚪ HOLD"
-        return checklist
+        except Exception as e:
+            checklist['error'] = f"Error: {str(e)}"
+            return checklist
 
     def analyze_for_intraday(self):
         """Complete intraday analysis WITH STOP-LOSS - Error Handled Version"""
@@ -3412,41 +3438,41 @@ def main():
                     if 'confirmation_checklist' in results and results['confirmation_checklist']:
                         checklist = results['confirmation_checklist']
                         
-                        st.markdown("### ✅ 5-Point Trade Confirmation Checklist")
-                        
-                        checklist_col1, checklist_col2 = st.columns(2)
-                        
-                        with checklist_col1:
-                            for key in ['1. At Key S/R Level', '2. Price Rejection', '3. Chart Pattern Confirmed']:
-                                st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
-                        
-                        with checklist_col2:
-                            for key in ['4. Candlestick Signal', '5. Indicator Alignment']:
-                                st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
-                        
-                        # Final Signal
-                        final_signal = checklist.get('FINAL_SIGNAL', 'HOLD')
-                        
-                        if final_signal == '🟢 BUY':
-                            st.success(f"### FINAL SIGNAL: {final_signal}")
-                            st.info("✅ 3+ bullish confirmations detected. Trade setup valid!")
-                        elif final_signal == '🔴 SELL':
-                            st.error(f"### FINAL SIGNAL: {final_signal}")
-                            st.info("✅ 3+ bearish confirmations detected. Trade setup valid!")
+                        # Check if data was actually available
+                        if checklist.get('data_available', False):
+                            st.markdown("### ✅ 5-Point Trade Confirmation Checklist")
+                            
+                            checklist_col1, checklist_col2 = st.columns(2)
+                            
+                            with checklist_col1:
+                                for key in ['1. At Key S/R Level', '2. Price Rejection', '3. Chart Pattern Confirmed']:
+                                    st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
+                            
+                            with checklist_col2:
+                                for key in ['4. Candlestick Signal', '5. Indicator Alignment']:
+                                    st.write(f"**{key}:** {checklist.get(key, '⚠️ PENDING')}")
+                            
+                            # Final Signal
+                            final_signal = checklist.get('FINAL_SIGNAL', 'HOLD')
+                            
+                            if '🟢 BUY' in final_signal:
+                                st.success(f"### FINAL SIGNAL: {final_signal}")
+                                st.info("✅ 3+ bullish confirmations detected. Trade setup valid!")
+                            elif '🔴 SELL' in final_signal:
+                                st.error(f"### FINAL SIGNAL: {final_signal}")
+                                st.info("✅ 3+ bearish confirmations detected. Trade setup valid!")
+                            else:
+                                st.warning(f"### FINAL SIGNAL: {final_signal}")
+                                st.info("⚠️ Insufficient confirmations. Wait for better setup.")
                         else:
-                            st.warning(f"### FINAL SIGNAL: {final_signal}")
-                            st.info("⚠️ Insufficient confirmations. Wait for better setup.")
+                            # Show specific error message
+                            error_msg = checklist.get('error', 'Unknown error')
+                            st.warning(f"⚠️ Confirmation checklist unavailable: {error_msg}")
+                            st.caption("The system needs 5-minute candle data and support/resistance levels to run the checklist")
                     else:
                         st.warning("⚠️ Confirmation checklist could not be generated")
-                        st.caption("Running checklist requires 5-minute data and key levels calculation")
-                else:
-                    st.warning("⚠️ Confirmation checklist unavailable - insufficient intraday data")
-                    st.caption("Need at least 5-minute chart data to run the confirmation system")
-                    
-                    # Show what data we have
-                    if 'daily_data' in results and not results['daily_data'].empty:
-                        st.info("ℹ️ Daily data is available. Intraday confirmation requires 5-minute candles.")
-                    
+                        st.caption("Ensure 5-minute data is available and support/resistance levels are calculated")
+
                 # ========== CANDLESTICK PATTERN SECTION ==========
                 st.markdown("---")
                 st.markdown("### 🕯️ Candlestick Pattern Analysis")
