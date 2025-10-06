@@ -1948,32 +1948,17 @@ class StockAnalyzer:
             })
         
         # 3. BULLISH ENGULFING (Very Strong)
-        if prev_is_red and curr_is_green and curr_open <= prev_close and \
-           curr_close >= prev_open and curr_body > prev_body * 1.3:
-            
-            # Add volume confirmation for stronger signal
-            strength = 90
-            confidence = 90
-            
-            # Check if current volume is significantly higher than previous
-            prev_vol = c4['Volume'] if 'Volume' in c4.index else 0
-            cur_vol = c5['Volume'] if 'Volume' in c5.index else 0
-            
-            if prev_vol > 0 and cur_vol > prev_vol * 1.5:
-                # Volume surge = very strong engulfing
-                strength = 95
-                confidence = 95
-                description = 'VERY STRONG bullish engulfing with volume surge - Extremely high buying pressure'
-            else:
-                description = 'Very strong bullish reversal - Large buying pressure overwhelmed sellers'
-            
+        if (prev_is_green and curr_is_red and
+            curr_open > prev_close and
+            curr_close < prev_open and
+            curr_body > prev_body * 1.3):
             patterns_found.append({
-                'pattern': 'Bullish Engulfing',
-                'type': 'bullish',
-                'strength': strength,
-                'confidence': confidence,
+                'pattern': 'Bearish Engulfing',
+                'type': 'bearish',
+                'strength': 90,
+                'confidence': 90,
                 'category': 'reversal',
-                'description': description
+                'description': 'Very strong bearish reversal - Large selling pressure overwhelmed buyers'
             })
 
         # 4. MORNING STAR (3-Candle Bullish Reversal)
@@ -1997,7 +1982,6 @@ class StockAnalyzer:
                 'category': 'reversal',
                 'description': 'Extremely strong bullish reversal - Classic 3-candle bottom pattern'
             })
-
 
         # 4. MORNING STAR - 3-Candle Bullish Reversal
         c3_open = c3['Open'] if 'Open' in c3.index else c3['open']
@@ -2293,7 +2277,7 @@ class StockAnalyzer:
         # ==================== NEUTRAL PATTERNS ====================
         
         # 16. DOJI (Indecision)
-        if curr_body / curr_body <= 0.15 and curr_range > 0:  # Relaxed from 0.1 to 0.15
+        if curr_body / curr_range <= 0.15 and curr_range > 0:  # Relaxed from 0.1 to 0.15
             # Check for balanced shadows (true Doji has roughly equal shadows)
             shadow_ratio = abs(lower_shadow - upper_shadow) / curr_range if curr_range > 0 else 1
             
