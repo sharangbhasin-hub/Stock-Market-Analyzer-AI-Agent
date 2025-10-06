@@ -1243,6 +1243,7 @@ def run_premarket_screener(market_name, market_config):
                     price = float(last_day['Close'])
                     volume = int(last_day['Volume'])
                     change_pct = float((price - prev_day['Close']) / prev_day['Close'] * 100)
+                    stock_currency = get_currency_symbol(ticker, market_name)
                     
                     # Apply filters
                     if price >= min_price and volume >= min_volume:
@@ -1250,6 +1251,7 @@ def run_premarket_screener(market_name, market_config):
                             'price': price,
                             'volume': volume,
                             'change_pct': change_pct
+                            'currency': stock_currency
                         }
                         
                         # Stop if we have enough stocks
@@ -2814,7 +2816,7 @@ def main():
             selected_screened = st.sidebar.selectbox(
                 "Select stock to analyze:",
                 options=list(st.session_state['screened_stocks'].keys()),
-                format_func=lambda x: f"{x} - ${st.session_state['screened_stocks'][x]['price']:.2f} ({st.session_state['screened_stocks'][x]['change_pct']:+.2f}%)"
+                format_func=lambda x: f"{x} - {st.sessionstate['screenedstocks'][x].get('currency', '$')}{st.sessionstate['screenedstocks'][x]['price']:.2f} ({st.sessionstate['screenedstocks'][x]['changepct']:.2f}%)"
             )
             
           #  if st.sidebar.button("📊 Analyze Selected Stock"):
