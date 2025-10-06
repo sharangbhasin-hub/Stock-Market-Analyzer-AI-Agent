@@ -2949,7 +2949,7 @@ def main():
     if 'analysis_results' not in st.session_state:
             st.session_state['analysis_results'] = {}
         
-        results = st.session_state.get('analysis_results', {})
+            results = st.session_state.get('analysis_results', {})
 
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
