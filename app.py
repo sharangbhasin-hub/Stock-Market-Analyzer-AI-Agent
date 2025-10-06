@@ -2816,7 +2816,8 @@ def main():
             selected_screened = st.sidebar.selectbox(
                 "Select stock to analyze:",
                 options=list(st.session_state['screened_stocks'].keys()),
-                format_func=lambda x: f"{x} - {st.sessionstate['screenedstocks'][x].get('currency', '$')}{st.sessionstate['screenedstocks'][x]['price']:.2f} ({st.sessionstate['screenedstocks'][x]['changepct']:.2f}%)"
+                format_func=lambda x: f"{x} - {st.session_state['screened_stocks'][x].get('currency', '$')}{st.session_state['screened_stocks'][x]['price']:.2f} ({st.session_state['screened_stocks'][x]['change_pct']:.2f}%)"
+
             )
             
           #  if st.sidebar.button("📊 Analyze Selected Stock"):
