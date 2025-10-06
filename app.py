@@ -2155,16 +2155,31 @@ class StockAnalyzer:
         
         # 11. BEARISH ENGULFING
         if (prev_is_green and curr_is_red and
-            curr_open > prev_close and
-            curr_close < prev_open and
+            curr_open >= prev_close and
+            curr_close <= prev_open and
             curr_body > prev_body * 1.3):
+            
+            # Add volume confirmation
+            strength = 90
+            confidence = 90
+            
+            prev_vol = c4['Volume'] if 'Volume' in c4.index else 0
+            cur_vol = c5['Volume'] if 'Volume' in c5.index else 0
+            
+            if prev_vol > 0 and cur_vol > prev_vol * 1.5:
+                strength = 95
+                confidence = 95
+                description = 'VERY STRONG bearish engulfing with volume surge - Extremely high selling pressure'
+            else:
+                description = 'Very strong bearish reversal - Large selling pressure overwhelmed buyers'
+            
             patterns_found.append({
                 'pattern': 'Bearish Engulfing',
                 'type': 'bearish',
-                'strength': 90,
-                'confidence': 90,
+                'strength': strength,
+                'confidence': confidence,
                 'category': 'reversal',
-                'description': 'Very strong bearish reversal - Large selling pressure overwhelmed buyers'
+                'description': description
             })
         
         # 12. EVENING STAR (3-Candle Bearish Reversal)
@@ -2174,15 +2189,12 @@ class StockAnalyzer:
         c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
         c4_open = c4['Open'] if 'Open' in c4.index else c4['open']
         c4_close = c4['Close'] if 'Close' in c4.index else c4['close']
-
-        if c3_close > c3_open and \
-           abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and \
-           curr_is_green and curr_close > (c3_open + c3_close) / 2:
-
-
+        
+        if (c3_close > c3_open and
+            abs(c4_close - c4_open) < (c3_high - c3_low) * 0.3 and
+            curr_is_red and curr_close < (c3_open + c3_close) / 2):
+            
             # Check for gaps (classic Evening Star feature)
-            c3_high = c3['High'] if 'High' in c3.index else c3['high']
-            c3_low = c3['Low'] if 'Low' in c3.index else c3['low']
             c4_high = c4['High'] if 'High' in c4.index else c4['high']
             c4_low = c4['Low'] if 'Low' in c4.index else c4['low']
             c5_high = c5['High'] if 'High' in c5.index else c5['high']
@@ -2190,7 +2202,7 @@ class StockAnalyzer:
             # Gap 1: Gap up into middle candle
             gap1 = c4_low > c3_high
             # Gap 2: Gap down from middle candle
-            gap2 = c5_high < c_4low
+            gap2 = c5_high < c4_low
             
             strength = 95
             if gap1 and gap2:
@@ -2210,8 +2222,6 @@ class StockAnalyzer:
                 'category': 'reversal',
                 'description': description
             })
-
-
 
         # 13. DARK CLOUD COVER
         if (prev_is_green and curr_is_red and
