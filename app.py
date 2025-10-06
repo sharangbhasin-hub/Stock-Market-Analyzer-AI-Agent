@@ -3357,11 +3357,14 @@ def main():
                 st.subheader("📊 Intraday Trading Dashboard")
 
                 col1, col2, col3, col4, col5 = st.columns(5)
+            if results and 'latest_price' in results:
                 col1.metric("Current Price", f"{currency}{results['latest_price']:.2f}")
                 col2.metric("Signal", results['signal'])
                 col3.metric("RSI", f"{results['rsi']:.2f}")
                 col4.metric("Position Size", f"{results.get('position_size', 0)} shares")
                 col5.metric("Capital Used", f"{currency}{results.get('capital_used', 0):,.0f}")
+            else:
+                st.info("👆 Click 'Analyze with Full Suite' to see detailed analysis")
 
                 # Intraday data display
                 if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
