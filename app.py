@@ -2765,7 +2765,8 @@ def main():
         st.session_state['analysis_history'] = []
     if 'broker' not in st.session_state:
         st.session_state['broker'] = BrokerAPI()
-
+        currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+        
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
     # ===========================================================================
@@ -3074,7 +3075,7 @@ def main():
                     else:
                         st.warning("⚠️ No stocks in scanner. Run 'Pre-Market Scan' from sidebar first.")
                         st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
-                    currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+                    
 
             # ANALYSIS BUTTON
             if st.button("📊 Analyze with Full Suite", type="primary"):
