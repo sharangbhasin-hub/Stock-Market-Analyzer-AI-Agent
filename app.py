@@ -3502,18 +3502,18 @@ def main():
                                     sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
                                     print(f"💭 Sentiment analysis complete: {sentiment_detailed.get('overall_sentiment')}")
                                     print(f"📊 Articles processed: {len(sentiment_detailed.get('articles', []))}")
-                                    else:
-                                        # Create default sentiment structure
-                                        sentiment_detailed = {
-                                            'overall_sentiment': 'Neutral',
-                                            'overall_score': 0.0,
-                                            'articles': [],
-                                            'total_articles': 0,
-                                            'positive_count': 0,
-                                            'negative_count': 0,
-                                            'neutral_count': 0
-                                        }
-                                        print("⚠️ No headlines found - using default sentiment")
+                                else:
+                                    # Create default sentiment structure
+                                    sentiment_detailed = {
+                                        'overall_sentiment': 'Neutral',
+                                        'overall_score': 0.0,
+                                        'articles': [],
+                                        'total_articles': 0,
+                                        'positive_count': 0,
+                                        'negative_count': 0,
+                                        'neutral_count': 0
+                                    }
+                                    print("⚠️ No headlines found - using default sentiment")
                                         
                                 results['news_headlines'] = headlines
                                 results['sentiment'] = sentiment_detailed['overall_sentiment']
