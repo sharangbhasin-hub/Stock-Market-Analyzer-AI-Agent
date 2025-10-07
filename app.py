@@ -3649,8 +3649,78 @@ def main():
                             with pattern_col4:
                                 st.metric("Type", pattern_category.title())
                             
-                            # Description
+                            # ============================================================
+                            # ✅ FEATURE: DYNAMIC PATTERN DESCRIPTION (INSIDE EXPANDER)
+                            # ============================================================
+                            
+                            # Get enhanced description from method if needed
+                            if not pattern_description or pattern_description in ['', 'No pattern', 'Analysis Error']:
+                                pattern_description = analyzer.get_pattern_description(
+                                    pattern_name, 
+                                    pattern_type, 
+                                    pattern_category
+                                )
+                            
+                            # Display description
                             st.info(f"💡 **Insight:** {pattern_description}")
+                            
+                            # ============================================================
+                            # DETAILED PATTERN EXPLANATION SECTION
+                            # ============================================================
+                            
+                            st.markdown("---")
+                            st.markdown("#### 📖 Pattern Explanation")
+                            
+                            # Display color-coded detailed explanation
+                            if pattern_type == 'bullish':
+                                st.success(f"✅ **{pattern_name}**: {pattern_description}")
+                            elif pattern_type == 'bearish':
+                                st.error(f"⚠️ **{pattern_name}**: {pattern_description}")
+                            else:
+                                st.info(f"ℹ️ **{pattern_name}**: {pattern_description}")
+                            
+                            # ============================================================
+                            # TRADING IMPLICATIONS SECTION (INSIDE EXPANDER)
+                            # ============================================================
+                            
+                            st.markdown("#### 💡 Trading Implications")
+                            
+                            if pattern_type == 'bullish':
+                                st.markdown(f"""
+                                - **Action:** Consider **LONG** positions
+                                - **Entry Strategy:** Wait for confirmation on next candle
+                                - **Stop-Loss:** Place below pattern low or recent support
+                                - **Confidence Level:** {pattern_confidence}% (Strength: {pattern_strength}/100)
+                                - **Expected Move:** Pattern suggests upward momentum
+                                """)
+                                
+                                # Additional insight for strong patterns
+                                if pattern_strength >= 85:
+                                    st.success("🔥 **High-Probability Setup** - Strong bullish signal with high reliability")
+                            
+                            elif pattern_type == 'bearish':
+                                st.markdown(f"""
+                                - **Action:** Consider **SHORT** positions or exit longs
+                                - **Entry Strategy:** Wait for confirmation on next candle
+                                - **Stop-Loss:** Place above pattern high or recent resistance
+                                - **Confidence Level:** {pattern_confidence}% (Strength: {pattern_strength}/100)
+                                - **Expected Move:** Pattern suggests downward pressure
+                                """)
+                                
+                                # Additional insight for strong patterns
+                                if pattern_strength >= 85:
+                                    st.error("⚠️ **High-Probability Reversal** - Strong bearish signal, consider risk management")
+                            
+                            else:  # neutral
+                                st.markdown(f"""
+                                - **Action:** **WAIT** for clearer directional signals
+                                - **Strategy:** Monitor next 2-3 candles for breakout direction
+                                - **Risk:** Neutral patterns can precede strong moves in either direction
+                                - **Confidence Level:** {pattern_confidence}%
+                                - **Note:** Market indecision - avoid premature entries
+                                """)
+                                
+                                st.warning("⏸️ **Hold Position** - Wait for market to show clear direction")
                             
                             # Show impact only for strong patterns AND if it's the primary
                             if pattern_strength >= 70 and is_primary and 'pattern_impact' in results:
