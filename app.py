@@ -4152,12 +4152,51 @@ def main():
                     else:
                         st.warning("5-minute chart data not available")
 
-                # ========== TRADINGVIEW WIDGET ==========
+                # ============================================================
+                # 📈 TRADINGVIEW LIVE CHART SECTION
+                # ============================================================
                 st.markdown("---")
-                with st.expander("📊 TradingView Live Chart", expanded=False):
+                
+                with st.expander("📈 TradingView Live Chart", expanded=False):
+                    st.caption("📊 Real-time interactive chart from TradingView")
                     st.caption("⚠️ Some symbols may not be available for embedded viewing")
-                    tradingview_html = embed_tradingview_widget(results['ticker'])
-                    components.html(tradingview_html, height=550)
+                    
+                    # ✅ Safely determine which ticker to use
+                    chart_ticker = None
+                    
+                    # Priority 1: From results dictionary
+                    if results and isinstance(results, dict) and 'ticker' in results:
+                        chart_ticker = results['ticker']
+                        st.caption(f"📌 Displaying: {chart_ticker} (from analysis results)")
+                    
+                    # Priority 2: From user input
+                    elif 'ticker_input' in locals() and ticker_input:
+                        chart_ticker = ticker_input
+                        st.caption(f"📌 Displaying: {chart_ticker} (from input)")
+                    
+                    # Priority 3: From session state
+                    elif 'results' in st.session_state and isinstance(st.session_state.results, dict):
+                        chart_ticker = st.session_state.results.get('ticker')
+                        if chart_ticker:
+                            st.caption(f"📌 Displaying: {chart_ticker} (from session)")
+                    
+                    # Display chart or error message
+                    if chart_ticker:
+                        try:
+                            tradingview_html = embed_tradingview_widget(chart_ticker)
+                            components.html(tradingview_html, height=550)
+                        except Exception as e:
+                            st.error(f"❌ Could not load TradingView chart")
+                            st.caption(f"Error: {str(e)}")
+                            st.caption(f"Ticker attempted: {chart_ticker}")
+                            
+                            # Show alternative
+                            st.info("💡 View chart manually:")
+                            st.markdown(f"[Open {chart_ticker} on TradingView](https://www.tradingview.com/chart/?symbol={chart_ticker})")
+                    else:
+                        st.warning("⚠️ No ticker available for chart display")
+                        st.info("Please run an analysis first to load a chart")
+                
                 st.markdown("---")
                 
                 # ===== INSERT THIS ENTIRE BLOCK BEFORE st.subheader("🎯 Stop-Loss & Targets") =====
