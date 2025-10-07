@@ -3056,6 +3056,11 @@ def main():
         if st.button("🗑️ Reset All Data", use_container_width=True, type="primary"):
             st.session_state['confirm_reset'] = True
     
+    with reset_col2:
+        if st.button("❌", help="Cancel reset"):
+            if 'confirm_reset' in st.session_state:
+                del st.session_state['confirm_reset']
+    
     # Show confirmation dialog if reset was clicked
     if st.session_state.get('confirm_reset', False):
         st.sidebar.warning("⚠️ **Confirm Reset**")
@@ -3066,7 +3071,7 @@ def main():
         st.sidebar.caption("• AI summaries")
         st.sidebar.caption("• Cached data")
         
-        confirm_col1 = st.sidebar.columns(2)
+        confirm_col1, confirm_col2 = st.sidebar.columns(2)
         
         with confirm_col1:
             if st.button("✅ Confirm", use_container_width=True):
@@ -3085,7 +3090,12 @@ def main():
                 st.session_state['reset_complete'] = True
                 
                 st.rerun()
-
+        
+        with confirm_col2:
+            if st.button("❌ Cancel", use_container_width=True):
+                del st.session_state['confirm_reset']
+                st.rerun()
+    
     # Show success message after reset
     if st.session_state.get('reset_complete', False):
         st.sidebar.success("✅ All data cleared successfully!")
