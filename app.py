@@ -3045,6 +3045,66 @@ def main():
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
     # ===========================================================================
+    
+    # ===== NEW: GLOBAL RESET BUTTON =====
+    st.sidebar.markdown("### 🔄 System Controls")
+    
+    # Create reset button with confirmation
+    reset_col1, reset_col2 = st.sidebar.columns([2, 1])
+    
+    with reset_col1:
+        if st.button("🗑️ Reset All Data", use_container_width=True, type="primary"):
+            st.session_state['confirm_reset'] = True
+    
+    with reset_col2:
+        if st.button("❌", help="Cancel reset"):
+            if 'confirm_reset' in st.session_state:
+                del st.session_state['confirm_reset']
+    
+    # Show confirmation dialog if reset was clicked
+    if st.session_state.get('confirm_reset', False):
+        st.sidebar.warning("⚠️ **Confirm Reset**")
+        st.sidebar.caption("This will clear all:")
+        st.sidebar.caption("• Analysis results")
+        st.sidebar.caption("• Selected stocks")
+        st.sidebar.caption("• Chart data")
+        st.sidebar.caption("• AI summaries")
+        st.sidebar.caption("• Cached data")
+        
+        confirm_col1, confirm_col2 = st.sidebar.columns(2)
+        
+        with confirm_col1:
+            if st.button("✅ Confirm", use_container_width=True):
+                # Clear all session state
+                keys_to_keep = ['user_credentials']  # Keep login info if any
+                keys_to_delete = [key for key in st.session_state.keys() if key not in keys_to_keep]
+                
+                for key in keys_to_delete:
+                    del st.session_state[key]
+                
+                # Clear Streamlit cache
+                st.cache_data.clear()
+                
+                # Reset confirmation flag
+                st.session_state['confirm_reset'] = False
+                st.session_state['reset_complete'] = True
+                
+                st.rerun()
+        
+        with confirm_col2:
+            if st.button("❌ Cancel", use_container_width=True):
+                del st.session_state['confirm_reset']
+                st.rerun()
+    
+    # Show success message after reset
+    if st.session_state.get('reset_complete', False):
+        st.sidebar.success("✅ All data cleared successfully!")
+        if st.sidebar.button("Dismiss"):
+            del st.session_state['reset_complete']
+            st.rerun()
+    
+    st.sidebar.markdown("---")
+    # ===== END GLOBAL RESET BUTTON =====
 
     st.sidebar.header("⚙️ Configuration")
     
