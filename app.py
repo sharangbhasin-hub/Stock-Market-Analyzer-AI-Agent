@@ -3624,13 +3624,23 @@ def main():
                 else:
                     with st.spinner("Running complete analysis..."):
                         try:
+                            # ✅ Fetch stock info to get company name
+                            try:
+                                stock_info = yf.Ticker(ticker_input)
+                                company_name = stock_info.info.get('longName') or stock_info.info.get('shortName') or ticker_input
+                            except:
+                                company_name = ticker_input
                             analyzer = StockAnalyzer(ticker=ticker_input)
                             
                             if trading_mode == "Intraday Trading":
                                 results = analyzer.analyze_for_intraday()
                             else:
                                 results = analyzer.analyze_for_swing()
-            
+                            
+                            if results:
+                                # ✅ Add company name to results
+                                results['company_name'] = company_name
+                            
                             if results:
                                 # Add Fibonacci
                                 fib_analysis = analyzer.analyze_with_fibonacci(results['daily_data'])
@@ -3761,6 +3771,32 @@ def main():
                 st.info("💡 Run analysis first")
                 st.markdown("")
                 st.caption("Click the 'Analyze with Full Suite' button to populate this panel")
+
+        # ============================================================
+        # ✅ DISPLAY SELECTED STOCK NAME (NEW SECTION)
+        # ============================================================
+        st.markdown("---")
+        
+        if 'analysis_results' in st.session_state and st.session_state['analysis_results']:
+            results = st.session_state['analysis_results']
+            ticker = results.get('ticker', st.session_state.get('current_ticker', 'N/A'))
+            company_name = results.get('company_name', ticker)
+            
+            # Display with nice formatting
+            st.markdown(f"### 📊 Analyzing: **{company_name}**")
+            st.caption(f"Ticker: {ticker}")
+            
+            # Optional: Add market badge
+            if ticker.endswith('.NS') or ticker.endswith('.BO'):
+                st.badge("🇮🇳 India", type="success")
+            elif ticker.endswith('.L'):
+                st.badge("🇬🇧 UK", type="info")
+            elif ticker.endswith('.T'):
+                st.badge("🇯🇵 Japan", type="warning")
+            else:
+                st.badge("🇺🇸 USA", type="primary")
+        
+        st.markdown("---")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
