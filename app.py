@@ -1647,11 +1647,15 @@ class StockAnalyzer:
                         })
                         sentiment_scores.append(score)
                     else:
-                        score = result[0]['score'] if result[0]['label'] == 'POSITIVE' else -result[0]['score']
+                        # ✅ FIX: Normalize POSITIVE/NEGATIVE to Positive/Negative
+                        raw_label = result[0]['label']
+                        normalized_label = raw_label.capitalize()  # POSITIVE -> Positive
+                        
+                        score = result[0]['score'] if raw_label == 'POSITIVE' else -result[0]['score']
                         
                         article_sentiments.append({
                             'headline': headline,
-                            'sentiment': result[0]['label'],
+                            'sentiment': normalized_label,
                             'score': round(score, 3),
                             'confidence': round(result[0]['score'], 3)
                         })
@@ -1663,6 +1667,17 @@ class StockAnalyzer:
             else:
                 avg_sentiment = 0.0
                 overall = 'Neutral'
+
+            # ✅ FIX: Count with case-insensitive comparison
+            positive_count = sum(1 for a in article_sentiments if a['sentiment'].upper() == 'POSITIVE')
+            negative_count = sum(1 for a in article_sentiments if a['sentiment'].upper() == 'NEGATIVE')
+            neutral_count = sum(1 for a in article_sentiments if a['sentiment'].upper() == 'NEUTRAL')
+            
+            print(f"\n📊 SENTIMENT COUNTS:")
+            print(f"   Positive: {positive_count}")
+            print(f"   Negative: {negative_count}")
+            print(f"   Neutral: {neutral_count}")
+            print(f"   Total: {len(article_sentiments)}\n")
             
             return {
                 'overall_sentiment': overall,
