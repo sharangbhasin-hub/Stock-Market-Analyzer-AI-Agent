@@ -3663,7 +3663,33 @@ def main():
                             
                             # Display description
                             st.info(f"💡 **Insight:** {pattern_description}")
-                            
+
+                            # Show impact only for strong patterns AND if it's the primary
+                            if pattern_strength >= 70 and is_primary and 'pattern_impact' in results:
+                                impact = results.get('pattern_impact', {})
+                                signal_boost = impact.get('signal_boost', 0)
+                                target_mult = impact.get('target_multiplier', 1.0)
+                                sl_adj = impact.get('stop_loss_adjustment', 1.0)
+                                
+                                impact_parts = []
+                                if signal_boost > 0:
+                                    impact_parts.append(f"✅ +{signal_boost:.1f} signal boost")
+                                elif signal_boost < 0:
+                                    impact_parts.append(f"⚠️ {signal_boost:.1f} caution")
+                                
+                                if target_mult > 1.1:
+                                    impact_parts.append(f"📈 Targets +{(target_mult-1)*100:.0f}%")
+                                elif target_mult < 0.9:
+                                    impact_parts.append(f"📉 Targets -{(1-target_mult)*100:.0f}%")
+                                
+                                if sl_adj < 0.99:
+                                    impact_parts.append(f"🎯 SL tightened {(1-sl_adj)*100:.1f}%")
+                                elif sl_adj > 1.01:
+                                    impact_parts.append(f"🛡️ SL widened {(sl_adj-1)*100:.1f}%")
+                                
+                                if impact_parts:
+                                    st.success("🎯 **Trading Impact:** " + " | ".join(impact_parts))
+
                             # ============================================================
                             # DETAILED PATTERN EXPLANATION SECTION
                             # ============================================================
@@ -3721,32 +3747,6 @@ def main():
                                 """)
                                 
                                 st.warning("⏸️ **Hold Position** - Wait for market to show clear direction")
-                            
-                            # Show impact only for strong patterns AND if it's the primary
-                            if pattern_strength >= 70 and is_primary and 'pattern_impact' in results:
-                                impact = results.get('pattern_impact', {})
-                                signal_boost = impact.get('signal_boost', 0)
-                                target_mult = impact.get('target_multiplier', 1.0)
-                                sl_adj = impact.get('stop_loss_adjustment', 1.0)
-                                
-                                impact_parts = []
-                                if signal_boost > 0:
-                                    impact_parts.append(f"✅ +{signal_boost:.1f} signal boost")
-                                elif signal_boost < 0:
-                                    impact_parts.append(f"⚠️ {signal_boost:.1f} caution")
-                                
-                                if target_mult > 1.1:
-                                    impact_parts.append(f"📈 Targets +{(target_mult-1)*100:.0f}%")
-                                elif target_mult < 0.9:
-                                    impact_parts.append(f"📉 Targets -{(1-target_mult)*100:.0f}%")
-                                
-                                if sl_adj < 0.99:
-                                    impact_parts.append(f"🎯 SL tightened {(1-sl_adj)*100:.1f}%")
-                                elif sl_adj > 1.01:
-                                    impact_parts.append(f"🛡️ SL widened {(sl_adj-1)*100:.1f}%")
-                                
-                                if impact_parts:
-                                    st.success("🎯 **Trading Impact:** " + " | ".join(impact_parts))
                 
                 else:
                     # No patterns detected
