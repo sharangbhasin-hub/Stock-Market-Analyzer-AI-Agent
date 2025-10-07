@@ -1588,32 +1588,75 @@ class StockAnalyzer:
         self.risk_manager = RiskManager()
 
     def setup_sentiment_analyzer(self):
-        """Setup sentiment analyzer with error handling"""
+        """Setup sentiment analyzer with FinBERT and fallback"""
         try:
-            from transformers import pipeline
-            print("🔄 Loading sentiment analyzer...")
-            self.sentiment_analyzer = pipeline(
-                'sentiment-analysis',
-                model='distilbert-base-uncased-finetuned-sst-2-english'
-            )
-            print("✅ Sentiment analyzer loaded successfully")
-        except Exception as e:
-            print(f"❌ Could not load sentiment analyzer: {e}")
-            self.sentiment_analyzer = None
+            from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+            import warnings
+            warnings.filterwarnings('ignore')
             
-        # ✅ ADD: Validate it works with a test
-        if self.sentiment_analyzer:
+            print("\n" + "="*60)
+            print("🔄 LOADING FINBERT SENTIMENT ANALYZER")
+            print("="*60)
+            
+            # ✅ Try to load FinBERT first (best for financial news)
             try:
-                test_result = self.sentiment_analyzer("This is a test")
-                print(f"✅ Sentiment analyzer test passed: {test_result}")
+                print("   Attempting to load ProsusAI/finbert...")
+                
+                self.sentiment_analyzer = pipeline(
+                    'sentiment-analysis',
+                    model='ProsusAI/finbert',
+                    tokenizer='ProsusAI/finbert',
+                    device=-1  # Use CPU
+                )
+                
+                # Test it
+                test_result = self.sentiment_analyzer("The stock price is rising strongly")
+                print(f"   ✅ FinBERT loaded successfully")
+                print(f"   ✅ Test result: {test_result}")
+                self.model_name = 'FinBERT'
+                
             except Exception as e:
-                print(f"⚠️ Sentiment analyzer loaded but test failed: {e}")
-                self.sentiment_analyzer = None
-
+                print(f"   ⚠️  FinBERT failed: {str(e)}")
+                print("   🔄 Falling back to default sentiment model...")
+                
+                # Fallback to default model
+                self.sentiment_analyzer = pipeline(
+                    'sentiment-analysis',
+                    model='distilbert-base-uncased-finetuned-sst-2-english',
+                    device=-1
+                )
+                
+                test_result = self.sentiment_analyzer("The stock price is rising strongly")
+                print(f"   ✅ Default model loaded successfully")
+                print(f"   ✅ Test result: {test_result}")
+                self.model_name = 'DistilBERT'
+            
+            print(f"✅ Using model: {self.model_name}")
+            print("="*60 + "\n")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Could not load ANY sentiment analyzer: {e}")
+            import traceback
+            print(traceback.format_exc())
+            print("="*60 + "\n")
+            self.sentiment_analyzer = None
+            self.model_name = None
+            return False
 
     def analyze_sentiment_detailed(self, headlines):
-        """Analyze sentiment with per-article breakdown"""
-        if not headlines or not self.sentiment_analyzer:
+        """Analyze sentiment with per-article breakdown - supports FinBERT and generic models"""
+        
+        print(f"\n{'='*60}")
+        print(f"🔍 SENTIMENT ANALYSIS STARTED (Model: {getattr(self, 'model_name', 'Unknown')})")
+        print(f"{'='*60}")
+        print(f"Headlines received: {len(headlines) if headlines else 0}")
+        print(f"Sentiment analyzer status: {self.sentiment_analyzer is not None}")
+        
+        # Check if we have headlines
+        if not headlines or len(headlines) == 0:
+            print("❌ No headlines provided")
+            print(f"{'='*60}\n")
             return {
                 'overall_sentiment': 'Neutral',
                 'overall_score': 0.0,
@@ -1624,84 +1667,151 @@ class StockAnalyzer:
                 'neutral_count': 0
             }
         
+        # Check if sentiment analyzer is loaded
+        if not self.sentiment_analyzer:
+            print("❌ Sentiment analyzer not loaded - attempting to reload...")
+            success = self.setup_sentiment_analyzer()
+            
+            if not success or not self.sentiment_analyzer:
+                print("❌ Failed to load sentiment analyzer")
+                print(f"{'='*60}\n")
+                return {
+                    'overall_sentiment': 'Neutral',
+                    'overall_score': 0.0,
+                    'articles': [],
+                    'total_articles': 0,
+                    'positive_count': 0,
+                    'negative_count': 0,
+                    'neutral_count': 0,
+                    'error': 'Sentiment analyzer not available'
+                }
+        
+        # Process headlines
         try:
             article_sentiments = []
             sentiment_scores = []
             
-            for headline in headlines:
-                if headline and len(headline.strip()) > 10:
+            print(f"\n📰 Processing {len(headlines)} headlines...\n")
+            
+            for idx, headline in enumerate(headlines, 1):
+                # Skip very short headlines
+                if not headline or len(headline.strip()) < 10:
+                    print(f"   ⚠️  Skipping headline {idx}: too short ({len(headline) if headline else 0} chars)")
+                    continue
+                
+                try:
+                    print(f"   🔄 Analyzing #{idx}: {headline[:60]}...")
+                    
+                    # Run sentiment analysis
                     result = self.sentiment_analyzer(headline[:512])
                     
-                    if isinstance(result[0], list):
-                        sentiment_dict = {item['label']: item['score'] for item in result[0]}
-                        score = sentiment_dict.get('positive', 0) - sentiment_dict.get('negative', 0)
-                        label = 'Positive' if score > 0.1 else 'Negative' if score < -0.1 else 'Neutral'
-                        
-                        article_sentiments.append({
-                            'headline': headline,
-                            'sentiment': label,
-                            'score': round(score, 3),
-                            'positive': round(sentiment_dict.get('positive', 0), 3),
-                            'negative': round(sentiment_dict.get('negative', 0), 3),
-                            'neutral': round(sentiment_dict.get('neutral', 0), 3)
-                        })
-                        sentiment_scores.append(score)
+                    if not result or len(result) == 0:
+                        print(f"      ⚠️  Empty result")
+                        continue
+                    
+                    # Extract result
+                    raw_label = result[0]['label']
+                    confidence = result[0]['score']
+                    
+                    print(f"      ✅ Raw: label='{raw_label}', confidence={confidence:.3f}")
+                    
+                    # ✅ Normalize label - handle both FinBERT (lowercase) and generic models (uppercase)
+                    label_upper = raw_label.upper()
+                    
+                    if label_upper == 'POSITIVE':
+                        label = 'Positive'
+                        score = confidence
+                    elif label_upper == 'NEGATIVE':
+                        label = 'Negative'
+                        score = -confidence
+                    elif label_upper == 'NEUTRAL':
+                        label = 'Neutral'
+                        score = 0
                     else:
-                        # ✅ FIX: Normalize POSITIVE/NEGATIVE to Positive/Negative
-                        raw_label = result[0]['label']
-                        normalized_label = raw_label.capitalize()  # POSITIVE -> Positive
-                        
-                        score = result[0]['score'] if raw_label == 'POSITIVE' else -result[0]['score']
-                        
-                        article_sentiments.append({
-                            'headline': headline,
-                            'sentiment': normalized_label,
-                            'score': round(score, 3),
-                            'confidence': round(result[0]['score'], 3)
-                        })
-                        sentiment_scores.append(score)
+                        # Unknown label - treat as neutral
+                        label = 'Neutral'
+                        score = 0
+                        print(f"      ⚠️  Unknown label '{raw_label}', treating as Neutral")
+                    
+                    # Add to results
+                    article_sentiments.append({
+                        'headline': headline,
+                        'sentiment': label,
+                        'score': round(score, 3),
+                        'confidence': round(confidence, 3),
+                        'raw_label': raw_label  # Keep original for debugging
+                    })
+                    sentiment_scores.append(score)
+                    
+                    print(f"      📊 Normalized: {label} (score: {score:.3f})")
+                    
+                except Exception as e:
+                    print(f"      ❌ Error: {str(e)}")
+                    import traceback
+                    print(f"      {traceback.format_exc()}")
+                    continue
             
-            if sentiment_scores:
-                avg_sentiment = np.mean(sentiment_scores)
-                overall = 'Positive' if avg_sentiment > 0.1 else 'Negative' if avg_sentiment < -0.1 else 'Neutral'
+            print(f"\n✅ Successfully processed {len(article_sentiments)} out of {len(headlines)} articles")
+            
+            # Calculate overall sentiment
+            if sentiment_scores and len(sentiment_scores) > 0:
+                avg_sentiment = sum(sentiment_scores) / len(sentiment_scores)
+                
+                # Use slightly different thresholds for FinBERT
+                threshold = 0.05 if getattr(self, 'model_name', '') == 'FinBERT' else 0.1
+                
+                if avg_sentiment > threshold:
+                    overall = 'Positive'
+                elif avg_sentiment < -threshold:
+                    overall = 'Negative'
+                else:
+                    overall = 'Neutral'
             else:
                 avg_sentiment = 0.0
                 overall = 'Neutral'
-
-            # ✅ FIX: Count with case-insensitive comparison
+            
+            # Count sentiments (case-insensitive)
             positive_count = sum(1 for a in article_sentiments if a['sentiment'].upper() == 'POSITIVE')
             negative_count = sum(1 for a in article_sentiments if a['sentiment'].upper() == 'NEGATIVE')
             neutral_count = sum(1 for a in article_sentiments if a['sentiment'].upper() == 'NEUTRAL')
             
-            print(f"\n📊 SENTIMENT COUNTS:")
-            print(f"   Positive: {positive_count}")
-            print(f"   Negative: {negative_count}")
-            print(f"   Neutral: {neutral_count}")
-            print(f"   Total: {len(article_sentiments)}\n")
+            print(f"\n📊 SENTIMENT SUMMARY:")
+            print(f"   Model Used: {getattr(self, 'model_name', 'Unknown')}")
+            print(f"   Overall: {overall}")
+            print(f"   Average Score: {avg_sentiment:.3f}")
+            print(f"   ✅ Positive: {positive_count}")
+            print(f"   ❌ Negative: {negative_count}")
+            print(f"   ⚪ Neutral: {neutral_count}")
+            print(f"{'='*60}\n")
             
             return {
                 'overall_sentiment': overall,
                 'overall_score': round(avg_sentiment, 3),
                 'articles': article_sentiments,
                 'total_articles': len(article_sentiments),
-                'positive_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Positive', 'POSITIVE']),
-                'negative_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Negative', 'NEGATIVE']),
-                'neutral_count': sum(1 for a in article_sentiments if a['sentiment'] in ['Neutral', 'NEUTRAL'])
+                'positive_count': positive_count,
+                'negative_count': negative_count,
+                'neutral_count': neutral_count,
+                'model_used': getattr(self, 'model_name', 'Unknown')
             }
+            
         except Exception as e:
+            print(f"\n❌ SENTIMENT ANALYSIS FAILED")
+            print(f"   Error: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            print(f"{'='*60}\n")
+            
             return {
                 'overall_sentiment': 'Neutral',
                 'overall_score': 0.0,
                 'articles': [],
+                'total_articles': 0,
+                'positive_count': 0,
+                'negative_count': 0,
+                'neutral_count': 0,
                 'error': str(e)
             }
-            # ✅ ADD DEBUG LOGGING HERE
-            print(f"\n📊 SENTIMENT ANALYSIS RESULTS:")
-            print(f"   Total headlines: {len(headlines)}")
-            print(f"   Processed articles: {len(article_sentiments)}")
-            print(f"   Filtered out: {len(headlines) - len(article_sentiments)}")
-            print(f"   Overall sentiment: {overall}")
-            print(f"   Overall score: {avg_sentiment:.3f}\n")
 
     def fetch_stock_data(self, ticker, period="60d"):
         """Fetch stock data"""
