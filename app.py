@@ -3500,8 +3500,8 @@ def main():
                                 print(f"📰 Fetched {len(headlines) if headlines else 0} headlines")
                                 if headlines and len(headlines) > 0:
                                     sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
-                                        print(f"💭 Sentiment analysis complete: {sentiment_detailed.get('overall_sentiment')}")
-                                        print(f"📊 Articles processed: {len(sentiment_detailed.get('articles', []))}")
+                                    print(f"💭 Sentiment analysis complete: {sentiment_detailed.get('overall_sentiment')}")
+                                    print(f"📊 Articles processed: {len(sentiment_detailed.get('articles', []))}")
                                     else:
                                         # Create default sentiment structure
                                         sentiment_detailed = {
