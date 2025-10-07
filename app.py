@@ -3733,7 +3733,6 @@ def main():
                 st.metric("📊 RSI", f"{rsi:.2f}")
                 
                 # News Sentiment
-                st.markdown("---")
                 st.markdown("**💭 News Sentiment**")
                 
                 sentiment = results.get('sentiment', 'Neutral')
@@ -3746,7 +3745,6 @@ def main():
                 
                 # Moving Averages
                 if 'moving_averages' in results:
-                    st.markdown("---")
                     st.markdown("**📈 Quick Metrics**")
                     mas = results['moving_averages']
                     st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
