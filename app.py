@@ -4531,22 +4531,28 @@ def main():
                     st.caption("Wait for clearer price action signals or check if there's sufficient data")
 
                 # ============================================================
-                # 🎯 COLLABORATIVE PATTERN IMPACT (NEW SECTION)
+                # 🤝 COLLABORATIVE PATTERN IMPACT SECTION
                 # ============================================================
-                if 'collaborative_impact' in results and results['collaborative_impact']:
+                # ✅ ONLY SHOW IF 2 OR MORE PATTERNS DETECTED
+                if ('collaborative_impact' in results and 
+                    results['collaborative_impact'] and 
+                    results['collaborative_impact'].get('pattern_count', 0) >= 2):
+                    
                     collab = results['collaborative_impact']
                     
                     st.markdown("---")
                     st.subheader("🤝 Collaborative Pattern Impact")
-                    st.caption("Combined effect of all detected patterns on your trade")
+                    st.caption(f"Combined effect of {collab['pattern_count']} detected patterns on your trade")
                     
-                    # Summary metrics
+                    # Summary metrics in 4 columns
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
                         st.metric("Patterns Combined", collab['pattern_count'])
                         st.caption(f"🟢 {collab['bullish_patterns']} Bullish")
                         st.caption(f"🔴 {collab['bearish_patterns']} Bearish")
+                        if collab.get('neutral_patterns', 0) > 0:
+                            st.caption(f"⚪ {collab['neutral_patterns']} Neutral")
                     
                     with col2:
                         signal_boost = collab['total_signal_boost']
@@ -4555,43 +4561,76 @@ def main():
                             st.caption("✅ Increased buy confidence")
                         elif signal_boost < 0:
                             st.caption("⚠️ Increased sell pressure")
+                        else:
+                            st.caption("⚪ Neutral impact")
                     
                     with col3:
                         target_mult = collab['combined_target_multiplier']
-                        st.metric("Target Adjustment", f"{(target_mult-1)*100:+.0f}%")
+                        target_change = (target_mult - 1.0) * 100
+                        st.metric("Target Adjustment", f"{target_change:+.0f}%")
                         if target_mult > 1.0:
                             st.caption("🎯 Higher profit targets")
                         elif target_mult < 1.0:
                             st.caption("⚠️ Lower profit targets")
+                        else:
+                            st.caption("⚪ No adjustment")
                     
                     with col4:
                         sl_adj = collab['combined_stop_loss_adjustment']
-                        st.metric("Stop-Loss Adjustment", f"{(1-sl_adj)*100:+.1f}%")
+                        sl_change = (1.0 - sl_adj) * 100
+                        st.metric("Stop-Loss Adjustment", f"{sl_change:+.1f}%")
                         if sl_adj < 1.0:
                             st.caption("🛡️ Tighter stop-loss")
                         elif sl_adj > 1.0:
                             st.caption("⚠️ Wider stop-loss")
+                        else:
+                            st.caption("⚪ No adjustment")
                     
-                    # Dominant sentiment
+                    # Overall Assessment
                     st.markdown("---")
                     st.markdown("**📊 Overall Assessment:**")
                     
                     dominant = collab['dominant_sentiment']
-                    if dominant == 'bullish':
-                        st.success(f"✅ {collab['description']}")
-                    elif dominant == 'bearish':
-                        st.error(f"❌ {collab['description']}")
-                    else:
-                        st.warning(f"⚠️ {collab['description']}")
+                    description = collab['description']
                     
-                    # Detailed breakdown
+                    if dominant == 'bullish':
+                        st.success(f"✅ {description}")
+                        st.caption("💡 Action: Consider buy positions with the adjusted parameters")
+                    elif dominant == 'bearish':
+                        st.error(f"❌ {description}")
+                        st.caption("💡 Action: Consider sell/short positions or avoid buying")
+                    else:
+                        st.warning(f"⚠️ {description}")
+                        st.caption("💡 Action: Wait for clearer directional signal")
+                    
+                    # Detailed Breakdown (Expandable)
                     with st.expander("📋 View Detailed Breakdown"):
-                        st.markdown(f"**Confidence Boost:** {collab['total_confidence_boost']:+.1f}%")
-                        st.markdown(f"**Risk Adjustment:** {collab['combined_risk_adjustment']:.2f}x")
-                        st.markdown(f"**Collaboration Strength:** {collab['collaboration_strength']:.0f}/100")
+                        st.markdown("### Impact Metrics")
                         
-                        if collab.get('alignment_bonus', 0) != 0:
-                            st.markdown(f"**Alignment Bonus:** {collab['alignment_bonus']:+.0f}% (patterns agree)")
+                        detail_col1, detail_col2 = st.columns(2)
+                        
+                        with detail_col1:
+                            st.markdown(f"**Total Confidence Boost:** {collab['total_confidence_boost']:+.1f}%")
+                            st.markdown(f"**Risk Adjustment:** {collab['combined_risk_adjustment']:.2f}x")
+                            st.markdown(f"**Collaboration Strength:** {collab['collaboration_strength']:.0f}/100")
+                        
+                        with detail_col2:
+                            if collab.get('alignment_bonus', 0) != 0:
+                                st.markdown(f"**Alignment Bonus:** {collab['alignment_bonus']:+.0f}%")
+                                st.caption("Patterns are in agreement")
+                            
+                            st.markdown(f"**Dominant Sentiment:** {dominant.title()}")
+                        
+                        # How it affects your trade
+                        st.markdown("---")
+                        st.markdown("### 📈 How This Affects Your Trade")
+                        
+                        st.markdown(f"**Stop-Loss:** Adjusted by **{sl_adj:.3f}x** - {'Tighter' if sl_adj < 1.0 else 'Wider' if sl_adj > 1.0 else 'No change'}")
+                        st.markdown(f"**Targets:** Adjusted by **{target_mult:.2f}x** - {'Higher' if target_mult > 1.0 else 'Lower' if target_mult < 1.0 else 'No change'}")
+                        st.markdown(f"**Signal Confidence:** {'Increased' if signal_boost > 0 else 'Decreased' if signal_boost < 0 else 'Neutral'} by **{abs(signal_boost):.1f}** points")
+                        st.markdown(f"**Position Size:** {'Can increase' if collab['combined_risk_adjustment'] > 1.0 else 'Should reduce' if collab['combined_risk_adjustment'] < 1.0 else 'Standard'} by **{abs(collab['combined_risk_adjustment'] - 1.0)*100:.0f}%**")
+                
+                st.markdown("---")
 
                 # Technical Indicators Summary
                 st.markdown("---")
