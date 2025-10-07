@@ -3699,26 +3699,69 @@ def main():
                     # END OF try-except block - properly closed now
             
         # This is now properly outside the button's if-else
-        with col2:                    
+        # ============================================================
+        # COLUMN 2: QUICK STATS (RIGHT SIDEBAR)
+        # ============================================================
+        with col2:
+            st.subheader("📊 Quick Stats")
+            
             if 'analysis_results' in st.session_state:
+                # ✅ Results exist - display them
                 results = st.session_state['analysis_results']
-                currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
-            else:
-                currency = get_currency_symbol(ticker_input, selected_market)
+                ticker = results.get('ticker', st.session_state.get('current_ticker', 'N/A'))
+                currency = results.get('currency', get_currency_symbol(ticker, selected_market))
                 
-                st.metric("Price", f"{currency}{results['latest_price']:.2f}")
-                st.metric("Signal", results.get('signal', 'HOLD'))
-                st.metric("RSI", f"{results['rsi']:.2f}")
-    
+                # Price
+                latest_price = results.get('latest_price', 0)
+                st.metric("💰 Price", f"{currency}{latest_price:.2f}")
+                
+                # Signal
+                signal = results.get('signal', 'HOLD')
+                if '🟢' in signal or signal == 'BUY':
+                    st.success(f"📈 Signal: {signal}")
+                elif '🔴' in signal or signal == 'SELL':
+                    st.error(f"📉 Signal: {signal}")
+                else:
+                    st.warning(f"⏸️ Signal: {signal}")
+                
+                # RSI
+                rsi = results.get('rsi', 50)
+                st.metric("📊 RSI", f"{rsi:.2f}")
+                
                 # News Sentiment
-                if results.get('sentiment'):
-                    sentiment = results.get('sentiment', 'Neutral')
-                    if sentiment == "Positive":
-                        st.success(f"📰 Sentiment: {sentiment}")
-                    elif sentiment == "Negative":
-                        st.error(f"📰 Sentiment: {sentiment}")
-                    else:
-                        st.info(f"📰 Sentiment: {sentiment}")
+                st.markdown("---")
+                st.markdown("**💭 News Sentiment**")
+                
+                sentiment = results.get('sentiment', 'Neutral')
+                if sentiment == "Positive":
+                    st.success(f"✅ {sentiment}")
+                elif sentiment == "Negative":
+                    st.error(f"❌ {sentiment}")
+                else:
+                    st.info(f"⚪ {sentiment}")
+                
+                # Additional quick stats
+                st.markdown("---")
+                st.markdown("**📈 Quick Metrics**")
+                
+                if 'moving_averages' in results:
+                    mas = results['moving_averages']
+                    st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
+                    st.caption(f"MA200: {currency}{mas.get('MA_200', 0):.2f}")
+                
+                if 'volume' in results:
+                    volume = results.get('volume', 0)
+                    st.caption(f"Volume: {volume:,.0f}")
+            
+            else:
+                # ✅ No analysis yet - show placeholder
+                st.info("💡 Run analysis first")
+                st.caption("Click 'Analyze with Full Suite' to see:")
+                st.caption("• Current Price")
+                st.caption("• Trading Signal")
+                st.caption("• RSI Indicator")
+                st.caption("• News Sentiment")
+                st.caption("• Moving Averages")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
