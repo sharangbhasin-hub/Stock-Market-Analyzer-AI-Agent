@@ -2729,28 +2729,29 @@ class StockAnalyzer:
                 for pattern in all_patterns_list:
                     pattern_copy = pattern.copy()  # Don't modify original
                     
-                    # Calculate individual impact for this specific pattern
-                    if pattern.get('pattern') not in [None, 'None', '', 'No Significant Pattern', 'Insufficient Data']:
-                        try:
-                            individual_impact = self.calculate_pattern_impact(pattern, results['latest_price'])
-                            pattern_copy['individual_impact'] = individual_impact
-                        except Exception:
-                            pattern_copy['individual_impact'] = {
-                                'signal_boost': 0, 'confidence_boost': 0,
-                                'stop_loss_adjustment': 1.0, 'target_multiplier': 1.0,
-                                'description': 'Impact calculation failed'
-                            }
-                    else:
+                    # ✅ ALWAYS calculate impact for ALL patterns (no conditions)
+                    try:
+                        individual_impact = self.calculate_pattern_impact(pattern, results['latest_price'])
+                        pattern_copy['individual_impact'] = individual_impact
+                        
+                        # Debug logging (optional - remove in production)
+                        print(f"✅ Impact calculated for {pattern.get('pattern', 'Unknown')}: {individual_impact}")
+                        
+                    except Exception as e:
+                        # Log the error for debugging
+                        print(f"⚠️ Impact calculation failed for {pattern.get('pattern', 'Unknown')}: {str(e)}")
+                        
                         pattern_copy['individual_impact'] = {
                             'signal_boost': 0, 'confidence_boost': 0,
                             'stop_loss_adjustment': 1.0, 'target_multiplier': 1.0,
-                            'description': 'No valid pattern'
+                            'description': f'Impact calculation failed: {str(e)}'
                         }
                     
                     patterns_with_impact.append(pattern_copy)
                 
-                # Store patterns with their individual impacts
                 results['all_patterns'] = patterns_with_impact
+                print(f"📊 Total patterns with impact: {len(patterns_with_impact)}")
+
                 
                 # ============================================================
                 # KEEP PRIMARY PATTERN FOR BACKWARD COMPATIBILITY
@@ -3703,7 +3704,7 @@ def main():
                             individual_impact = pattern_data.get('individual_impact', {})
                             
                             # Show trading impact for ALL patterns with strength >= 70
-                            if pattern_strength >= 70 and individual_impact:
+                            if pattern_strength >= 50 and individual_impact:
                                 st.markdown("---")
                                 st.markdown("#### 🎯 Trading Impact")
                                 
