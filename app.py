@@ -3394,25 +3394,32 @@ class StockAnalyzer:
             risk_amount = risk_per_share
             target_mult = pattern_impact.get('target_multiplier', 1.0)
             
-            # ✅ Use collaborative target multiplier
+            # ✅ Determine adjustment description based on pattern count
+            if collaborative_impact and collaborative_impact.get('pattern_count', 0) >= 2:
+                adjustment_note = f"{collaborative_impact['pattern_count']} patterns (collaborative)"
+            elif len(patterns_with_impact) == 1:
+                adjustment_note = f"1 pattern ({patterns_with_impact[0].get('pattern', 'Unknown')})"
+            else:
+                adjustment_note = "Base calculation (no patterns)"
+            
             results['targets'] = [
                 {
                     'level': 'Target 1 (1:1.5)',
                     'price': round(results['latest_price'] + (risk_amount * 1.5 * target_mult), 2),
                     'profit_potential': round(risk_amount * 1.5 * target_mult * results['position_size'], 2),
-                    'adjusted_by': f"{collaborative_impact.get('pattern_count', 0)} patterns"
+                    'adjusted_by': adjustment_note
                 },
                 {
                     'level': 'Target 2 (1:2)',
                     'price': round(results['latest_price'] + (risk_amount * 2.0 * target_mult), 2),
                     'profit_potential': round(risk_amount * 2.0 * target_mult * results['position_size'], 2),
-                    'adjusted_by': f"{collaborative_impact.get('pattern_count', 0)} patterns"
+                    'adjusted_by': adjustment_note
                 },
                 {
                     'level': 'Target 3 (1:3)',
                     'price': round(results['latest_price'] + (risk_amount * 3.0 * target_mult), 2),
                     'profit_potential': round(risk_amount * 3.0 * target_mult * results['position_size'], 2),
-                    'adjusted_by': f"{collaborative_impact.get('pattern_count', 0)} patterns"
+                    'adjusted_by': adjustment_note
                 }
             ]
     
