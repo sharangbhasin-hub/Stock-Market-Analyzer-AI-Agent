@@ -3754,16 +3754,16 @@ def main():
                     st.info(f"⚪ {sentiment}")
                 
                 # Moving Averages
-                if 'moving_averages' in results:
-                    st.markdown("**📈 Quick Metrics**")
-                    mas = results['moving_averages']
-                    st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
-                    st.caption(f"MA200: {currency}{mas.get('MA_200', 0):.2f}")
+                # if 'moving_averages' in results:
+                #    st.markdown("**📈 Quick Metrics**")
+                #    mas = results['moving_averages']
+                #    st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
+                #    st.caption(f"MA200: {currency}{mas.get('MA_200', 0):.2f}")
                 
                 # Volume
-                if 'volume' in results:
-                    volume = results.get('volume', 0)
-                    st.caption(f"Volume: {volume:,.0f}")
+                # if 'volume' in results:
+                #    volume = results.get('volume', 0)
+                #    st.caption(f"Volume: {volume:,.0f}")
             
             else:
                 # ✅ Nothing to show - clean empty state
