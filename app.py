@@ -1397,7 +1397,7 @@ def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
 # ENHANCED COMPANY NAME FETCHER (Multiple Sources)
 # ============================================================
 @st.cache_data(ttl=3600)  # Cache for 1 hour
-def get_company_name_multi_source(ticker, alpha_vantage_api=None):
+def get_company_name_multi_source(ticker, _alpha_vantage_api=None):
     """
     Get company name using multiple data sources with fallbacks
     
@@ -1418,10 +1418,10 @@ def get_company_name_multi_source(ticker, alpha_vantage_api=None):
     print(f"\n🔍 Fetching company name for: {ticker}")
     
     # Strategy 1: Alpha Vantage API (best for US stocks)
-    if alpha_vantage_api and alpha_vantage_api.api_key:
+    if _alpha_vantage_api and _alpha_vantage_api.api_key:
         try:
             print("   Trying Alpha Vantage API...")
-            av_name = alpha_vantage_api.get_company_name(ticker)
+            av_name = _alpha_vantage_api.get_company_name(ticker)
             if av_name and av_name != ticker and len(av_name) > 1:
                 print(f"   ✅ Got from Alpha Vantage: {av_name}")
                 return av_name
