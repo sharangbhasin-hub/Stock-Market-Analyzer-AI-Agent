@@ -2603,9 +2603,14 @@ class StockAnalyzer:
             if pattern_type == 'bullish':
                 impact['signal_boost'] = 0.5
                 impact['confidence_boost'] = 5
+                impact['description'] = 'Weak bullish pattern - Use with other confirming indicators'
             elif pattern_type == 'bearish':
                 impact['signal_boost'] = -0.5
                 impact['confidence_boost'] = -5
+                impact['description'] = 'Weak bearish pattern - Wait for confirmation'
+            else:
+                impact['description'] = 'Weak pattern - Market indecision'
+
         
         # BONUS: Extra boost for REVERSAL patterns at key levels
         if category == 'reversal':
@@ -3935,18 +3940,39 @@ def main():
                                     impact_parts.append(f"⚖️ Reduce position by {(1-risk_adj)*100:.0f}%")
                                 
                                 # Display based on pattern strength
-                                if pattern_strength >= 85:
-                                    # Very strong pattern - highlight prominently
+                                if pattern_strength >= 90:
+                                    # Very Strong Pattern (90-100)
                                     if is_primary:
-                                        st.success("🔥 **HIGH IMPACT (Primary Pattern):** " + " | ".join(impact_parts))
+                                        st.success("🔥🔥 VERY HIGH IMPACT (Primary Pattern): " + " | ".join(impact_parts))
                                     else:
-                                        st.success("✅ **STRONG IMPACT:** " + " | ".join(impact_parts))
+                                        st.success("🔥🔥 VERY HIGH IMPACT: " + " | ".join(impact_parts))
+                                    st.caption("⚡ Exceptional pattern - Act with high confidence")
+                                    
+                                elif pattern_strength >= 80:
+                                    # Strong Pattern (80-89)
+                                    if is_primary:
+                                        st.success("🔥 HIGH IMPACT (Primary Pattern): " + " | ".join(impact_parts))
+                                    else:
+                                        st.success("🔥 STRONG IMPACT: " + " | ".join(impact_parts))
+                                    st.caption("💪 Strong pattern - High reliability setup")
+                                    
+                                elif pattern_strength >= 70:
+                                    # Medium-Strong Pattern (70-79)
+                                    if is_primary:
+                                        st.info("📊 MODERATE IMPACT (Primary): " + " | ".join(impact_parts))
+                                    else:
+                                        st.info("📊 MODERATE IMPACT: " + " | ".join(impact_parts))
+                                    st.caption("✅ Good pattern - Reliable with confirmation")
+                                    
+                                elif pattern_strength >= 60:
+                                    # Medium Pattern (60-69)
+                                    st.info("📊 MEDIUM IMPACT: " + " | ".join(impact_parts))
+                                    st.caption("⚠️ Moderate pattern - Wait for confirmation")
+                                    
                                 else:
-                                    # Medium pattern (70-84)
-                                    if is_primary:
-                                        st.info("🎯 **Trading Impact (Primary):** " + " | ".join(impact_parts))
-                                    else:
-                                        st.info("📊 **Trading Impact:** " + " | ".join(impact_parts))
+                                    # Weak Pattern (50-59)
+                                    st.warning("⚪ LOW IMPACT: " + " | ".join(impact_parts))
+                                    st.caption("⚠️ Weak pattern - Use with other indicators")
                                 
                                 # Additional context for pattern impact
                                 impact_description = individual_impact.get('description', '')
