@@ -1580,20 +1580,25 @@ class StockAnalyzer:
         """Setup sentiment analyzer with error handling"""
         try:
             from transformers import pipeline
-            self.sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+            print("🔄 Loading sentiment analyzer...")
+            self.sentiment_analyzer = pipeline(
+                'sentiment-analysis',
+                model="ProsusAI/finbert"
+            )
+            print("✅ Sentiment analyzer loaded successfully")
         except Exception as e:
-            print(f"Warning: Could not load sentiment analyzer: {e}")
+            print(f"❌ Could not load sentiment analyzer: {e}")
             self.sentiment_analyzer = None
-
-    def setup_sentiment_analyzer(self):
-        """Initialize sentiment analysis"""
-        try:
-            self.sentiment_analyzer = pipeline("sentiment-analysis", model="ProsusAI/finbert", return_all_scores=True)
-        except:
+            
+        # ✅ ADD: Validate it works with a test
+        if self.sentiment_analyzer:
             try:
-                self.sentiment_analyzer = pipeline("sentiment-analysis")
-            except:
+                test_result = self.sentiment_analyzer("This is a test")
+                print(f"✅ Sentiment analyzer test passed: {test_result}")
+            except Exception as e:
+                print(f"⚠️ Sentiment analyzer loaded but test failed: {e}")
                 self.sentiment_analyzer = None
+
 
     def analyze_sentiment_detailed(self, headlines):
         """Analyze sentiment with per-article breakdown"""
@@ -1601,7 +1606,11 @@ class StockAnalyzer:
             return {
                 'overall_sentiment': 'Neutral',
                 'overall_score': 0.0,
-                'articles': []
+                'articles': [],
+                'total_articles': 0,
+                'positive_count': 0,
+                'negative_count': 0,
+                'neutral_count': 0
             }
         
         try:
@@ -1609,7 +1618,7 @@ class StockAnalyzer:
             sentiment_scores = []
             
             for headline in headlines:
-                if len(headline) > 15:
+                if headline and len(headline.strip()) > 10:
                     result = self.sentiment_analyzer(headline[:512])
                     
                     if isinstance(result[0], list):
@@ -1660,7 +1669,13 @@ class StockAnalyzer:
                 'articles': [],
                 'error': str(e)
             }
-
+            # ✅ ADD DEBUG LOGGING HERE
+            print(f"\n📊 SENTIMENT ANALYSIS RESULTS:")
+            print(f"   Total headlines: {len(headlines)}")
+            print(f"   Processed articles: {len(article_sentiments)}")
+            print(f"   Filtered out: {len(headlines) - len(article_sentiments)}")
+            print(f"   Overall sentiment: {overall}")
+            print(f"   Overall score: {avg_sentiment:.3f}\n")
 
     def fetch_stock_data(self, ticker, period="60d"):
         """Fetch stock data"""
@@ -4122,46 +4137,56 @@ def main():
                         st.write(f"• {headline}")
 
                 # Detailed sentiment breakdown
-                if 'sentiment_detailed' in results and results['sentiment_detailed'].get('articles'):
+                if 'sentiment_detailed' in results:
                     st.markdown("---")
                     st.subheader("🎯 News Sentiment Breakdown")
-                    
                     sentiment_data = results['sentiment_detailed']
-                    
-                    # Summary metrics
-                    col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("Overall", sentiment_data['overall_sentiment'])
-                    col2.metric("Score", f"{sentiment_data['overall_score']:.3f}")
-                    col3.metric("✅ Positive", sentiment_data.get('positive_count', 0))
-                    col4.metric("❌ Negative", sentiment_data.get('negative_count', 0))
-                    
-                    st.markdown("#### 📊 Per-Article Sentiment Details")
-                    
-                    # Create a dataframe for better display
-                    articles_df = pd.DataFrame(sentiment_data['articles'])
-                    
-                    for i, article in enumerate(sentiment_data['articles'], 1):
-                        with st.expander(f"Article {i}: {article['headline'][:70]}..."):
-                            # Sentiment badge
-                            if article['sentiment'] in ['Positive', 'POSITIVE']:
-                                st.success(f"✅ {article['sentiment']}")
-                            elif article['sentiment'] in ['Negative', 'NEGATIVE']:
-                                st.error(f"❌ {article['sentiment']}")
-                            else:
-                                st.info(f"➖ {article['sentiment']}")
-                            
-                            # Show scores
-                            st.write(f"**Composite Score:** {article['score']:.3f}")
-                            
-                            if 'positive' in article:
-                                col1, col2, col3 = st.columns(3)
-                                col1.metric("Positive", f"{article['positive']:.3f}")
-                                col2.metric("Negative", f"{article['negative']:.3f}")
-                                col3.metric("Neutral", f"{article['neutral']:.3f}")
-                            elif 'confidence' in article:
-                                st.metric("Confidence", f"{article['confidence']:.3f}")
-                            
-                            st.caption(f"**Full Headline:** {article['headline']}")
+
+                    # Check if sentiment analysis was successful
+                    if not sentiment_data.get('articles'):
+                        st.info("ℹ️ News headlines found, but sentiment analysis unavailable")
+                        st.caption("Possible reasons:")
+                        st.caption("• Headlines too short for analysis")
+                        st.caption("• Sentiment model not loaded properly")
+                        st.caption("• All headlines were filtered out")
+
+
+                        # Still show overall sentiment if available
+                        if sentiment_data.get('overall_sentiment'):
+                            # Summary metrics
+                            col1, col2, col3, col4 = st.columns(4)
+                            col1.metric("Overall", sentiment_data.get('overall_sentiment', 'Neutral'))
+                            col2.metric("Score", f"{sentiment_data.get('overall_score', 0):.3f}")
+                            col3.metric("✅ Positive", sentiment_data.get('positive_count', 0))
+                            col4.metric("❌ Negative", sentiment_data.get('negative_count', 0))
+                    else:
+                        st.markdown("#### 📊 Per-Article Sentiment Details")
+                        
+                        # Create a dataframe for better display
+                        articles_df = pd.DataFrame(sentiment_data['articles'])
+                        
+                        for i, article in enumerate(sentiment_data['articles'], 1):
+                            with st.expander(f"Article {i}: {article['headline'][:70]}..."):
+                                # Sentiment badge
+                                if article['sentiment'] in ['Positive', 'POSITIVE']:
+                                    st.success(f"✅ {article['sentiment']}")
+                                elif article['sentiment'] in ['Negative', 'NEGATIVE']:
+                                    st.error(f"❌ {article['sentiment']}")
+                                else:
+                                    st.info(f"➖ {article['sentiment']}")
+                                
+                                # Show scores
+                                st.write(f"**Composite Score:** {article['score']:.3f}")
+                                
+                                if 'positive' in article:
+                                    col1, col2, col3 = st.columns(3)
+                                    col1.metric("Positive", f"{article['positive']:.3f}")
+                                    col2.metric("Negative", f"{article['negative']:.3f}")
+                                    col3.metric("Neutral", f"{article['neutral']:.3f}")
+                                elif 'confidence' in article:
+                                    st.metric("Confidence", f"{article['confidence']:.3f}")
+                                
+                                st.caption(f"**Full Headline:** {article['headline']}")
 
                 # MACD
                 st.markdown("---")
