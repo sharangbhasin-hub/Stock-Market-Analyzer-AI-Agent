@@ -2776,6 +2776,175 @@ class StockAnalyzer:
         
         return impact
 
+    def calculate_collaborative_pattern_impact(self, all_patterns, current_price):
+        """
+        Calculate the COMBINED/COLLABORATIVE impact of ALL detected patterns
+        
+        This aggregates individual pattern impacts into a unified trading adjustment
+        that affects signal, stop-loss, and targets.
+        
+        Args:
+            all_patterns: List of all detected patterns with their individual impacts
+            current_price: Current stock price
+            
+        Returns:
+            dict: Collaborative impact with combined adjustments
+        """
+        
+        if not all_patterns or len(all_patterns) == 0:
+            return {
+                'total_signal_boost': 0,
+                'combined_stop_loss_adjustment': 1.0,
+                'combined_target_multiplier': 1.0,
+                'total_confidence_boost': 0,
+                'combined_risk_adjustment': 1.0,
+                'pattern_count': 0,
+                'bullish_patterns': 0,
+                'bearish_patterns': 0,
+                'neutral_patterns': 0,
+                'dominant_sentiment': 'neutral',
+                'collaboration_strength': 0,
+                'description': 'No patterns detected'
+            }
+        
+        # Initialize aggregation variables
+        signal_boosts = []
+        stop_loss_adjustments = []
+        target_multipliers = []
+        confidence_boosts = []
+        risk_adjustments = []
+        
+        bullish_count = 0
+        bearish_count = 0
+        neutral_count = 0
+        
+        bullish_strength_sum = 0
+        bearish_strength_sum = 0
+        
+        print(f"\n{'='*60}")
+        print("🔄 CALCULATING COLLABORATIVE PATTERN IMPACT")
+        print(f"{'='*60}")
+        print(f"Total patterns to combine: {len(all_patterns)}")
+        
+        # Collect impacts from all patterns
+        for idx, pattern in enumerate(all_patterns, 1):
+            pattern_name = pattern.get('pattern', 'Unknown')
+            pattern_type = pattern.get('type', 'neutral')
+            pattern_strength = pattern.get('strength', 0)
+            individual_impact = pattern.get('individual_impact', {})
+            
+            print(f"\n   Pattern {idx}: {pattern_name}")
+            print(f"      Type: {pattern_type}, Strength: {pattern_strength}")
+            
+            # Count pattern types
+            if pattern_type == 'bullish':
+                bullish_count += 1
+                bullish_strength_sum += pattern_strength
+            elif pattern_type == 'bearish':
+                bearish_count += 1
+                bearish_strength_sum += pattern_strength
+            else:
+                neutral_count += 1
+            
+            # Collect individual impacts (with fallbacks)
+            signal_boost = individual_impact.get('signal_boost', 0)
+            sl_adj = individual_impact.get('stop_loss_adjustment', 1.0)
+            target_mult = individual_impact.get('target_multiplier', 1.0)
+            conf_boost = individual_impact.get('confidence_boost', 0)
+            risk_adj = individual_impact.get('risk_adjustment', 1.0)
+            
+            # Weight by pattern strength (stronger patterns have more influence)
+            weight = pattern_strength / 100.0
+            
+            signal_boosts.append(signal_boost * weight)
+            stop_loss_adjustments.append(sl_adj)
+            target_multipliers.append(target_mult)
+            confidence_boosts.append(conf_boost * weight)
+            risk_adjustments.append(risk_adj)
+            
+            print(f"      Signal boost: {signal_boost:.2f} (weighted: {signal_boost * weight:.2f})")
+            print(f"      SL adjustment: {sl_adj:.3f}")
+            print(f"      Target multiplier: {target_mult:.2f}")
+        
+        # Calculate combined values
+        total_signal_boost = sum(signal_boosts)
+        
+        # For stop-loss: Use most conservative (tightest for buys, widest for sells)
+        combined_sl_adj = np.mean(stop_loss_adjustments)
+        
+        # For targets: Use most optimistic if patterns agree, average otherwise
+        combined_target_mult = np.mean(target_multipliers)
+        
+        # Confidence: Sum all boosts
+        total_confidence_boost = sum(confidence_boosts)
+        
+        # Risk: Average of all adjustments
+        combined_risk_adj = np.mean(risk_adjustments)
+        
+        # Determine dominant sentiment
+        if bullish_count > bearish_count:
+            dominant_sentiment = 'bullish'
+            collaboration_strength = (bullish_strength_sum / bullish_count) if bullish_count > 0 else 0
+        elif bearish_count > bullish_count:
+            dominant_sentiment = 'bearish'
+            collaboration_strength = (bearish_strength_sum / bearish_count) if bearish_count > 0 else 0
+        else:
+            dominant_sentiment = 'neutral'
+            collaboration_strength = 50
+        
+        # Pattern alignment bonus (when patterns agree, increase confidence)
+        alignment_bonus = 0
+        if bullish_count >= 2 and bearish_count == 0:
+            alignment_bonus = 10 * bullish_count  # Bonus for aligned bullish patterns
+        elif bearish_count >= 2 and bullish_count == 0:
+            alignment_bonus = -10 * bearish_count  # Penalty for aligned bearish patterns
+        
+        total_confidence_boost += alignment_bonus
+        
+        # Create description
+        if bullish_count > 0 and bearish_count > 0:
+            description = f"Mixed signals: {bullish_count} bullish, {bearish_count} bearish patterns - Trade with caution"
+        elif bullish_count >= 2:
+            description = f"Strong bullish consensus: {bullish_count} bullish patterns aligned"
+        elif bearish_count >= 2:
+            description = f"Strong bearish consensus: {bearish_count} bearish patterns aligned"
+        elif bullish_count == 1 and bearish_count == 0:
+            description = "Single bullish pattern - Wait for confirmation"
+        elif bearish_count == 1 and bullish_count == 0:
+            description = "Single bearish pattern - Wait for confirmation"
+        else:
+            description = "Neutral market - No clear directional bias"
+        
+        collaborative_impact = {
+            'total_signal_boost': round(total_signal_boost, 2),
+            'combined_stop_loss_adjustment': round(combined_sl_adj, 3),
+            'combined_target_multiplier': round(combined_target_mult, 2),
+            'total_confidence_boost': round(total_confidence_boost, 1),
+            'combined_risk_adjustment': round(combined_risk_adj, 2),
+            'pattern_count': len(all_patterns),
+            'bullish_patterns': bullish_count,
+            'bearish_patterns': bearish_count,
+            'neutral_patterns': neutral_count,
+            'dominant_sentiment': dominant_sentiment,
+            'collaboration_strength': round(collaboration_strength, 1),
+            'alignment_bonus': alignment_bonus,
+            'description': description
+        }
+        
+        print(f"\n{'='*60}")
+        print("📊 COLLABORATIVE IMPACT RESULTS:")
+        print(f"{'='*60}")
+        print(f"   Total Signal Boost: {total_signal_boost:+.2f}")
+        print(f"   Combined SL Adjustment: {combined_sl_adj:.3f}")
+        print(f"   Combined Target Multiplier: {combined_target_mult:.2f}")
+        print(f"   Total Confidence Boost: {total_confidence_boost:+.1f}%")
+        print(f"   Dominant Sentiment: {dominant_sentiment}")
+        print(f"   Patterns: {bullish_count} bullish, {bearish_count} bearish, {neutral_count} neutral")
+        print(f"   Description: {description}")
+        print(f"{'='*60}\n")
+        
+        return collaborative_impact
+
     def detect_inside_bar_pattern(self, data):
         """Detect Inside Bar"""
         if len(data) < 2:
@@ -3080,6 +3249,12 @@ class StockAnalyzer:
                 results['all_patterns'] = patterns_with_impact
                 print(f"📊 Total patterns with impact: {len(patterns_with_impact)}")
 
+                # ✅ NEW: Calculate collaborative impact
+                collaborative_impact = self.calculate_collaborative_pattern_impact(
+                    patterns_with_impact,
+                    results['latest_price']
+                )
+                results['collaborative_impact'] = collaborative_impact
                 
                 # ============================================================
                 # KEEP PRIMARY PATTERN FOR BACKWARD COMPATIBILITY
@@ -3136,15 +3311,38 @@ class StockAnalyzer:
             except Exception as e:
                 results['atr'] = results['latest_price'] * 0.02
     
-            # Get pattern impact (with validation)
-            pattern_impact = results.get('pattern_impact', {})
-            if not isinstance(pattern_impact, dict):
-                pattern_impact = {
-                    'signal_boost': 0,
-                    'stop_loss_adjustment': 1.0,
-                    'target_multiplier': 1.0,
-                    'confidence_boost': 0
-                }
+            # ✅ NEW: Get collaborative impact (combines all patterns)
+            collaborative_impact = results.get('collaborative_impact', {})
+            pattern_impact = results.get('pattern_impact', {})  # Keep for backward compatibility
+            
+            # Determine which impact to use
+            if collaborative_impact and collaborative_impact.get('pattern_count', 0) > 0:
+                # Use collaborative impact (preferred)
+                sl_adjustment = collaborative_impact.get('combined_stop_loss_adjustment', 1.0)
+                target_mult = collaborative_impact.get('combined_target_multiplier', 1.0)
+                signal_boost = collaborative_impact.get('total_signal_boost', 0)
+                conf_boost = collaborative_impact.get('total_confidence_boost', 0)
+                
+                print(f"\n💡 Using COLLABORATIVE impact from {collaborative_impact['pattern_count']} patterns")
+                print(f"   SL Adjustment: {sl_adjustment:.3f}")
+                print(f"   Target Multiplier: {target_mult:.2f}")
+                print(f"   Signal Boost: {signal_boost:+.2f}\n")
+            else:
+                # Fallback to primary pattern impact
+                if not isinstance(pattern_impact, dict):
+                    pattern_impact = {
+                        'signal_boost': 0,
+                        'stop_loss_adjustment': 1.0,
+                        'target_multiplier': 1.0,
+                        'confidence_boost': 0
+                    }
+                
+                sl_adjustment = pattern_impact.get('stop_loss_adjustment', 1.0)
+                target_mult = pattern_impact.get('target_multiplier', 1.0)
+                signal_boost = pattern_impact.get('signal_boost', 0)
+                conf_boost = pattern_impact.get('confidence_boost', 0)
+                
+                print(f"💡 Using primary pattern impact (no collaborative data)")
     
             # Calculate Stop-Loss
             base_stop_loss = 0
@@ -3153,16 +3351,18 @@ class StockAnalyzer:
             else:
                 base_stop_loss = results['latest_price'] * 0.98  # 2% default
     
-            # Apply pattern adjustment
-            pattern_adjustment = pattern_impact.get('stop_loss_adjustment', 1.0)
-            stop_loss_support = base_stop_loss * pattern_adjustment
-            
-            stop_loss_atr = results['latest_price'] - (results['atr'] * 1.5)
+            # ✅ Apply collaborative pattern adjustment to stop-loss
+            stop_loss_support = base_stop_loss * sl_adjustment
+            stop_loss_atr = results['latest_price'] - (results['atr'] * 1.5 * sl_adjustment)
     
             # Final stop-loss (use the more conservative one)
             results['base_stoploss'] = float(base_stop_loss)
             results['stop_loss'] = float(max(stop_loss_support, stop_loss_atr))
             results['trailing_stop_vwap'] = float(results.get('vwap', results['latest_price']))
+            
+            # ✅ Store collaborative adjustments for later use
+            results['sl_adjustment_used'] = sl_adjustment
+            results['target_mult_used'] = target_mult
     
             # ============ POSITION SIZING ============
             max_capital_per_trade = 12500
@@ -3181,22 +3381,26 @@ class StockAnalyzer:
             risk_amount = risk_per_share
             target_mult = pattern_impact.get('target_multiplier', 1.0)
             
+            # ✅ Use collaborative target multiplier
             results['targets'] = [
                 {
-                    "level": "Target 1 (1:1.5)", 
-                    "price": round(results['latest_price'] + risk_amount * 1.5 * target_mult, 2),
-                    "profit_potential": round(risk_amount * 1.5 * target_mult * results['position_size'], 2)
+                    'level': 'Target 1 (1:1.5)',
+                    'price': round(results['latest_price'] + (risk_amount * 1.5 * target_mult), 2),
+                    'profit_potential': round(risk_amount * 1.5 * target_mult * results['position_size'], 2),
+                    'adjusted_by': f"{collaborative_impact.get('pattern_count', 0)} patterns"
                 },
                 {
-                    "level": "Target 2 (1:2)", 
-                    "price": round(results['latest_price'] + risk_amount * 2.0 * target_mult, 2),
-                    "profit_potential": round(risk_amount * 2.0 * target_mult * results['position_size'], 2)
+                    'level': 'Target 2 (1:2)',
+                    'price': round(results['latest_price'] + (risk_amount * 2.0 * target_mult), 2),
+                    'profit_potential': round(risk_amount * 2.0 * target_mult * results['position_size'], 2),
+                    'adjusted_by': f"{collaborative_impact.get('pattern_count', 0)} patterns"
                 },
                 {
-                    "level": "Target 3 (1:3)", 
-                    "price": round(results['latest_price'] + risk_amount * 3.0 * target_mult, 2),
-                    "profit_potential": round(risk_amount * 3.0 * target_mult * results['position_size'], 2)
-                },
+                    'level': 'Target 3 (1:3)',
+                    'price': round(results['latest_price'] + (risk_amount * 3.0 * target_mult), 2),
+                    'profit_potential': round(risk_amount * 3.0 * target_mult * results['position_size'], 2),
+                    'adjusted_by': f"{collaborative_impact.get('pattern_count', 0)} patterns"
+                }
             ]
     
             # Add supertrend target if in uptrend
@@ -3221,7 +3425,62 @@ class StockAnalyzer:
             # ============ CONFIRMATION CHECKLIST ============
             try:
                 results['confirmation_checklist'] = self.run_confirmation_checklist(results)
-                results['signal'] = results['confirmation_checklist'].get('FINAL_SIGNAL', 'HOLD')
+                base_signal = results['confirmation_checklist'].get('FINAL_SIGNAL', 'HOLD')
+                
+                # ✅ NEW: Apply collaborative impact to signal
+                collaborative_impact = results.get('collaborative_impact', {})
+                
+                if collaborative_impact and collaborative_impact.get('pattern_count', 0) > 0:
+                    signal_boost = collaborative_impact.get('total_signal_boost', 0)
+                    dominant = collaborative_impact.get('dominant_sentiment', 'neutral')
+                    
+                    print(f"\n🎯 APPLYING COLLABORATIVE IMPACT TO SIGNAL:")
+                    print(f"   Base signal: {base_signal}")
+                    print(f"   Signal boost: {signal_boost:+.2f}")
+                    print(f"   Dominant sentiment: {dominant}")
+                    
+                    # Apply boost logic
+                    if base_signal == 'BUY':
+                        # Already a buy - check if patterns support it
+                        if dominant == 'bearish' and signal_boost < -1.5:
+                            # Strong bearish patterns conflict with buy signal
+                            results['signal'] = 'HOLD'
+                            print(f"   ⚠️ Downgraded BUY → HOLD (bearish patterns)")
+                        else:
+                            # Patterns support or neutral
+                            results['signal'] = base_signal
+                            print(f"   ✅ Confirmed BUY (patterns support)")
+                    
+                    elif base_signal == 'SELL':
+                        # Already a sell - check if patterns support it
+                        if dominant == 'bullish' and signal_boost > 1.5:
+                            # Strong bullish patterns conflict with sell signal
+                            results['signal'] = 'HOLD'
+                            print(f"   ⚠️ Downgraded SELL → HOLD (bullish patterns)")
+                        else:
+                            # Patterns support or neutral
+                            results['signal'] = base_signal
+                            print(f"   ✅ Confirmed SELL (patterns support)")
+                    
+                    elif base_signal == 'HOLD':
+                        # Currently hold - check if patterns are strong enough to change
+                        if dominant == 'bullish' and signal_boost >= 2.0 and collaborative_impact.get('bullish_patterns', 0) >= 2:
+                            # Strong bullish consensus - upgrade to BUY
+                            results['signal'] = '🟢 BUY'
+                            print(f"   📈 Upgraded HOLD → BUY (strong bullish patterns)")
+                        elif dominant == 'bearish' and signal_boost <= -2.0 and collaborative_impact.get('bearish_patterns', 0) >= 2:
+                            # Strong bearish consensus - upgrade to SELL
+                            results['signal'] = '🔴 SELL'
+                            print(f"   📉 Upgraded HOLD → SELL (strong bearish patterns)")
+                        else:
+                            # Patterns not strong enough
+                            results['signal'] = base_signal
+                            print(f"   ⏸️ Keeping HOLD (patterns not strong enough)")
+                else:
+                    # No collaborative impact - use base signal
+                    results['signal'] = base_signal
+                    print(f"   ℹ️ Using base signal (no collaborative data): {base_signal}")
+                
             except Exception as e:
                 st.warning(f"Confirmation checklist error: {str(e)}")
                 results['confirmation_checklist'] = {
@@ -4270,6 +4529,69 @@ def main():
                     # No patterns detected
                     st.info("ℹ️ No significant candlestick patterns detected")
                     st.caption("Wait for clearer price action signals or check if there's sufficient data")
+
+                # ============================================================
+                # 🎯 COLLABORATIVE PATTERN IMPACT (NEW SECTION)
+                # ============================================================
+                if 'collaborative_impact' in results and results['collaborative_impact']:
+                    collab = results['collaborative_impact']
+                    
+                    st.markdown("---")
+                    st.subheader("🤝 Collaborative Pattern Impact")
+                    st.caption("Combined effect of all detected patterns on your trade")
+                    
+                    # Summary metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Patterns Combined", collab['pattern_count'])
+                        st.caption(f"🟢 {collab['bullish_patterns']} Bullish")
+                        st.caption(f"🔴 {collab['bearish_patterns']} Bearish")
+                    
+                    with col2:
+                        signal_boost = collab['total_signal_boost']
+                        st.metric("Signal Boost", f"{signal_boost:+.1f}")
+                        if signal_boost > 0:
+                            st.caption("✅ Increased buy confidence")
+                        elif signal_boost < 0:
+                            st.caption("⚠️ Increased sell pressure")
+                    
+                    with col3:
+                        target_mult = collab['combined_target_multiplier']
+                        st.metric("Target Adjustment", f"{(target_mult-1)*100:+.0f}%")
+                        if target_mult > 1.0:
+                            st.caption("🎯 Higher profit targets")
+                        elif target_mult < 1.0:
+                            st.caption("⚠️ Lower profit targets")
+                    
+                    with col4:
+                        sl_adj = collab['combined_stop_loss_adjustment']
+                        st.metric("Stop-Loss Adjustment", f"{(1-sl_adj)*100:+.1f}%")
+                        if sl_adj < 1.0:
+                            st.caption("🛡️ Tighter stop-loss")
+                        elif sl_adj > 1.0:
+                            st.caption("⚠️ Wider stop-loss")
+                    
+                    # Dominant sentiment
+                    st.markdown("---")
+                    st.markdown("**📊 Overall Assessment:**")
+                    
+                    dominant = collab['dominant_sentiment']
+                    if dominant == 'bullish':
+                        st.success(f"✅ {collab['description']}")
+                    elif dominant == 'bearish':
+                        st.error(f"❌ {collab['description']}")
+                    else:
+                        st.warning(f"⚠️ {collab['description']}")
+                    
+                    # Detailed breakdown
+                    with st.expander("📋 View Detailed Breakdown"):
+                        st.markdown(f"**Confidence Boost:** {collab['total_confidence_boost']:+.1f}%")
+                        st.markdown(f"**Risk Adjustment:** {collab['combined_risk_adjustment']:.2f}x")
+                        st.markdown(f"**Collaboration Strength:** {collab['collaboration_strength']:.0f}/100")
+                        
+                        if collab.get('alignment_bonus', 0) != 0:
+                            st.markdown(f"**Alignment Bonus:** {collab['alignment_bonus']:+.0f}% (patterns agree)")
 
                 # Technical Indicators Summary
                 st.markdown("---")
