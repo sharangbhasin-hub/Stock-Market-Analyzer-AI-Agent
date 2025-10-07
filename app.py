@@ -3693,27 +3693,27 @@ def main():
                                 st.code(traceback.format_exc())
                     # END OF try-except block - properly closed now
             
-                # This is now properly outside the button's if-else
-                with col2:                    
-                    if 'analysis_results' in st.session_state:
-                        results = st.session_state['analysis_results']
-                        currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+        # This is now properly outside the button's if-else
+        with col2:                    
+            if 'analysis_results' in st.session_state:
+                results = st.session_state['analysis_results']
+                currency = results.get('currency', get_currency_symbol(ticker_input, selected_market))
+            else:
+                currency = get_currency_symbol(ticker_input, selected_market)
+                
+                st.metric("Price", f"{currency}{results['latest_price']:.2f}")
+                st.metric("Signal", results.get('signal', 'HOLD'))
+                st.metric("RSI", f"{results['rsi']:.2f}")
+    
+                # News Sentiment
+                if results.get('sentiment'):
+                    sentiment = results.get('sentiment', 'Neutral')
+                    if sentiment == "Positive":
+                        st.success(f"📰 Sentiment: {sentiment}")
+                    elif sentiment == "Negative":
+                        st.error(f"📰 Sentiment: {sentiment}")
                     else:
-                        currency = get_currency_symbol(ticker_input, selected_market)
-                        
-                        st.metric("Price", f"{currency}{results['latest_price']:.2f}")
-                        st.metric("Signal", results.get('signal', 'HOLD'))
-                        st.metric("RSI", f"{results['rsi']:.2f}")
-            
-                        # News Sentiment
-                        if results.get('sentiment'):
-                            sentiment = results.get('sentiment', 'Neutral')
-                            if sentiment == "Positive":
-                                st.success(f"📰 Sentiment: {sentiment}")
-                            elif sentiment == "Negative":
-                                st.error(f"📰 Sentiment: {sentiment}")
-                            else:
-                                st.info(f"📰 Sentiment: {sentiment}")
+                        st.info(f"📰 Sentiment: {sentiment}")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
