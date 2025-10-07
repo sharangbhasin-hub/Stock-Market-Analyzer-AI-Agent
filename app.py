@@ -3776,7 +3776,6 @@ def main():
         # ✅ DISPLAY SELECTED STOCK NAME (NEW SECTION)
         # ============================================================
         st.markdown("---")
-        
         if 'analysis_results' in st.session_state and st.session_state['analysis_results']:
             results = st.session_state['analysis_results']
             ticker = results.get('ticker', st.session_state.get('current_ticker', 'N/A'))
@@ -3785,17 +3784,16 @@ def main():
             # Display with nice formatting
             st.markdown(f"### 📊 Analyzing: **{company_name}**")
             st.caption(f"Ticker: {ticker}")
-            
-            # Optional: Add market badge
+
+            # ✅ Show market badge (using valid Streamlit components)
             if ticker.endswith('.NS') or ticker.endswith('.BO'):
-                st.badge("🇮🇳 India", type="success")
+                st.success("🇮🇳 India (NSE/BSE)")
             elif ticker.endswith('.L'):
-                st.badge("🇬🇧 UK", type="info")
+                st.info("🇬🇧 UK (LSE)")
             elif ticker.endswith('.T'):
-                st.badge("🇯🇵 Japan", type="warning")
+                st.warning("🇯🇵 Japan (TSE)")
             else:
-                st.badge("🇺🇸 USA", type="primary")
-        
+                st.info("🇺🇸 USA (NYSE/NASDAQ)")
         st.markdown("---")
 
         # Display full analysis results
