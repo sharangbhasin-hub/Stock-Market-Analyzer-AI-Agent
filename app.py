@@ -3732,8 +3732,7 @@ def main():
                 rsi = results.get('rsi', 50)
                 st.metric("📊 RSI", f"{rsi:.2f}")
 
-        with col23
-                
+        with col3:                
             # News Sentiment
             st.markdown("**💭 News Sentiment**")
             
