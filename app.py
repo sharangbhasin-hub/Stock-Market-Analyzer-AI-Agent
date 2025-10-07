@@ -1882,7 +1882,7 @@ class StockAnalyzer:
                     'strength': 0,
                     'confidence': 0,
                     'category': 'none',
-                    'description': 'Need at least 5 candles for pattern detection'
+                    'description': 'Need at least 1 candles for pattern detection'
                 }
             }
 
@@ -3681,7 +3681,7 @@ def main():
                 else:
                     # No patterns detected
                     st.info("ℹ️ No significant candlestick patterns detected")
-                    st.caption("Wait for clearer price action signals or check if there's sufficient data (need at least 5 candles)")
+                    st.caption("Wait for clearer price action signals or check if there's sufficient data")
 
                 # ============================================================
                 # FEATURE 2: DYNAMIC PATTERN DESCRIPTION DISPLAY
