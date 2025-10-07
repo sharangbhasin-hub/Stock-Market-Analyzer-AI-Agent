@@ -3575,10 +3575,10 @@ def main():
                     st.caption("• Data fetching failed")
                 elif not has_sr_levels:
                     st.error("❌ Support/Resistance levels not calculated")
-                    st.info("💡 Key price levels are required for confirmation. Try: \n
-                    "• Selecting a different timeframe" \n
-                    "• Ensuring sufficient historical data"")
-    
+                    st.info("💡 Key price levels are required for confirmation. Try:")
+                    st.caption("• Selecting a different timeframe")
+                    st.caption("• Ensuring sufficient historical data")
+                    
                 else:
                     # Data is available - show checklist
                     if 'confirmation_checklist' in results and results['confirmation_checklist']:
