@@ -90,49 +90,49 @@ class AlphaVantageAPI:
         self._cache = {}
 
     def get_company_name(self, ticker):
-    """
-    Get company name using SYMBOL_SEARCH endpoint
-    
-    Args:
-        ticker: Stock ticker symbol
+        """
+        Get company name using SYMBOL_SEARCH endpoint
         
-    Returns:
-        str: Company name or ticker if not found
-    """
-    try:
-        # Clean ticker for search
-        search_ticker = ticker.replace('.NS', '').replace('.BO', '').replace('.L', '').replace('.T', '')
-        
-        params = {
-            'function': 'SYMBOL_SEARCH',
-            'keywords': search_ticker,
-            'apikey': self.api_key
-        }
-        
-        response = requests.get(self.base_url, params=params, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
+        Args:
+            ticker: Stock ticker symbol
             
-            if 'bestMatches' in data and len(data['bestMatches']) > 0:
-                # Try to find exact match first
-                for match in data['bestMatches']:
-                    symbol = match.get('1. symbol', '')
-                    name = match.get('2. name', '')
-                    
-                    # Check if symbol matches (case-insensitive)
-                    if symbol.upper() == search_ticker.upper():
-                        return name
+        Returns:
+            str: Company name or ticker if not found
+        """
+        try:
+            # Clean ticker for search
+            search_ticker = ticker.replace('.NS', '').replace('.BO', '').replace('.L', '').replace('.T', '')
+            
+            params = {
+                'function': 'SYMBOL_SEARCH',
+                'keywords': search_ticker,
+                'apikey': self.api_key
+            }
+            
+            response = requests.get(self.base_url, params=params, timeout=10)
+            
+            if response.status_code == 200:
+                data = response.json()
                 
-                # If no exact match, return first result's name
-                first_match = data['bestMatches'][0]
-                return first_match.get('2. name', ticker)
-        
-        return ticker
-        
-    except Exception as e:
-        print(f"Alpha Vantage company name fetch failed: {str(e)}")
-        return ticker
+                if 'bestMatches' in data and len(data['bestMatches']) > 0:
+                    # Try to find exact match first
+                    for match in data['bestMatches']:
+                        symbol = match.get('1. symbol', '')
+                        name = match.get('2. name', '')
+                        
+                        # Check if symbol matches (case-insensitive)
+                        if symbol.upper() == search_ticker.upper():
+                            return name
+                    
+                    # If no exact match, return first result's name
+                    first_match = data['bestMatches'][0]
+                    return first_match.get('2. name', ticker)
+            
+            return ticker
+            
+        except Exception as e:
+            print(f"Alpha Vantage company name fetch failed: {str(e)}")
+            return ticker
     
     def get_all_stocks_listing(self):
         """Get complete US stock listing"""
