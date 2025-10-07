@@ -2315,7 +2315,20 @@ class StockAnalyzer:
         
         # ========== NEW RETURN STRUCTURE ==========
         if patterns_found:
-            # Sort by strength
+            # Remove duplicates by pattern name (keep the first occurrence)
+            seen_patterns = set()
+            unique_patterns = []
+            
+            for pattern in patterns_found:
+                pattern_name = pattern.get('pattern', '')
+                if pattern_name and pattern_name not in seen_patterns:
+                    seen_patterns.add(pattern_name)
+                    unique_patterns.append(pattern)
+            
+            # Replace patterns_found with deduplicated list
+            patterns_found = unique_patterns
+            
+            # Sort by strength (strongest first)
             patterns_found.sort(key=lambda x: (x['strength'], x['confidence']), reverse=True)
             
             return {
@@ -2336,7 +2349,8 @@ class StockAnalyzer:
                 },
                 'pattern_count': 0
             }
-        
+
+
     def get_pattern_description(self, pattern_name, pattern_type, category):
         """Get professional description for each pattern"""
         descriptions = {
