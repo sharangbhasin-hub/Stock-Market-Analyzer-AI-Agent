@@ -88,7 +88,52 @@ class AlphaVantageAPI:
         self.api_key = api_key or ALPHA_VANTAGE_API_KEY
         self.base_url = "https://www.alphavantage.co/query"
         self._cache = {}
+
+    def get_company_name(self, ticker):
+    """
+    Get company name using SYMBOL_SEARCH endpoint
+    
+    Args:
+        ticker: Stock ticker symbol
         
+    Returns:
+        str: Company name or ticker if not found
+    """
+    try:
+        # Clean ticker for search
+        search_ticker = ticker.replace('.NS', '').replace('.BO', '').replace('.L', '').replace('.T', '')
+        
+        params = {
+            'function': 'SYMBOL_SEARCH',
+            'keywords': search_ticker,
+            'apikey': self.api_key
+        }
+        
+        response = requests.get(self.base_url, params=params, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'bestMatches' in data and len(data['bestMatches']) > 0:
+                # Try to find exact match first
+                for match in data['bestMatches']:
+                    symbol = match.get('1. symbol', '')
+                    name = match.get('2. name', '')
+                    
+                    # Check if symbol matches (case-insensitive)
+                    if symbol.upper() == search_ticker.upper():
+                        return name
+                
+                # If no exact match, return first result's name
+                first_match = data['bestMatches'][0]
+                return first_match.get('2. name', ticker)
+        
+        return ticker
+        
+    except Exception as e:
+        print(f"Alpha Vantage company name fetch failed: {str(e)}")
+        return ticker
+    
     def get_all_stocks_listing(self):
         """Get complete US stock listing"""
         try:
@@ -1347,6 +1392,119 @@ def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
         return ticker_options
     except Exception as e:
         return {}
+
+# ============================================================
+# ENHANCED COMPANY NAME FETCHER (Multiple Sources)
+# ============================================================
+@st.cache_data(ttl=3600)  # Cache for 1 hour
+def get_company_name_multi_source(ticker, alpha_vantage_api=None):
+    """
+    Get company name using multiple data sources with fallbacks
+    
+    Priority:
+    1. Alpha Vantage API (most reliable for US stocks)
+    2. yfinance (good for global stocks)
+    3. Known stocks dictionary
+    4. Formatted ticker name
+    
+    Args:
+        ticker: Stock ticker symbol
+        alpha_vantage_api: AlphaVantageAPI instance (optional)
+        
+    Returns:
+        str: Company name
+    """
+    
+    print(f"\n🔍 Fetching company name for: {ticker}")
+    
+    # Strategy 1: Alpha Vantage API (best for US stocks)
+    if alpha_vantage_api and alpha_vantage_api.api_key:
+        try:
+            print("   Trying Alpha Vantage API...")
+            av_name = alpha_vantage_api.get_company_name(ticker)
+            if av_name and av_name != ticker and len(av_name) > 1:
+                print(f"   ✅ Got from Alpha Vantage: {av_name}")
+                return av_name
+        except Exception as e:
+            print(f"   ⚠️ Alpha Vantage failed: {str(e)}")
+    
+    # Strategy 2: yfinance (good for all markets)
+    try:
+        print("   Trying yfinance...")
+        stock = yf.Ticker(ticker)
+        info = stock.info
+        
+        if info:
+            name = (
+                info.get('longName') or 
+                info.get('shortName') or 
+                info.get('name')
+            )
+            
+            if name and len(name) > 1 and name != ticker:
+                print(f"   ✅ Got from yfinance: {name}")
+                return name
+    except Exception as e:
+        print(f"   ⚠️ yfinance failed: {str(e)}")
+    
+    # Strategy 3: Known stocks dictionary
+    known_stocks = {
+        # Indian Stocks
+        'RELIANCE.NS': 'Reliance Industries Ltd',
+        'TCS.NS': 'Tata Consultancy Services',
+        'HDFCBANK.NS': 'HDFC Bank Ltd',
+        'INFY.NS': 'Infosys Ltd',
+        'ICICIBANK.NS': 'ICICI Bank Ltd',
+        'HINDUNILVR.NS': 'Hindustan Unilever',
+        'SBIN.NS': 'State Bank of India',
+        'BHARTIARTL.NS': 'Bharti Airtel Ltd',
+        'KOTAKBANK.NS': 'Kotak Mahindra Bank',
+        'ITC.NS': 'ITC Ltd',
+        'LT.NS': 'Larsen & Toubro',
+        'AXISBANK.NS': 'Axis Bank Ltd',
+        'MARUTI.NS': 'Maruti Suzuki India',
+        'TITAN.NS': 'Titan Company Ltd',
+        
+        # US Stocks
+        'AAPL': 'Apple Inc.',
+        'MSFT': 'Microsoft Corporation',
+        'GOOGL': 'Alphabet Inc.',
+        'AMZN': 'Amazon.com Inc.',
+        'TSLA': 'Tesla Inc.',
+        'META': 'Meta Platforms Inc.',
+        'NVDA': 'NVIDIA Corporation',
+        'JPM': 'JPMorgan Chase & Co.',
+        'V': 'Visa Inc.',
+        'MA': 'Mastercard Inc.',
+        'WMT': 'Walmart Inc.',
+        'DIS': 'The Walt Disney Company',
+        'NFLX': 'Netflix Inc.',
+        'AMD': 'Advanced Micro Devices',
+        'INTC': 'Intel Corporation',
+        'BAC': 'Bank of America Corp',
+        
+        # UK Stocks
+        'BARC.L': 'Barclays PLC',
+        'HSBA.L': 'HSBC Holdings PLC',
+        'BP.L': 'BP PLC',
+        'SHEL.L': 'Shell PLC',
+        
+        # Japan Stocks
+        '7203.T': 'Toyota Motor Corporation',
+        '6758.T': 'Sony Group Corporation',
+        '9984.T': 'SoftBank Group Corp'
+    }
+    
+    if ticker in known_stocks:
+        print(f"   ✅ Got from known_stocks: {known_stocks[ticker]}")
+        return known_stocks[ticker]
+    
+    # Strategy 4: Format ticker as readable name
+    clean_ticker = ticker.replace('.NS', '').replace('.BO', '').replace('.L', '').replace('.T', '')
+    formatted_name = clean_ticker.replace('_', ' ').replace('-', ' ').title()
+    
+    print(f"   ⚠️ Using formatted ticker: {formatted_name}")
+    return formatted_name
 
 @st.cache_data
 def fetch_stock_data(ticker, period="1y", interval="1d"):
@@ -3624,12 +3782,7 @@ def main():
                 else:
                     with st.spinner("Running complete analysis..."):
                         try:
-                            # ✅ Fetch stock info to get company name
-                            try:
-                                stock_info = yf.Ticker(ticker_input)
-                                company_name = stock_info.info.get('longName') or stock_info.info.get('shortName') or ticker_input
-                            except:
-                                company_name = ticker_input
+                            company_name = get_company_name_multi_source(ticker_input, av)
                             analyzer = StockAnalyzer(ticker=ticker_input)
                             
                             if trading_mode == "Intraday Trading":
@@ -3787,13 +3940,13 @@ def main():
 
             # ✅ Show market badge (using valid Streamlit components)
             if ticker.endswith('.NS') or ticker.endswith('.BO'):
-                st.success("🇮🇳 India (NSE/BSE)")
+                st.caption("🇮🇳 India (NSE/BSE)")
             elif ticker.endswith('.L'):
-                st.info("🇬🇧 UK (LSE)")
+                st.caption("🇬🇧 UK (LSE)")
             elif ticker.endswith('.T'):
-                st.warning("🇯🇵 Japan (TSE)")
+                st.caption("🇯🇵 Japan (TSE)")
             else:
-                st.info("🇺🇸 USA (NYSE/NASDAQ)")
+                st.caption("🇺🇸 USA (NYSE/NASDAQ)")
         st.markdown("---")
 
         # Display full analysis results
