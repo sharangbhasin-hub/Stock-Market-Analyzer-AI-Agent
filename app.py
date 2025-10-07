@@ -3407,7 +3407,7 @@ def main():
     # ===========================================================================
 
     with tab1:
-        col1, col2 = st.columns([2, 1])
+        col1, col2, col3 = st.columns([3, 1])
         
         with col1:
             st.subheader(f"📈 Stock Selection - {selected_market}")
@@ -3731,36 +3731,38 @@ def main():
                 # RSI
                 rsi = results.get('rsi', 50)
                 st.metric("📊 RSI", f"{rsi:.2f}")
+
+        with col23
                 
-                # News Sentiment
-                st.markdown("**💭 News Sentiment**")
-                
-                sentiment = results.get('sentiment', 'Neutral')
-                if sentiment == "Positive":
-                    st.success(f"✅ {sentiment}")
-                elif sentiment == "Negative":
-                    st.error(f"❌ {sentiment}")
-                else:
-                    st.info(f"⚪ {sentiment}")
-                
-                # Moving Averages
-                if 'moving_averages' in results:
-                    st.markdown("**📈 Quick Metrics**")
-                    mas = results['moving_averages']
-                    st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
-                    st.caption(f"MA200: {currency}{mas.get('MA_200', 0):.2f}")
-                
-                # Volume
-                if 'volume' in results:
-                    volume = results.get('volume', 0)
-                    st.caption(f"Volume: {volume:,.0f}")
+            # News Sentiment
+            st.markdown("**💭 News Sentiment**")
             
+            sentiment = results.get('sentiment', 'Neutral')
+            if sentiment == "Positive":
+                st.success(f"✅ {sentiment}")
+            elif sentiment == "Negative":
+                st.error(f"❌ {sentiment}")
             else:
-                # ✅ Nothing to show - clean empty state
-                st.subheader("📊 Quick Stats")
-                st.info("💡 Run analysis first")
-                st.markdown("")
-                st.caption("Click the 'Analyze with Full Suite' button to populate this panel")
+                st.info(f"⚪ {sentiment}")
+            
+            # Moving Averages
+            if 'moving_averages' in results:
+                st.markdown("**📈 Quick Metrics**")
+                mas = results['moving_averages']
+                st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
+                st.caption(f"MA200: {currency}{mas.get('MA_200', 0):.2f}")
+            
+            # Volume
+            if 'volume' in results:
+                volume = results.get('volume', 0)
+                st.caption(f"Volume: {volume:,.0f}")
+        
+        else:
+            # ✅ Nothing to show - clean empty state
+            st.subheader("📊 Quick Stats")
+            st.info("💡 Run analysis first")
+            st.markdown("")
+            st.caption("Click the 'Analyze with Full Suite' button to populate this panel")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
