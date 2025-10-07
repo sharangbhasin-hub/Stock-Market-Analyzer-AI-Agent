@@ -2716,39 +2716,69 @@ class StockAnalyzer:
                 pattern_result = self.detect_candlestick_patterns_talib(five_min_data)
                 
                 # Store ALL patterns
-                results['all_patterns'] = pattern_result.get('patterns', [])
+                all_patterns_list = pattern_result.get('patterns', [])
+                results['all_patterns'] = all_patterns_list
                 results['pattern_count'] = pattern_result.get('pattern_count', 0)
+                
+                # ============================================================
+                # ✅ NEW: CALCULATE IMPACT FOR EACH PATTERN INDIVIDUALLY
+                # ============================================================
+                
+                # Calculate pattern impact for EACH pattern detected
+                patterns_with_impact = []
+                for pattern in all_patterns_list:
+                    pattern_copy = pattern.copy()  # Don't modify original
+                    
+                    # Calculate individual impact for this specific pattern
+                    if pattern.get('pattern') not in [None, 'None', '', 'No Significant Pattern', 'Insufficient Data']:
+                        try:
+                            individual_impact = self.calculate_pattern_impact(pattern, results['latest_price'])
+                            pattern_copy['individual_impact'] = individual_impact
+                        except Exception:
+                            pattern_copy['individual_impact'] = {
+                                'signal_boost': 0, 'confidence_boost': 0,
+                                'stop_loss_adjustment': 1.0, 'target_multiplier': 1.0,
+                                'description': 'Impact calculation failed'
+                            }
+                    else:
+                        pattern_copy['individual_impact'] = {
+                            'signal_boost': 0, 'confidence_boost': 0,
+                            'stop_loss_adjustment': 1.0, 'target_multiplier': 1.0,
+                            'description': 'No valid pattern'
+                        }
+                    
+                    patterns_with_impact.append(pattern_copy)
+                
+                # Store patterns with their individual impacts
+                results['all_patterns'] = patterns_with_impact
+                
+                # ============================================================
+                # KEEP PRIMARY PATTERN FOR BACKWARD COMPATIBILITY
+                # ============================================================
                 
                 # Store primary (strongest) pattern
                 primary = pattern_result.get('primary_pattern', {})
-                results['candlestick_pattern'] = primary.get('pattern', 'None')
+                results['candlestick_pattern'] = primary.get('pattern', None)
                 results['pattern_type'] = primary.get('type', 'neutral')
                 results['pattern_strength'] = primary.get('strength', 0)
                 results['pattern_confidence'] = primary.get('confidence', 0)
                 results['pattern_category'] = primary.get('category', 'none')
                 results['pattern_description'] = primary.get('description', 'No pattern')
                 
-                # Calculate impact with validation
+                # Calculate impact for primary pattern (for backward compatibility)
                 if primary and primary.get('pattern') not in [None, 'None', '', 'No Significant Pattern', 'Insufficient Data']:
                     try:
-                        results['pattern_impact'] = self.calculate_pattern_impact(
-                            primary, 
-                            results['latest_price']
-                        )
+                        results['pattern_impact'] = self.calculate_pattern_impact(primary, results['latest_price'])
                     except Exception:
                         results['pattern_impact'] = {
-                            'signal_boost': 0,
-                            'confidence_boost': 0,
-                            'stop_loss_adjustment': 1.0,
-                            'target_multiplier': 1.0,
+                            'signal_boost': 0, 'confidence_boost': 0,
+                            'stop_loss_adjustment': 1.0, 'target_multiplier': 1.0,
                             'description': 'Pattern impact calculation failed'
                         }
                 else:
                     results['pattern_impact'] = {
-                        'signal_boost': 0,
-                        'confidence_boost': 0,
-                        'stop_loss_adjustment': 1.0,
-                        'target_multiplier': 1.0,
+                        'signal_boost': 0, 'confidence_boost': 0,
+                        'stop_loss_adjustment': 1.0, 'target_multiplier': 1.0,
                         'description': 'No valid pattern detected'
                     }
     
@@ -3664,31 +3694,75 @@ def main():
                             # Display description
                             st.info(f"💡 **Insight:** {pattern_description}")
 
-                            # Show impact only for strong patterns AND if it's the primary
-                            if pattern_strength >= 70 and is_primary and 'pattern_impact' in results:
-                                impact = results.get('pattern_impact', {})
-                                signal_boost = impact.get('signal_boost', 0)
-                                target_mult = impact.get('target_multiplier', 1.0)
-                                sl_adj = impact.get('stop_loss_adjustment', 1.0)
+                            # ============================================================
+                            # ✅ SHOW TRADING IMPACT FOR EACH PATTERN INDIVIDUALLY
+                            # ============================================================
+                            
+                            # Get the individual impact for THIS specific pattern
+                            individual_impact = pattern_data.get('individual_impact', {})
+                            
+                            # Show trading impact for ALL patterns with strength >= 70
+                            if pattern_strength >= 70 and individual_impact:
+                                st.markdown("---")
+                                st.markdown("#### 🎯 Trading Impact")
                                 
+                                signal_boost = individual_impact.get('signal_boost', 0)
+                                target_mult = individual_impact.get('target_multiplier', 1.0)
+                                sl_adj = individual_impact.get('stop_loss_adjustment', 1.0)
+                                confidence_boost = individual_impact.get('confidence_boost', 0)
+                                risk_adj = individual_impact.get('risk_adjustment', 1.0)
+                                
+                                # Build impact display
                                 impact_parts = []
+                                
+                                # Signal Boost
                                 if signal_boost > 0:
                                     impact_parts.append(f"✅ +{signal_boost:.1f} signal boost")
                                 elif signal_boost < 0:
                                     impact_parts.append(f"⚠️ {signal_boost:.1f} caution")
                                 
+                                # Target Multiplier
                                 if target_mult > 1.1:
                                     impact_parts.append(f"📈 Targets +{(target_mult-1)*100:.0f}%")
                                 elif target_mult < 0.9:
                                     impact_parts.append(f"📉 Targets -{(1-target_mult)*100:.0f}%")
                                 
+                                # Stop-Loss Adjustment
                                 if sl_adj < 0.99:
                                     impact_parts.append(f"🎯 SL tightened {(1-sl_adj)*100:.1f}%")
                                 elif sl_adj > 1.01:
                                     impact_parts.append(f"🛡️ SL widened {(sl_adj-1)*100:.1f}%")
                                 
-                                if impact_parts:
-                                    st.success("🎯 **Trading Impact:** " + " | ".join(impact_parts))
+                                # Confidence Boost
+                                if confidence_boost > 0:
+                                    impact_parts.append(f"💪 +{confidence_boost}% confidence")
+                                elif confidence_boost < 0:
+                                    impact_parts.append(f"⚠️ {abs(confidence_boost)}% less confident")
+                                
+                                # Risk Adjustment (Position Sizing)
+                                if risk_adj > 1.05:
+                                    impact_parts.append(f"📊 Can increase position by {(risk_adj-1)*100:.0f}%")
+                                elif risk_adj < 0.95:
+                                    impact_parts.append(f"⚖️ Reduce position by {(1-risk_adj)*100:.0f}%")
+                                
+                                # Display based on pattern strength
+                                if pattern_strength >= 85:
+                                    # Very strong pattern - highlight prominently
+                                    if is_primary:
+                                        st.success("🔥 **HIGH IMPACT (Primary Pattern):** " + " | ".join(impact_parts))
+                                    else:
+                                        st.success("✅ **STRONG IMPACT:** " + " | ".join(impact_parts))
+                                else:
+                                    # Medium pattern (70-84)
+                                    if is_primary:
+                                        st.info("🎯 **Trading Impact (Primary):** " + " | ".join(impact_parts))
+                                    else:
+                                        st.info("📊 **Trading Impact:** " + " | ".join(impact_parts))
+                                
+                                # Additional context for pattern impact
+                                impact_description = individual_impact.get('description', '')
+                                if impact_description and impact_description not in ['No valid pattern', 'Impact calculation failed']:
+                                    st.caption(f"💡 {impact_description}")
 
                             # ============================================================
                             # DETAILED PATTERN EXPLANATION SECTION
