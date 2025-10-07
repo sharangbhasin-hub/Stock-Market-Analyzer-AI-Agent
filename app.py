@@ -3830,61 +3830,79 @@ def main():
                 # Technical Indicators Summary
                 st.markdown("---")
                 st.markdown("### 📊 Technical Indicators Summary")
+
+                # Check if results is valid and has latest_price
+                if not results or 'latest_price' not in results:
+                    st.error("⚠️ Unable to display technical indicators")
+                    st.info("**Possible reasons:**")
+                    st.caption("- Market is closed and real-time data is unavailable")
+                    st.caption("- The ticker symbol might be invalid or delisted")
+                    st.caption("- Data fetching failed due to network/API issues")
+                    st.caption("- Try refreshing the page or selecting a different stock")
+                else:
+                    # ✅ Safe to access latest_price now
+                    current_price = results.get('latest_price', 0)  # Use .get() for extra safety
+    
+                    # Only show indicators if we have valid price data
+                    if current_price > 0:
+                        ind_col1, ind_col2, ind_col3, ind_col4 = st.columns(4)
                 
-                ind_col1, ind_col2, ind_col3, ind_col4 = st.columns(4)
-                
-                with ind_col1:
-                    st.markdown("**Bollinger Bands**")
-                    bb = results.get('bollinger_bands', {})
-                    st.write(f"Upper: {currency}{bb.get('upper', 0):.2f}")
-                    st.write(f"Middle: {currency}{bb.get('middle', 0):.2f}")
-                    st.write(f"Lower: {currency}{bb.get('lower', 0):.2f}")
-                    
-                    # BB Signal
-                    current_price = results['latest_price']
-                    if current_price < bb.get('lower', 0):
-                        st.success("🟢 Oversold (Near Lower BB)")
-                    elif current_price > bb.get('upper', 0):
-                        st.error("🔴 Overbought (Near Upper BB)")
+                        with ind_col1:
+                            st.markdown("**Bollinger Bands**")
+                            bb = results.get('bollinger_bands', {})
+                            st.write(f"Upper: {currency}{bb.get('upper', 0):.2f}")
+                            st.write(f"Middle: {currency}{bb.get('middle', 0):.2f}")
+                            st.write(f"Lower: {currency}{bb.get('lower', 0):.2f}")
+                            
+                            # BB Signal
+                            current_price = results['latest_price']
+                            if current_price < bb.get('lower', 0):
+                                st.success("🟢 Oversold (Near Lower BB)")
+                            elif current_price > bb.get('upper', 0):
+                                st.error("🔴 Overbought (Near Upper BB)")
+                            else:
+                                st.info("⚪ Within Bands")
+                        
+                        with ind_col2:
+                            st.markdown("**Stochastic Momentum**")
+                            stoch = results.get('stochastic', {})
+                            st.write(f"%K: {stoch.get('k', 0):.2f}")
+                            st.write(f"%D: {stoch.get('d', 0):.2f}")
+                            
+                            crossover = stoch.get('crossover', 'none')
+                            if crossover == 'bullish':
+                                st.success("🟢 Bullish Crossover")
+                            elif crossover == 'bearish':
+                                st.error("🔴 Bearish Crossover")
+                            else:
+                                st.info("⚪ No Crossover")
+                        
+                        with ind_col3:
+                            st.markdown("**VWAP/VWMA**")
+                            st.write(f"VWAP: {currency}{results.get('vwap', 0):.2f}")
+                            st.write(f"VWMA: {currency}{results.get('vwma', 0):.2f}")
+                            
+                            if current_price > results.get('vwap', 0):
+                                st.success("🟢 Above VWAP (Bullish)")
+                            else:
+                                st.error("🔴 Below VWAP (Bearish)")
+                        
+                        with ind_col4:
+                            st.markdown("**SuperTrend**")
+                            supertrend = results.get('supertrend', {})
+                            st.write(f"Value: {currency}{supertrend.get('value', 0):.2f}")
+                            
+                            trend = supertrend.get('trend', 'neutral')
+                            if trend == 'uptrend':
+                                st.success(f"🟢 {trend.upper()}")
+                            elif trend == 'downtrend':
+                                st.error(f"🔴 {trend.upper()}")
+                            else:
+                                st.info(f"⚪ {trend.upper()}")
+
                     else:
-                        st.info("⚪ Within Bands")
-                
-                with ind_col2:
-                    st.markdown("**Stochastic Momentum**")
-                    stoch = results.get('stochastic', {})
-                    st.write(f"%K: {stoch.get('k', 0):.2f}")
-                    st.write(f"%D: {stoch.get('d', 0):.2f}")
-                    
-                    crossover = stoch.get('crossover', 'none')
-                    if crossover == 'bullish':
-                        st.success("🟢 Bullish Crossover")
-                    elif crossover == 'bearish':
-                        st.error("🔴 Bearish Crossover")
-                    else:
-                        st.info("⚪ No Crossover")
-                
-                with ind_col3:
-                    st.markdown("**VWAP/VWMA**")
-                    st.write(f"VWAP: {currency}{results.get('vwap', 0):.2f}")
-                    st.write(f"VWMA: {currency}{results.get('vwma', 0):.2f}")
-                    
-                    if current_price > results.get('vwap', 0):
-                        st.success("🟢 Above VWAP (Bullish)")
-                    else:
-                        st.error("🔴 Below VWAP (Bearish)")
-                
-                with ind_col4:
-                    st.markdown("**SuperTrend**")
-                    supertrend = results.get('supertrend', {})
-                    st.write(f"Value: {currency}{supertrend.get('value', 0):.2f}")
-                    
-                    trend = supertrend.get('trend', 'neutral')
-                    if trend == 'uptrend':
-                        st.success(f"🟢 {trend.upper()}")
-                    elif trend == 'downtrend':
-                        st.error(f"🔴 {trend.upper()}")
-                    else:
-                        st.info(f"⚪ {trend.upper()}")
+                        st.warning("⚠️ Price data is invalid or zero. Cannot display indicators.")
+                        st.caption("Please try analyzing a different stock or refresh the data.")
                 
                 # Moving Averages
                 st.markdown("---")
