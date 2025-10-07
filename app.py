@@ -1594,7 +1594,7 @@ class StockAnalyzer:
             print("🔄 Loading sentiment analyzer...")
             self.sentiment_analyzer = pipeline(
                 'sentiment-analysis',
-                model="ProsusAI/finbert"
+                model='distilbert-base-uncased-finetuned-sst-2-english'
             )
             print("✅ Sentiment analyzer loaded successfully")
         except Exception as e:
