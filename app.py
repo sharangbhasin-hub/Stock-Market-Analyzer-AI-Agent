@@ -3775,7 +3775,7 @@ def main():
         # ============================================================
         # ✅ DISPLAY SELECTED STOCK NAME (NEW SECTION)
         # ============================================================
-        
+        st.markdown("---")
         if 'analysis_results' in st.session_state and st.session_state['analysis_results']:
             results = st.session_state['analysis_results']
             ticker = results.get('ticker', st.session_state.get('current_ticker', 'N/A'))
@@ -3794,7 +3794,7 @@ def main():
                 st.warning("🇯🇵 Japan (TSE)")
             else:
                 st.info("🇺🇸 USA (NYSE/NASDAQ)")
-        
+        st.markdown("---")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
