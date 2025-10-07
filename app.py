@@ -3832,16 +3832,18 @@ def main():
                 st.markdown("### 📊 Technical Indicators Summary")
 
                 # Check if results is valid and has latest_price
-                if not results or 'latest_price' not in results:
-                    st.error("⚠️ Unable to display technical indicators")
-                    st.info("**Possible reasons:**")
-                    st.caption("- Market is closed and real-time data is unavailable")
-                    st.caption("- The ticker symbol might be invalid or delisted")
-                    st.caption("- Data fetching failed due to network/API issues")
-                    st.caption("- Try refreshing the page or selecting a different stock")
+                if not results or 'latest_price' not in results or results.get('latest_price', 0) <= 0:
+                    st.error("⚠️ **Unable to display technical indicators**")
+                    st.warning("Price data is unavailable or invalid")
+                    st.info("**Possible causes:**")
+                    st.caption("• Market is currently closed")
+                    st.caption("• Invalid ticker symbol")
+                    st.caption("• Data fetching failed")
+                    st.caption("• Network/API issues")
+                    st.caption("👉 **Try:** Refresh page or select a different stock")
                 else:
-                    # ✅ Safe to access latest_price now
-                    current_price = results.get('latest_price', 0)  # Use .get() for extra safety
+                    # ✅ NOW SAFE TO ACCESS - latest_price definitely exists
+                    current_price = results.get('latest_price', 0)
     
                     # Only show indicators if we have valid price data
                     if current_price > 0:
