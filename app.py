@@ -2719,7 +2719,7 @@ class StockAnalyzer:
                 results['all_patterns'] = pattern_result.get('patterns', [])
                 results['pattern_count'] = pattern_result.get('pattern_count', 0)
                 
-                # Store primary (strongest) pattern for backward compatibility
+                # Store primary (strongest) pattern
                 primary = pattern_result.get('primary_pattern', {})
                 results['candlestick_pattern'] = primary.get('pattern', 'None')
                 results['pattern_type'] = primary.get('type', 'neutral')
@@ -2728,9 +2728,8 @@ class StockAnalyzer:
                 results['pattern_category'] = primary.get('category', 'none')
                 results['pattern_description'] = primary.get('description', 'No pattern')
                 
-                # Calculate impact based on PRIMARY pattern with FALLBACK
                 # Calculate impact with validation
-                if primary and primary.get('pattern') not in [None, 'None', '']:
+                if primary and primary.get('pattern') not in [None, 'None', '', 'No Significant Pattern', 'Insufficient Data']:
                     try:
                         results['pattern_impact'] = self.calculate_pattern_impact(
                             primary, 
@@ -2752,7 +2751,7 @@ class StockAnalyzer:
                         'target_multiplier': 1.0,
                         'description': 'No valid pattern detected'
                     }
-
+    
             except Exception as e:
                 st.warning(f"Pattern detection skipped: {str(e)}")
                 results['all_patterns'] = []
@@ -2763,7 +2762,6 @@ class StockAnalyzer:
                 results['pattern_confidence'] = 0
                 results['pattern_category'] = 'none'
                 results['pattern_description'] = 'Pattern detection failed'
-                results['pattern_type'] = 'neutral'
                 results['pattern_impact'] = {
                     'signal_boost': 0,
                     'confidence_boost': 0,
@@ -2771,47 +2769,43 @@ class StockAnalyzer:
                     'target_multiplier': 1.0,
                     'description': 'Analysis error'
                 }
-
-                
-                # ✅ CRITICAL: Provide default pattern_impact to prevent downstream errors
-                results['pattern_impact'] = {
-                    'signal_boost': 0,
-                    'confidence_boost': 0,
-                    'stop_loss_adjustment': 1.0,
-                    'target_multiplier': 1.0,
-                    'description': 'Pattern analysis failed'
-                }
-
-            return results
-        
-        except Exception as e:
-            st.error(f"Critical error: {str(e)}")
-            return None
-
-
-            # ============ ATR & STOP-LOSS ============
+    
+            # ============ ATR & STOP-LOSS CALCULATION ============
             try:
-                atr = self.calculate_atr(five_min_data, period=14)
-                results['atr'] = float(atr) if atr > 0 else results['latest_price'] * 0.02
-            except:
+                atr_value = self.calculate_atr(five_min_data, period=14)
+                results['atr'] = float(atr_value) if atr_value > 0 else results['latest_price'] * 0.02
+            except Exception as e:
                 results['atr'] = results['latest_price'] * 0.02
     
-            # Calculate base stop-loss
+            # Get pattern impact (with validation)
+            pattern_impact = results.get('pattern_impact', {})
+            if not isinstance(pattern_impact, dict):
+                pattern_impact = {
+                    'signal_boost': 0,
+                    'stop_loss_adjustment': 1.0,
+                    'target_multiplier': 1.0,
+                    'confidence_boost': 0
+                }
+    
+            # Calculate Stop-Loss
+            base_stop_loss = 0
             if results.get('support', 0) > 0:
-                base_stop_loss = results['support'] * 0.995
+                base_stop_loss = results['support'] * 0.995  # 0.5% below support
             else:
-                base_stop_loss = results['latest_price'] * 0.98
-            
+                base_stop_loss = results['latest_price'] * 0.98  # 2% default
+    
             # Apply pattern adjustment
-            pattern_adjustment = results.get('pattern_impact', {}).get('stop_loss_adjustment', 1.0)
+            pattern_adjustment = pattern_impact.get('stop_loss_adjustment', 1.0)
             stop_loss_support = base_stop_loss * pattern_adjustment
             
             stop_loss_atr = results['latest_price'] - (results['atr'] * 1.5)
+    
+            # Final stop-loss (use the more conservative one)
             results['base_stoploss'] = float(base_stop_loss)
             results['stop_loss'] = float(max(stop_loss_support, stop_loss_atr))
             results['trailing_stop_vwap'] = float(results.get('vwap', results['latest_price']))
     
-            # ============ POSITION SIZE ============
+            # ============ POSITION SIZING ============
             max_capital_per_trade = 12500
             risk_per_share = abs(results['latest_price'] - results['stop_loss'])
     
@@ -2822,9 +2816,11 @@ class StockAnalyzer:
             else:
                 results['position_size'] = 1
     
-            # ============ TARGETS ============
+            results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
+    
+            # ============ PROFIT TARGETS ============
             risk_amount = risk_per_share
-            target_mult = results.get('pattern_impact', {}).get('target_multiplier', 1.0)
+            target_mult = pattern_impact.get('target_multiplier', 1.0)
             
             results['targets'] = [
                 {
@@ -2844,12 +2840,13 @@ class StockAnalyzer:
                 },
             ]
     
+            # Add supertrend target if in uptrend
             if results.get('supertrend', {}).get('trend') == 'uptrend':
                 results['supertrend_target'] = results['supertrend']['value']
     
+            # Risk metrics
             results['risk_amount'] = round(risk_per_share * results['position_size'], 2)
             results['risk_percent'] = round((risk_per_share / results['latest_price']) * 100, 2)
-            results['capital_used'] = round(results['latest_price'] * results['position_size'], 2)
     
             # ============ PATTERN & BREAKOUT DETECTION ============
             try:
@@ -2868,7 +2865,11 @@ class StockAnalyzer:
                 results['signal'] = results['confirmation_checklist'].get('FINAL_SIGNAL', 'HOLD')
             except Exception as e:
                 st.warning(f"Confirmation checklist error: {str(e)}")
-                results['confirmation_checklist'] = {'FINAL_SIGNAL': 'HOLD'}
+                results['confirmation_checklist'] = {
+                    'FINAL_SIGNAL': 'HOLD',
+                    'data_available': False,
+                    'error': str(e)
+                }
                 results['signal'] = 'HOLD'
     
             # ============ CURRENCY SYMBOL ============
@@ -3472,13 +3473,26 @@ def main():
                 st.markdown("---")
                 st.subheader("🎯 Pattern Detection & Trade Confirmation")
                 
-                # Check if we have the required data
-                if '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty:
-                    # 5-Point Confirmation Checklist
+                # Check data availability first
+                has_5m_data = '5m_data' in results and results['5m_data'] is not None and not results['5m_data'].empty
+                has_sr_levels = results.get('support', 0) > 0 and results.get('resistance', 0) > 0
+                
+                if not has_5m_data:
+                    st.error("❌ 5-minute data not available")
+                    st.info("💡 5-minute intraday data is required for pattern detection. This may happen if:")
+                    st.caption("• Market is closed")
+                    st.caption("• Ticker doesn't have intraday data")
+                    st.caption("• Data fetching failed")
+                elif not has_sr_levels:
+                    st.error("❌ Support/Resistance levels not calculated")
+                    st.info("💡 Key price levels are required for confirmation. Try:")
+                    st.caption("• Selecting a different timeframe")
+                    st.caption("• Ensuring sufficient historical data")
+                else:
+                    # Data is available - show checklist
                     if 'confirmation_checklist' in results and results['confirmation_checklist']:
                         checklist = results['confirmation_checklist']
                         
-                        # Check if data was actually available
                         if checklist.get('data_available', False):
                             st.markdown("### ✅ 5-Point Trade Confirmation Checklist")
                             
@@ -3505,10 +3519,8 @@ def main():
                                 st.warning(f"### FINAL SIGNAL: {final_signal}")
                                 st.info("⚠️ Insufficient confirmations. Wait for better setup.")
                         else:
-                            # Show specific error message
-                            error_msg = checklist.get('error', 'Unknown error')
-                            st.warning(f"⚠️ Confirmation checklist unavailable: {error_msg}")
-                            st.caption("The system needs 5-minute candle data and support/resistance levels to run the checklist")
+                            error_msg = checklist.get('error', 'Checklist generation failed')
+                            st.warning(f"⚠️ {error_msg}")
                     else:
                         st.warning("⚠️ Confirmation checklist could not be generated")
                         st.caption("Ensure 5-minute data is available and support/resistance levels are calculated")
@@ -3816,35 +3828,50 @@ def main():
                             ]
                 # ===== END OF CALCULATION BLOCK =====
 
-                # Stop-Loss & Targets
+                # ========== STOP-LOSS & TARGETS ==========
                 st.subheader("🎯 Stop-Loss & Targets")
-                col1, col2, col3 = st.columns(3)
                 
-                with col1:
-                    st.markdown("### 🛑 Stop-Loss")
-                    st.metric("Stop-Loss Price", f"{currency}{results.get('stop_loss', 0):.2f}",
-                             f"-{currency}{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
-                    st.metric("Risk Amount", f"{currency}{results.get('risk_amount', 0):.2f}")
-                    st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
-                    vwap_value = results.get('vwap', results.get('latest_price', 0))
-                    if vwap_value > 0:
-                        st.info(
-                            f"**VWAP Trailing:** {currency}{vwap_value:.2f}\n\n"
-                            "Trail stop to VWAP. Exit if closes below."
-                        )
-
-                
-                with col2:
-                    st.markdown("### 🎯 Profit Targets")
-                    if results.get('targets'):
-                        for target in results['targets']:
-                            st.metric(target['level'], f"{currency}{target['price']:.2f}", f"+{currency}{target['profit_potential']:.2f}")
-                
-                with col3:
-                    st.markdown("### 📍 Key Levels")
-                    st.metric("Resistance", f"{currency}{results.get('resistance', 0):.2f}")
-                    st.metric("Support", f"{currency}{results.get('support', 0):.2f}")
-                    st.metric("ATR (14)", f"{currency}{results.get('atr', 0):.2f}")
+                # Validate that calculations exist
+                if 'stop_loss' not in results or 'targets' not in results:
+                    st.error("❌ Stop-loss and targets not calculated")
+                    st.info("💡 This usually means:")
+                    st.caption("• Analysis incomplete - try re-running the analysis")
+                    st.caption("• Insufficient data for risk calculation")
+                    
+                    # Show what data we DO have
+                    with st.expander("🔍 Debug Info - Click to view"):
+                        st.write("**Available Keys:**", list(results.keys()))
+                        st.write("**Has 5m data:**", '5m_data' in results)
+                        st.write("**Support:**", results.get('support', 'N/A'))
+                        st.write("**Resistance:**", results.get('resistance', 'N/A'))
+                else:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.markdown("### 🛑 Stop-Loss")
+                        st.metric("Stop-Loss Price", f"{currency}{results.get('stop_loss', 0):.2f}",
+                                 f"-{currency}{abs(results['latest_price'] - results.get('stop_loss', 0)):.2f}")
+                        st.metric("Risk Amount", f"{currency}{results.get('risk_amount', 0):.2f}")
+                        st.metric("Risk %", f"{results.get('risk_percent', 0):.2f}%")
+                        
+                        vwap_value = results.get('vwap', results.get('latest_price', 0))
+                        if vwap_value > 0:
+                            st.info(f"**VWAP Trailing:** {currency}{vwap_value:.2f}\n\nTrail stop to VWAP. Exit if closes below.")
+                    
+                    with col2:
+                        st.markdown("### 🎯 Profit Targets")
+                        if results.get('targets'):
+                            for target in results['targets']:
+                                st.metric(target['level'], f"{currency}{target['price']:.2f}", 
+                                         f"+{currency}{target['profit_potential']:.2f}")
+                        else:
+                            st.warning("No targets calculated")
+                    
+                    with col3:
+                        st.markdown("### 📏 Key Levels")
+                        st.metric("Resistance", f"{currency}{results.get('resistance', 0):.2f}")
+                        st.metric("Support", f"{currency}{results.get('support', 0):.2f}")
+                        st.metric("ATR (14)", f"{currency}{results.get('atr', 0):.2f}")
 
                 # News
                 if results.get('news_headlines'):
