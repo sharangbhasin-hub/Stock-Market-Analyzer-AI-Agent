@@ -3703,16 +3703,20 @@ def main():
         # COLUMN 2: QUICK STATS (RIGHT SIDEBAR)
         # ============================================================
         with col2:
-            st.subheader("📊 Quick Stats")
-            
-            if 'analysis_results' in st.session_state:
-                # ✅ Results exist - display them
-                results = st.session_state['analysis_results']
-                ticker = results.get('ticker', st.session_state.get('current_ticker', 'N/A'))
-                currency = results.get('currency', get_currency_symbol(ticker, selected_market))
+            # ✅ STRICT: Only show if results exist AND have valid data
+            if ('analysis_results' in st.session_state and 
+                st.session_state['analysis_results'] and 
+                'latest_price' in st.session_state['analysis_results']):
                 
-                # Price
-                latest_price = results.get('latest_price', 0)
+                st.subheader("📊 Quick Stats")
+                results = st.session_state['analysis_results']
+                
+                # Get ticker and currency
+                ticker = results.get('ticker', st.session_state.get('current_ticker', 'N/A'))
+                currency = results.get('currency', '₹')
+                
+                # Price (always show if we're in this block)
+                latest_price = results['latest_price']
                 st.metric("💰 Price", f"{currency}{latest_price:.2f}")
                 
                 # Signal
@@ -3740,28 +3744,25 @@ def main():
                 else:
                     st.info(f"⚪ {sentiment}")
                 
-                # Additional quick stats
-                st.markdown("---")
-                st.markdown("**📈 Quick Metrics**")
-                
+                # Moving Averages
                 if 'moving_averages' in results:
+                    st.markdown("---")
+                    st.markdown("**📈 Quick Metrics**")
                     mas = results['moving_averages']
                     st.caption(f"MA50: {currency}{mas.get('MA_50', 0):.2f}")
                     st.caption(f"MA200: {currency}{mas.get('MA_200', 0):.2f}")
                 
+                # Volume
                 if 'volume' in results:
                     volume = results.get('volume', 0)
                     st.caption(f"Volume: {volume:,.0f}")
             
             else:
-                # ✅ No analysis yet - show placeholder
+                # ✅ Nothing to show - clean empty state
+                st.subheader("📊 Quick Stats")
                 st.info("💡 Run analysis first")
-                st.caption("Click 'Analyze with Full Suite' to see:")
-                st.caption("• Current Price")
-                st.caption("• Trading Signal")
-                st.caption("• RSI Indicator")
-                st.caption("• News Sentiment")
-                st.caption("• Moving Averages")
+                st.markdown("")
+                st.caption("Click the 'Analyze with Full Suite' button to populate this panel")
 
         # Display full analysis results
         if 'analysis_results' in st.session_state:
