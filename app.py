@@ -3857,7 +3857,7 @@ def main():
                             st.write(f"Lower: {currency}{bb.get('lower', 0):.2f}")
                             
                             # BB Signal
-                            current_price = results.get('latest_price', 0)
+                            
                             if current_price < bb.get('lower', 0):
                                 st.success("🟢 Oversold (Near Lower BB)")
                             elif current_price > bb.get('upper', 0):
