@@ -4100,7 +4100,7 @@ def main():
                 st.markdown("### 📈 Moving Averages Analysis")
                 
                 ma_col1, ma_col2, ma_col3, ma_col4 = st.columns(4)
-                
+                current_price = results.get('latest_price', 0)
                 mas = results.get('moving_averages', {})
                 
                 with ma_col1:
