@@ -409,8 +409,19 @@ def send_email_alert(subject, body, to_email=None):
     except Exception as e:
         return False
 
-def send_multi_channel_alert(ticker, signal, price, channels=['email']):
+def send_multi_channel_alert(ticker, signal, price, channels=['email'], currency=None):
     """Send alert across multiple channels"""
+    # ✅ Auto-detect currency if not provided
+    if currency is None:
+        if ticker.endswith('.NS') or ticker.endswith('.BO'):
+            currency = '₹'  # Indian Rupee
+        elif ticker.endswith('.L'):
+            currency = '£'  # British Pound
+        elif ticker.endswith('.T'):
+            currency = '¥'  # Japanese Yen
+        else:
+            currency = '$'  # Default to USD
+    
     message = f"""
     🚨 TRADING SIGNAL ALERT
     
