@@ -4317,8 +4317,6 @@ def main():
                     3. Watch for divergences
                     4. Use histogram for momentum strength
                     """)
-                
-                st.markdown("---")
 
                 # Fibonacci
                 st.markdown("---")
