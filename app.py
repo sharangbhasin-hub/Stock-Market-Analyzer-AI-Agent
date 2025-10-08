@@ -6568,20 +6568,20 @@ def main():
             st.stop()
         
         # ============= CLEAN CONTEXT DISPLAY =============
-        if current_ticker:
-            col1, col2, col3 = st.columns([2, 2, 1])
+        # if current_ticker:
+        #    col1, col2, col3 = st.columns([2, 2, 1])
             
-            with col1:
-                st.metric("📊 Selected Asset", current_ticker)
+        #    with col1:
+        #        st.metric("📊 Selected Asset", current_ticker)
             
-            with col2:
-                st.metric("Asset Type", current_asset_class.replace("(Stocks)", "").strip())
+        #    with col2:
+        #        st.metric("Asset Type", current_asset_class.replace("(Stocks)", "").strip())
             
-            with col3:
-                if st.button("← Back", use_container_width=True, help="Return to Analysis tab"):
-                    st.info("💡 Use the tabs above to switch")
+        #    with col3:
+        #        if st.button("← Back", use_container_width=True, help="Return to Analysis tab"):
+        #            st.info("💡 Use the tabs above to switch")
         
-        st.markdown("---")
+        # st.markdown("---")
         
         # ============= TICKER INPUT =============
         options_analyzer = OptionsAnalyzer()
