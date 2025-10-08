@@ -6516,212 +6516,160 @@ def main():
     # ===========================================================================
 
     with tab3:
-        st.subheader("🎯 Options Trading Dashboard")
-
-        # ============= ASSET CLASS CHECK (NEW) =============
-        # Check if asset class is in session state
+        st.subheader("🎯 Options Chain Analysis")
+        
+        # ============= ASSET CLASS CHECK =============
         current_asset_class = st.session_state.get('current_asset_class', 'Equities (Stocks)')
+        current_ticker = st.session_state.get('current_ticker', None)
         asset_config = ASSET_CLASSES.get(current_asset_class, {})
         
-        # Check if options are supported
+        # Block unsupported asset classes
         if not asset_config.get('supports_options', False):
-            st.warning(f"⚠️ Options trading is not available for {current_asset_class}")
-            
-            st.info("""
-            **Options are available for:**
-            - ✅ Equities (Stocks)
-            - ✅ Indices (e.g., Nifty 50, S&P 500)
-            - ✅ Some Commodities (e.g., Gold, Oil)
-            
-            **Not available for:**
-            - ❌ Cryptocurrencies
-            - ❌ Forex pairs
-            """)
-            
+            st.warning(f"⚠️ Options are not available for **{current_asset_class}**")
+            st.info("💡 Options are supported for **Stocks** and **Indices** only. Switch to one of these asset classes in the Analysis tab.")
             st.stop()
-
-        # ============= SHOW CURRENT CONTEXT FROM ANALYSIS TAB =============
-        current_ticker = st.session_state.get('current_ticker', None)
         
-        # Display current selection context
+        # ============= CLEAN CONTEXT DISPLAY =============
         if current_ticker:
-            col_info1, col_info2, col_info3 = st.columns([2, 2, 1])
+            col1, col2, col3 = st.columns([2, 2, 1])
             
-            with col_info1:
-                st.metric("📊 Currently Analyzing", current_ticker, help="From Analysis tab")
+            with col1:
+                st.metric("📊 Selected Asset", current_ticker)
             
-            with col_info2:
-                st.metric("Asset Class", current_asset_class)
+            with col2:
+                st.metric("Asset Type", current_asset_class.replace("(Stocks)", "").strip())
             
-            with col_info3:
-                if st.button("← Analysis", use_container_width=True, help="Go back to Analysis tab"):
-                    st.info("💡 Switch to Analysis tab using the tabs above")
-            
-            st.markdown("---")
+            with col3:
+                if st.button("← Back", use_container_width=True, help="Return to Analysis tab"):
+                    st.info("💡 Use the tabs above to switch")
         
-        # ============= EDUCATIONAL CONTENT =============
-        with st.expander("ℹ️ What are Options? (Quick Guide)"):
-            st.markdown("""
-            **Options** are contracts that give you the **right** (not obligation) to buy/sell an asset at a specific price.
-            
-            **Two Types:**
-            - **Call Option**: Right to BUY (profit when price goes UP)
-            - **Put Option**: Right to SELL (profit when price goes DOWN)
-            
-            **Key Terms:**
-            - **Strike Price**: The price at which you can buy/sell
-            - **Premium**: What you pay for the option
-            - **Expiry**: When the option expires
-            - **PCR (Put-Call Ratio)**: Sentiment indicator
-              - PCR > 1: More puts = Bearish sentiment
-              - PCR < 1: More calls = Bullish sentiment
-            
-            **This Tab Shows:**
-            1. Options chains for stocks/indices
-            2. All available strike prices
-            3. Premiums, volume, open interest
-            4. Put-Call Ratio analysis
-            
-            **Workflow:**
-            1. Analyze the asset in **Analysis** tab first
-            2. If bullish → Look for Call options here
-            3. If bearish → Look for Put options here
-            4. Select strike price and expiry
-            5. Execute trade via your broker
-            """)
+        st.markdown("---")
         
-        # ============= INDEX-SPECIFIC GUIDANCE =============
-        if current_asset_class == "Indices":
-            st.success("✅ **Index Options Mode**")
-            st.info("""
-            **Popular Index Options:**
-            - 🇮🇳 **India**: Nifty 50, Bank Nifty (Limited data via free APIs)
-            - 🇺🇸 **USA**: SPX (S&P 500), SPY (S&P 500 ETF), NDX, QQQ
-            
-            **Important:**
-            - For Indian index options (Nifty/Bank Nifty), use your broker's platform
-            - US index options (SPX, SPY, QQQ) work well with this tool
-            - Try **SPY** (S&P 500 ETF) for best results
-            """)
-            st.markdown("---")
-
-
-        # ============= REST OF YOUR OPTIONS CODE =============
-        # Important notice for users
-        st.info("ℹ️ **Note:** This feature works best with US stocks (AAPL, TSLA, SPY, etc.). Indian options data (Nifty/Bank Nifty) is not reliably available via free APIs.")
-        
+        # ============= TICKER INPUT (CLEAN) =============
         options_analyzer = OptionsAnalyzer()
         
-        # Show today's expiry
-        try:
-            todays_expiry = options_analyzer.get_todays_expiry()
-            st.success(f"📅 Today's Expiry: **{todays_expiry}**")
-        except:
-            st.warning("📅 Could not determine today's expiry")
+        # Auto-fill logic
+        if current_ticker and current_asset_class in ["Equities (Stocks)", "Indices"]:
+            default_ticker = current_ticker
+        else:
+            default_ticker = 'AAPL'
         
-        # Create columns for ticker input and button
-        col1, col2 = st.columns([3, 1])
+        if 'opt_ticker' not in st.session_state:
+            st.session_state['opt_ticker'] = default_ticker
         
-        with col1:
-            # Auto-fill from Analysis tab if available
-            current_ticker = st.session_state.get('current_ticker', None)
-            
-            # Determine default ticker
-            if current_ticker:
-                # Check if current ticker supports options
-                if current_asset_class in ["Equities (Stocks)", "Indices"]:
-                    default_ticker = current_ticker
-                else:
-                    default_ticker = 'AAPL'  # Fallback for unsupported assets
-            else:
-                default_ticker = 'AAPL'
-            
-            # Initialize session state for options ticker
-            if 'opt_ticker' not in st.session_state:
-                st.session_state['opt_ticker'] = default_ticker
-            
+        # Input row
+        col_input, col_button = st.columns([3, 1])
+        
+        with col_input:
             opt_ticker = st.text_input(
-                "Enter Options Ticker Symbol",
+                "Options Ticker",
                 value=st.session_state.get('opt_ticker', default_ticker),
                 key="opt_tick_input",
-                help=f"Enter a ticker symbol. Auto-filled from Analysis tab: {current_ticker if current_ticker else 'None'}"
+                label_visibility="collapsed",
+                placeholder="Enter ticker (e.g., AAPL, SPY, QQQ)"
             )
-
-            
-            # Update session state
             st.session_state['opt_ticker'] = opt_ticker
         
-        with col2:
-            st.markdown("###")  # Spacing
+        with col_button:
             analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True, key="analyze_options_btn")
         
-        # Quick select buttons - Context-aware based on asset class
+        # ============= SMART QUICK SELECT =============
+        # Show different buttons based on context
         if current_asset_class == "Indices":
-            st.markdown("**📌 Popular Index Options (US):**")
-            quick_col1, quick_col2, quick_col3, quick_col4, quick_col5 = st.columns(5)
-            
-            if quick_col1.button("SPY", key="quick_spy", help="S&P 500 ETF"):
-                st.session_state['opt_ticker'] = "SPY"
-                st.rerun()
-            
-            if quick_col2.button("QQQ", key="quick_qqq", help="Nasdaq 100 ETF"):
-                st.session_state['opt_ticker'] = "QQQ"
-                st.rerun()
-            
-            if quick_col3.button("DIA", key="quick_dia", help="Dow Jones ETF"):
-                st.session_state['opt_ticker'] = "DIA"
-                st.rerun()
-            
-            if quick_col4.button("IWM", key="quick_iwm", help="Russell 2000 ETF"):
-                st.session_state['opt_ticker'] = "IWM"
-                st.rerun()
-            
-            if quick_col5.button("^GSPC", key="quick_gspc", help="S&P 500 Index"):
-                st.session_state['opt_ticker'] = "^GSPC"
-                st.rerun()
-        
+            st.caption("📌 Popular Index Options:")
+            quick_cols = st.columns(5)
+            quick_buttons = [
+                ("SPY", "S&P 500 ETF", "quick_spy"),
+                ("QQQ", "Nasdaq ETF", "quick_qqq"),
+                ("DIA", "Dow ETF", "quick_dia"),
+                ("IWM", "Russell 2000", "quick_iwm"),
+                ("^GSPC", "S&P Index", "quick_gspc")
+            ]
         else:
-            st.markdown("**📌 Popular Stock Options:**")
-            quick_col1, quick_col2, quick_col3, quick_col4, quick_col5 = st.columns(5)
-            
-            if quick_col1.button("AAPL", key="quick_aapl", help="Apple"):
-                st.session_state['opt_ticker'] = "AAPL"
-                st.rerun()
-            
-            if quick_col2.button("TSLA", key="quick_tsla", help="Tesla"):
-                st.session_state['opt_ticker'] = "TSLA"
-                st.rerun()
-            
-            if quick_col3.button("SPY", key="quick_spy_stock", help="S&P 500 ETF"):
-                st.session_state['opt_ticker'] = "SPY"
-                st.rerun()
-            
-            if quick_col4.button("QQQ", key="quick_qqq_stock", help="Nasdaq ETF"):
-                st.session_state['opt_ticker'] = "QQQ"
-                st.rerun()
-            
-            if quick_col5.button("MSFT", key="quick_msft", help="Microsoft"):
-                st.session_state['opt_ticker'] = "MSFT"
-                st.rerun()
+            st.caption("📌 Popular Stock Options:")
+            quick_cols = st.columns(5)
+            quick_buttons = [
+                ("AAPL", "Apple", "quick_aapl"),
+                ("TSLA", "Tesla", "quick_tsla"),
+                ("SPY", "S&P 500", "quick_spy_stock"),
+                ("QQQ", "Nasdaq", "quick_qqq_stock"),
+                ("MSFT", "Microsoft", "quick_msft")
+            ]
         
-        # Get ticker from session state (in case quick button was clicked)
-        opt_ticker = st.session_state.get('opt_ticker', 'AAPL')
+        for idx, (ticker, label, key) in enumerate(quick_buttons):
+            with quick_cols[idx]:
+                if st.button(ticker, key=key, use_container_width=True, help=label):
+                    st.session_state['opt_ticker'] = ticker
+                    st.rerun()
+        
+        st.markdown("---")
+        
+        # ============= COMPACT HELP SECTION =============
+        with st.expander("ℹ️ Need Help?"):
+            col_help1, col_help2 = st.columns(2)
+            
+            with col_help1:
+                st.markdown("""
+                **✅ Best Results:**
+                - US stocks (AAPL, TSLA, MSFT)
+                - US ETFs (SPY, QQQ, DIA)
+                - High liquidity options
+                
+                **What You'll See:**
+                - Options chain (calls & puts)
+                - Strike prices & premiums
+                - Put-Call Ratio (PCR)
+                - Open interest & volume
+                """)
+            
+            with col_help2:
+                st.markdown("""
+                **⚠️ Limitations:**
+                - Indian options: Limited data
+                  (Use broker platform instead)
+                - Index symbols (^NSEI): May fail
+                  (Try ETF equivalent like SPY)
+                
+                **Quick Tips:**
+                - PCR > 1 = Bearish sentiment
+                - PCR < 1 = Bullish sentiment
+                - High OI = Strong support/resistance
+                """)
+        
+        st.markdown("---")
+        
+        # ============= ANALYSIS SECTION =============
+        opt_ticker = st.session_state.get('opt_ticker', default_ticker)
         
         if analyze_btn:
-            with st.spinner(f"🔄 Fetching options data for {opt_ticker}..."):
+            with st.spinner(f"Fetching options chain for {opt_ticker}..."):
                 options_data = options_analyzer.fetch_options_chain(opt_ticker)
                 
                 if options_data:
-                    # Success - show data
-                    st.success(f"✅ Options data loaded successfully for **{options_data['ticker']}**")
-                    st.info(f"📆 Nearest Expiry: **{options_data['expiry']}** | Available Expiries: **{len(options_data['all_expiries'])}**")
+                    # ============= SUCCESS - SHOW DATA =============
+                    st.success(f"✅ Options loaded: **{options_data['ticker']}**")
                     
-                    # Calculate PCR
+                    # Compact info row
+                    info_col1, info_col2, info_col3 = st.columns(3)
+                    with info_col1:
+                        st.metric("Nearest Expiry", options_data['expiry'])
+                    with info_col2:
+                        st.metric("Available Expiries", len(options_data['all_expiries']))
+                    with info_col3:
+                        try:
+                            todays_expiry = options_analyzer.get_todays_expiry()
+                            st.metric("Today's Expiry", todays_expiry)
+                        except:
+                            st.metric("Today's Expiry", "N/A")
+                    
+                    st.markdown("---")
+                    
+                    # ============= PCR ANALYSIS =============
                     try:
                         pcr_data = options_analyzer.calculate_pcr(options_data)
                         
                         if pcr_data:
-                            st.markdown("### 📊 Put-Call Ratio Analysis")
+                            st.markdown("### 📊 Market Sentiment (Put-Call Ratio)")
                             
                             col1, col2, col3, col4 = st.columns(4)
                             col1.metric("PCR (OI)", f"{pcr_data.get('pcr_oi', 0):.2f}")
@@ -6732,22 +6680,20 @@ def main():
                             # Sentiment indicator
                             sentiment = pcr_data.get('sentiment', 'Neutral')
                             if 'Bullish' in sentiment:
-                                st.success(f"🟢 **Market Sentiment:** {sentiment}")
+                                st.success(f"🟢 {sentiment}")
                             elif 'Bearish' in sentiment:
-                                st.error(f"🔴 **Market Sentiment:** {sentiment}")
+                                st.error(f"🔴 {sentiment}")
                             else:
-                                st.info(f"⚪ **Market Sentiment:** {sentiment}")
-                    except Exception as e:
-                        st.warning("⚠️ Could not calculate PCR metrics")
+                                st.info(f"⚪ {sentiment}")
+                    except:
+                        pass
                     
-                    # Display options chains
                     st.markdown("---")
                     
-                    tab_calls, tab_puts = st.tabs(["📞 Call Options", "📉 Put Options"])
+                    # ============= OPTIONS CHAINS =============
+                    tab_calls, tab_puts = st.tabs(["📞 Calls", "📉 Puts"])
                     
                     with tab_calls:
-                        st.markdown("### Call Options Chain")
-                        # Show key columns
                         call_cols = ['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']
                         available_cols = [col for col in call_cols if col in options_data['calls'].columns]
                         
@@ -6758,7 +6704,6 @@ def main():
                         )
                     
                     with tab_puts:
-                        st.markdown("### Put Options Chain")
                         put_cols = ['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']
                         available_cols = [col for col in put_cols if col in options_data['puts'].columns]
                         
@@ -6768,78 +6713,60 @@ def main():
                             height=400
                         )
                     
-                    # Download option
+                    # ============= DOWNLOAD =============
                     st.markdown("---")
                     col1, col2 = st.columns(2)
                     with col1:
                         csv_calls = options_data['calls'].to_csv(index=False)
                         st.download_button(
-                            "⬇️ Download Call Options CSV",
+                            "⬇️ Download Calls CSV",
                             csv_calls,
                             f"{options_data['ticker']}_calls_{options_data['expiry']}.csv",
                             "text/csv",
-                            key="download_calls"
+                            key="download_calls",
+                            use_container_width=True
                         )
                     with col2:
                         csv_puts = options_data['puts'].to_csv(index=False)
                         st.download_button(
-                            "⬇️ Download Put Options CSV",
+                            "⬇️ Download Puts CSV",
                             csv_puts,
                             f"{options_data['ticker']}_puts_{options_data['expiry']}.csv",
                             "text/csv",
-                            key="download_puts"
+                            key="download_puts",
+                            use_container_width=True
                         )
+                
                 else:
-                    # Failed to fetch
+                    # ============= ERROR HANDLING =============
                     st.error(f"❌ Could not fetch options data for **{opt_ticker}**")
                     
-                    # Show helpful message based on ticker format
-                    if opt_ticker.startswith('^'):
-                        st.warning("⚠️ **Index Detected:** Direct index tickers (e.g., ^GSPC) may have limited options data. Try the corresponding ETF instead (e.g., SPY for S&P 500).")
-                    elif '.NS' in opt_ticker or '.BO' in opt_ticker:
-                        st.warning("⚠️ **Indian Stock Detected:** Indian options data is not available via free APIs. Use your broker's platform for Indian options.")
-                    elif '-USD' in opt_ticker:
-                        st.warning("⚠️ **Crypto Detected:** Cryptocurrency options have limited availability and are not supported via this API.")
+                    # Smart error detection
+                    error_detected = False
                     
-                    with st.expander("💡 Troubleshooting & Supported Tickers"):
-                        st.markdown("""
-                        ### ✅ Verified Working Tickers:
-                        
-                        **US Stocks:**
-                        - `AAPL` - Apple Inc.
-                        - `TSLA` - Tesla Inc.
-                        - `MSFT` - Microsoft Corporation
-                        - `GOOGL` - Alphabet Inc.
-                        - `AMZN` - Amazon.com Inc.
-                        - `NVDA` - NVIDIA Corporation
-                        - `META` - Meta Platforms Inc.
-                        
-                        **ETFs:**
-                        - `SPY` - S&P 500 ETF
-                        - `QQQ` - Nasdaq-100 ETF
-                        - `IWM` - Russell 2000 ETF
-                        - `DIA` - Dow Jones ETF
-                        
-                        ### ❌ Known Limitations:
-                        
-                        1. **Indian Options NOT Supported:**
-                           - Nifty 50 (`^NSEI`)
-                           - Bank Nifty (`^NSEBANK`)
-                           - Indian individual stocks
-                        
-                        2. **Reasons:**
-                           - yfinance (free API) doesn't provide Indian options data
-                           - NSE requires authentication and paid APIs
-                        
-                        3. **Alternatives for Indian Options:**
-                           - Use broker APIs (Zerodha Kite, Upstox)
-                           - NSE Official API (requires registration)
-                           - Paid data providers (TrueData, iVolatility)
-                        
-                        ### 🔧 Tips:
-                        - Always use uppercase ticker symbols
-                        - Ensure the stock has active options trading
-                        - Try popular, high-volume stocks
+                    if opt_ticker.startswith('^'):
+                        st.warning("💡 **Try the ETF equivalent instead:**")
+                        suggestions = {
+                            "^GSPC": "SPY (S&P 500 ETF)",
+                            "^IXIC": "QQQ (Nasdaq ETF)",
+                            "^DJI": "DIA (Dow ETF)",
+                            "^NSEI": "Not available (Use broker platform)",
+                            "^NSEBANK": "Not available (Use broker platform)"
+                        }
+                        suggestion = suggestions.get(opt_ticker, "Try the ETF version of this index")
+                        st.info(f"→ {suggestion}")
+                        error_detected = True
+                    
+                    if '.NS' in opt_ticker or '.BO' in opt_ticker:
+                        st.warning("💡 **Indian stocks detected:** Options data not available via free APIs. Use your broker's platform (Zerodha Kite, Upstox, etc.)")
+                        error_detected = True
+                    
+                    if not error_detected:
+                        st.info("""
+                        **Try these working tickers:**
+                        - Stocks: AAPL, TSLA, MSFT, NVDA, META
+                        - ETFs: SPY, QQQ, DIA, IWM
+                        - Ensure the ticker is correct and has active options trading
                         """)
 
     with tab4:
