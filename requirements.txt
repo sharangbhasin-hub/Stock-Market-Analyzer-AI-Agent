@@ -21,4 +21,6 @@ google-generativeai==0.8.5
 pandas_ta
 transformers>=4.30.0
 torch>=2.0.0
-pip install finnhub-python requests python-dotenv
+finnhub-python
+requests
+python-dotenv
