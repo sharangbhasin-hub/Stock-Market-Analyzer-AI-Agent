@@ -1522,6 +1522,288 @@ ASSET_CLASSES = {
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
 
+def save_analysis_for_comparison(ticker, results, ai_analysis=None):
+    """
+    Save analysis results for comparison
+    
+    Args:
+        ticker: Stock ticker
+        results: Technical analysis results dict
+        ai_analysis: AI-generated analysis text (optional)
+    """
+    try:
+        comparison_entry = {
+            'timestamp': datetime.now(),
+            'ticker': ticker,
+            'signal': results.get('signal', 'HOLD'),
+            'rsi': results.get('rsi', 0),
+            'macd': results.get('macd', {}),
+            'price': results.get('latestprice', 0),
+            'sentiment': results.get('sentiment', {}),
+            'moving_averages': results.get('movingaverages', {}),
+            'position_size': results.get('positionsize', 0),
+            'stop_loss': results.get('stoploss', 0),
+            'targets': results.get('targets', []),
+            'pattern_detections': results.get('allpatterns', []),
+            'ai_summary': ai_analysis[:500] if ai_analysis else None,
+            'currency': results.get('currency', '$')
+        }
+        
+        # Add to comparison data (keep last 10 analyses)
+        st.session_state['analysis_comparison_data'].append(comparison_entry)
+        if len(st.session_state['analysis_comparison_data']) > 10:
+            st.session_state['analysis_comparison_data'].pop(0)
+        
+        return comparison_entry
+    except Exception as e:
+        st.warning(f"Could not save for comparison: {str(e)}")
+        return None
+
+
+def generate_comparison_insights(comparison_data):
+    """
+    Generate insights by comparing multiple analysis results
+    
+    Returns:
+        dict: Comparison insights
+    """
+    if len(comparison_data) < 2:
+        return None
+    
+    insights = {
+        'total_analyses': len(comparison_data),
+        'tickers_analyzed': list(set([d['ticker'] for d in comparison_data])),
+        'signal_trend': [],
+        'rsi_trend': [],
+        'price_trend': [],
+        'sentiment_trend': [],
+        'pattern_frequency': {},
+        'recommendations': []
+    }
+    
+    # Track trends
+    for entry in comparison_data:
+        insights['signal_trend'].append({
+            'timestamp': entry['timestamp'],
+            'ticker': entry['ticker'],
+            'signal': entry['signal']
+        })
+        
+        insights['rsi_trend'].append({
+            'timestamp': entry['timestamp'],
+            'ticker': entry['ticker'],
+            'rsi': entry['rsi']
+        })
+        
+        insights['price_trend'].append({
+            'timestamp': entry['timestamp'],
+            'ticker': entry['ticker'],
+            'price': entry['price']
+        })
+        
+        # Track sentiment changes
+        sentiment = entry.get('sentiment', {})
+        insights['sentiment_trend'].append({
+            'timestamp': entry['timestamp'],
+            'ticker': entry['ticker'],
+            'sentiment': sentiment.get('sentiment', 'Neutral'),
+            'score': sentiment.get('score', 0)
+        })
+        
+        # Track pattern frequency
+        for pattern in entry.get('pattern_detections', []):
+            pattern_name = pattern.get('pattern', 'Unknown') if isinstance(pattern, dict) else str(pattern)
+            if pattern_name not in insights['pattern_frequency']:
+                insights['pattern_frequency'][pattern_name] = 0
+            insights['pattern_frequency'][pattern_name] += 1
+    
+    # Generate recommendations
+    insights['recommendations'] = generate_trend_recommendations(insights)
+    
+    return insights
+
+
+def generate_trend_recommendations(insights):
+    """Generate actionable recommendations from trends"""
+    recommendations = []
+    
+    # RSI trend analysis
+    recent_rsi = [r['rsi'] for r in insights['rsi_trend'][-3:]]
+    if len(recent_rsi) >= 2:
+        if all(rsi > 70 for rsi in recent_rsi):
+            recommendations.append({
+                'type': 'warning',
+                'message': '⚠️ RSI consistently overbought across recent analyses - consider taking profits'
+            })
+        elif all(rsi < 30 for rsi in recent_rsi):
+            recommendations.append({
+                'type': 'opportunity',
+                'message': '🎯 RSI consistently oversold - potential buying opportunity'
+            })
+    
+    # Signal consistency
+    recent_signals = [s['signal'] for s in insights['signal_trend'][-3:]]
+    if len(set(recent_signals)) == 1:
+        signal = recent_signals[0]
+        recommendations.append({
+            'type': 'confirmation',
+            'message': f'✅ Consistent {signal} signal across {len(recent_signals)} analyses - high confidence'
+        })
+    else:
+        recommendations.append({
+            'type': 'caution',
+            'message': '⚠️ Mixed signals detected - exercise caution and wait for confirmation'
+        })
+    
+    # Sentiment trend
+    sentiment_scores = [s['score'] for s in insights['sentiment_trend'][-3:] if s['score'] != 0]
+    if len(sentiment_scores) >= 2:
+        if all(score > 0.3 for score in sentiment_scores):
+            recommendations.append({
+                'type': 'bullish',
+                'message': '🟢 Consistently positive sentiment - favorable market mood'
+            })
+        elif all(score < -0.3 for score in sentiment_scores):
+            recommendations.append({
+                'type': 'bearish',
+                'message': '🔴 Consistently negative sentiment - market caution advised'
+            })
+    
+    # Pattern frequency insights
+    if insights['pattern_frequency']:
+        most_common = max(insights['pattern_frequency'].items(), key=lambda x: x[1])
+        if most_common[1] >= 2:
+            recommendations.append({
+                'type': 'pattern',
+                'message': f'📊 Recurring pattern detected: {most_common[0]} ({most_common[1]} times)'
+            })
+    
+    return recommendations
+
+
+def display_comparison_dashboard(insights):
+    """Display comparison insights dashboard"""
+    
+    if not insights:
+        st.warning("Not enough data for comparison (minimum 2 analyses required)")
+        return
+    
+    # Summary metrics
+    st.markdown("### 📈 Analysis Overview")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Total Analyses", insights['total_analyses'])
+    with col2:
+        st.metric("Tickers Analyzed", len(insights['tickers_analyzed']))
+    with col3:
+        st.metric("Patterns Detected", len(insights['pattern_frequency']))
+    
+    st.markdown("---")
+    
+    # Recommendations
+    st.markdown("### 💡 Key Insights & Recommendations")
+    
+    if not insights['recommendations']:
+        st.info("Not enough data to generate specific recommendations yet.")
+    
+    for rec in insights['recommendations']:
+        rec_type = rec['type']
+        message = rec['message']
+        
+        if rec_type == 'warning' or rec_type == 'caution':
+            st.warning(message)
+        elif rec_type == 'opportunity' or rec_type == 'bullish':
+            st.success(message)
+        elif rec_type == 'bearish':
+            st.error(message)
+        else:
+            st.info(message)
+    
+    st.markdown("---")
+    
+    # Signal Trend
+    st.markdown("### 📊 Signal Trend Analysis")
+    
+    signal_df = pd.DataFrame(insights['signal_trend'])
+    if not signal_df.empty:
+        signal_df['timestamp'] = pd.to_datetime(signal_df['timestamp'])
+        
+        st.dataframe(
+            signal_df[['timestamp', 'ticker', 'signal']].tail(10),
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    # RSI Trend
+    st.markdown("### 📉 RSI Trend")
+    
+    rsi_df = pd.DataFrame(insights['rsi_trend'])
+    if not rsi_df.empty and len(rsi_df) > 1:
+        rsi_df['timestamp'] = pd.to_datetime(rsi_df['timestamp'])
+        
+        fig = go.Figure()
+        
+        for ticker in rsi_df['ticker'].unique():
+            ticker_data = rsi_df[rsi_df['ticker'] == ticker]
+            fig.add_trace(go.Scatter(
+                x=ticker_data['timestamp'],
+                y=ticker_data['rsi'],
+                mode='lines+markers',
+                name=ticker,
+                line=dict(width=2)
+            ))
+        
+        # Add RSI zones
+        fig.add_hline(y=70, line_dash="dash", line_color="red", annotation_text="Overbought")
+        fig.add_hline(y=30, line_dash="dash", line_color="green", annotation_text="Oversold")
+        
+        fig.update_layout(
+            title="RSI Trend Across Analyses",
+            xaxis_title="Analysis Time",
+            yaxis_title="RSI Value",
+            hovermode='x unified',
+            height=400
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    # Sentiment Trend
+    st.markdown("### 💭 Sentiment Trend")
+    
+    sentiment_df = pd.DataFrame(insights['sentiment_trend'])
+    if not sentiment_df.empty:
+        sentiment_df['timestamp'] = pd.to_datetime(sentiment_df['timestamp'])
+        
+        st.dataframe(
+            sentiment_df[['timestamp', 'ticker', 'sentiment', 'score']].tail(10),
+            use_container_width=True,
+            hide_index=True
+        )
+    
+    # Pattern Frequency
+    if insights['pattern_frequency']:
+        st.markdown("### 🔍 Pattern Frequency")
+        
+        pattern_df = pd.DataFrame([
+            {'Pattern': k, 'Occurrences': v} 
+            for k, v in insights['pattern_frequency'].items()
+        ]).sort_values('Occurrences', ascending=False)
+        
+        st.bar_chart(pattern_df.set_index('Pattern')['Occurrences'])
+    
+    # Export option
+    st.markdown("---")
+    if st.button("📥 Export Comparison Data"):
+        export_df = pd.DataFrame(st.session_state['analysis_comparison_data'])
+        csv = export_df.to_csv(index=False)
+        st.download_button(
+            "Download CSV",
+            csv,
+            f"analysis_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            "text/csv"
+        )
+
 def get_currency_symbol(ticker, selected_market=None):
     """
     Get currency symbol based on ticker suffix or selected market
@@ -4406,9 +4688,15 @@ def main():
         st.session_state['analysis_history'] = []
     if 'broker' not in st.session_state:
         st.session_state['broker'] = BrokerAPI()
-
     if 'analysis_results' not in st.session_state:
             st.session_state['analysis_results'] = {}
+            
+        # NEW: Comparison feature initialization
+    if 'analysis_comparison_data' not in st.session_state:
+        st.session_state['analysis_comparison_data'] = []
+    if 'comparison_enabled' not in st.session_state:
+        st.session_state['comparison_enabled'] = False
+
         
             results = st.session_state.get('analysis_results', {})
 
@@ -5335,6 +5623,7 @@ def main():
                             print(f"   - articles count: {len(results['sentiment_detailed'].get('articles', []))}")
             
                             st.session_state['analysis_results'] = results
+                            save_analysis_for_comparison(ticker_input, results)
                             st.session_state['current_ticker'] = ticker_input
             
                             # Log to database
@@ -6475,78 +6764,117 @@ def main():
 
     with tab2:
         st.subheader("🤖 AI-Powered Trading Insights")
+        
+        # Create subtabs for current analysis and comparison
+        subtab1, subtab2 = st.tabs(["💡 Current Analysis", "📊 Comparison View"])
+        
+        with subtab1:
+            if 'analysis_results' not in st.session_state:
+                st.info("👈 Please run an analysis first from the Analysis tab")
+            elif ai_model == "None":
+                st.warning("⚠️ Please select an AI model from the sidebar to generate insights")
+            else:
+                results = st.session_state['analysis_results']
+                ticker = results.get('ticker', 'Unknown')
 
-        if 'analysis_results' not in st.session_state:
-            st.info("👈 Please run an analysis first from the Analysis tab")
-        elif ai_model == "None":
-            st.warning("⚠️ Please select an AI model from the sidebar to generate insights")
-        else:
-            results = st.session_state['analysis_results']
-            ticker = results.get('ticker', 'Unknown')
+                st.success(f"✅ **Analyzing:** {ticker}")
+                st.write(f"**AI Model:** {ai_model}")
 
-            st.success(f"✅ **Analyzing:** {ticker}")
-            st.write(f"**AI Model:** {ai_model}")
+                if st.button("🧠 Generate AI Analysis", type="primary"):
+                    with st.spinner(f"Generating insights with {ai_model}..."):
+                        progress_bar = st.progress(0)
+                        # Simulate progress (replace or remove sleep for real progress updates)
+                        for i in range(30):
+                            time.sleep(0.1)  # Simulate waiting
+                            progress_bar.progress(i + 1)
+                
+                        prompt = generate_comprehensive_analysis(
+                            ticker,
+                            results,
+                            results.get('sentiment', {}),
+                            results.get('news_headlines', [])
+                        )
 
-            if st.button("🧠 Generate AI Analysis", type="primary"):
-                with st.spinner(f"Generating insights with {ai_model}..."):
-                    progress_bar = st.progress(0)
-                    # Simulate progress (replace or remove sleep for real progress updates)
-                    for i in range(30):
-                        time.sleep(0.1)  # Simulate waiting
-                        progress_bar.progress(i + 1)
-            
-                    prompt = generate_comprehensive_analysis(
-                        ticker,
-                        results,
-                        results.get('sentiment', {}),
-                        results.get('news_headlines', [])
+                        # Generate AI response
+                        if ai_model == "Google Gemini":
+                            ai_response = get_ai_analysis_gemini(prompt)
+                        else:
+                            model_name = ai_model_map.get(ai_model, "anthropic/claude-3.5-sonnet")
+                            ai_response = get_ai_analysis_openrouter(prompt, model_name)
+
+                        st.session_state['ai_analysis'] = ai_response
+                        
+                        # Auto-save for comparison
+                        save_analysis_for_comparison(ticker, results, ai_response)
+                        
+                        st.success("✅ AI Analysis Generated and saved for comparison!")
+
+                        progress_bar.empty()
+
+                # Display AI analysis
+                if 'ai_analysis' in st.session_state:
+                    st.markdown("---")
+                    st.markdown("### 💡 AI Insights")
+                    st.markdown(st.session_state['ai_analysis'])
+
+                    # Option to download
+                    st.download_button(
+                        "📥 Download AI Analysis",
+                        st.session_state['ai_analysis'],
+                        file_name=f"ai_analysis_{results['ticker']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain"
                     )
 
-                    # Generate AI response
-                    if ai_model == "Google Gemini":
-                        ai_response = get_ai_analysis_gemini(prompt)
-                    else:
-                        model_name = ai_model_map.get(ai_model, "anthropic/claude-3.5-sonnet")
-                        ai_response = get_ai_analysis_openrouter(prompt, model_name)
+                    st.session_state["last_analysis_time"] = datetime.now()
+                    if "analysis_history" not in st.session_state:
+                        st.session_state["analysis_history"] = []
+                    st.session_state["analysis_history"].append(st.session_state["last_analysis_time"])
 
-                    st.session_state['ai_analysis'] = ai_response
-                    st.success("✅ AI Analysis Generated!")
-
-                    progress_bar.empty()
-
-            # Display AI analysis
-            if 'ai_analysis' in st.session_state:
-                st.markdown("---")
-                st.markdown("### 💡 AI Insights")
-                st.markdown(st.session_state['ai_analysis'])
-
-                # Option to download
-                st.download_button(
-                    "📥 Download AI Analysis",
-                    st.session_state['ai_analysis'],
-                    file_name=f"ai_analysis_{results['ticker']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
+                    import pytz
+                    
+                    # Show last analysis run timestamp
+                    if "last_analysis_time" in st.session_state:
+                        last_run = st.session_state["last_analysis_time"]
+                        local_time = last_run.astimezone(pytz.timezone('Asia/Kolkata'))
+                        st.markdown(f"🕒 **Last analysis run:** {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                    
+                    # Show recent analysis history
+                    if "analysis_history" in st.session_state and st.session_state["analysis_history"]:
+                        st.subheader("🕑 Analysis Run History (Last 5 times)")
+                        for idx, ts in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
+                            local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
+                            st.markdown(f"{idx}. {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+        
+        with subtab2:
+            st.subheader("📊 AI Insights Comparison")
+            
+            if not st.session_state.get('analysis_comparison_data'):
+                st.info("📝 No comparison data yet. Run analyses and they will be automatically saved here.")
+                st.markdown("""
+                **How it works:**
+                1. Run technical analysis from the **Analysis tab**
+                2. Generate AI insights using the button above
+                3. Results are automatically saved for comparison
+                4. Come back here to see trends and patterns across multiple analyses
+                """)
+            else:
+                # Show number of saved analyses
+                st.info(f"📊 **{len(st.session_state['analysis_comparison_data'])}** analyses saved (max 10 kept)")
+                
+                comparison_insights = generate_comparison_insights(
+                    st.session_state['analysis_comparison_data']
                 )
-
-                st.session_state["last_analysis_time"] = datetime.now()
-                if "analysis_history" not in st.session_state:
-                    st.session_state["analysis_history"] = []
-                st.session_state["analysis_history"].append(st.session_state["last_analysis_time"])
-
-                import pytz
                 
-                # Show last analysis run timestamp
-                if "last_analysis_time" in st.session_state:
-                    last_run = st.session_state["last_analysis_time"]
-                    local_time = last_run.astimezone(pytz.timezone('Asia/Kolkata'))
-                    st.markdown(f"🕒 **Last analysis run:** {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                # Display comparison dashboard
+                display_comparison_dashboard(comparison_insights)
                 
-                # Show recent analysis history
-                if "analysis_history" in st.session_state and st.session_state["analysis_history"]:
-                    st.subheader("🕑 Analysis Run History (Last 5 times)")
-                    for idx, ts in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
-                        local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
-                        st.markdown(f"{idx}. {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                # Option to clear comparison data
+                st.markdown("---")
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    if st.button("🗑️ Clear All Data", type="secondary"):
+                        st.session_state['analysis_comparison_data'] = []
+                        st.rerun()
 
     # ===========================================================================
     # === TAB 3-6: OPTIONS, BACKTESTING, PORTFOLIO, LIVE TRADING
