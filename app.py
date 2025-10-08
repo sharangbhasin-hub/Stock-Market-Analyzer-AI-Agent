@@ -6692,34 +6692,21 @@ def main():
                 if options_data:
                     st.success(f"✅ Options loaded: **{options_data['ticker']}**")
                     
-                    # Get expiry info dynamically
+                    # Get expiry info dynamically from API
                     expiry_info = options_analyzer.get_nearest_expiry(opt_ticker)
                     
-                    # Compact info row with real data from API
-                    info_col1, info_col2, info_col3 = st.columns(3)
-                    
-                    with info_col1:
+                    # ============= DISPLAY EXPIRY INFO (NO TRUNCATION) =============
                     if expiry_info:
                         if expiry_info['expires_today']:
-                            st.error(f"🔴 **Options Expire TODAY:** {expiry_info['date']}")
+                            # Red banner for options expiring TODAY
+                            st.error(f"🔴 **Options Expire TODAY:** {expiry_info['date']} | Available Expiries: {len(options_data['all_expiries'])}")
                         else:
-                            st.info(f"📆 **Nearest Expiry:** {expiry_info['date']} ({expiry_info['days_until']} days) | **Available Expiries:** {len(options_data['all_expiries'])}")
+                            # Blue info banner for future expiry
+                            st.info(f"📆 **Nearest Expiry:** {expiry_info['date']} (in {expiry_info['days_until']} days) | Available Expiries: {len(options_data['all_expiries'])}")
                     else:
-                        st.info(f"📆 **Nearest Expiry:** {options_data['expiry']} | **Available Expiries:** {len(options_data['all_expiries'])}")
-                                        
-                    with info_col2:
-                        st.metric("Available Expiries", len(options_data['all_expiries']))
+                        # Fallback if API fails
+                        st.info(f"📆 **Nearest Expiry:** {options_data['expiry']} | Available Expiries: {len(options_data['all_expiries'])}")
                     
-                    with info_col3:
-                        if expiry_info:
-                            days_label = expiry_info['days_until']
-                            if expiry_info['expires_today']:
-                                st.metric("Days Until Expiry", "0 (TODAY)", delta="Expires Today", delta_color="inverse")
-                            else:
-                                st.metric("Days Until Expiry", f"{days_label} days")
-                        else:
-                            st.metric("Days Until Expiry", "N/A")
-
                     st.markdown("---")
                     
                     # ============= PCR ANALYSIS =============
