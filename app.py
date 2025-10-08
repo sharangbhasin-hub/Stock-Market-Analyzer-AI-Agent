@@ -6476,77 +6476,149 @@ def main():
     with tab2:
         st.subheader("🤖 AI-Powered Trading Insights")
 
+        # Check 1: No analysis results
         if 'analysis_results' not in st.session_state:
-            st.info("👈 Please run an analysis first from the Analysis tab")
-        elif ai_model == "None":
-            st.warning("⚠️ Please select an AI model from the sidebar to generate insights")
+            st.info("👈 Please run an analysis first from the **Analysis** tab")
+            st.markdown("""
+            **To get AI insights:**
+            1. Go to the **Analysis** tab
+            2. Select an asset class and ticker
+            3. Click **Analyze with Full Suite**
+            4. Return here to generate AI insights
+            """)
+        
+        # Check 2: No AI model selected
+        elif ai_model is None or ai_model == "":  # ✅ Fixed to check None properly
+            st.warning("⚠️ **Please select an AI model from the sidebar**")
+            st.info("""
+            **Available AI Models:**
+            - Google Gemini (Free with API key)
+            - Claude 3.5 Sonnet
+            - GPT-4 Turbo
+            - GPT-4
+            - Claude 3 Opus
+            
+            **How to select:**
+            Look for **"AI Model Selection"** in the left sidebar
+            """)
+        
+        # All checks passed - show analysis interface
         else:
             results = st.session_state['analysis_results']
-            ticker = results.get('ticker', None)
+            ticker = results.get('ticker', 'Unknown')
 
-            st.write(f"**Analyzing:** {results['ticker']}")
-            st.write(f"**AI Model:** {ai_model}")
-
-            if st.button("🧠 Generate AI Analysis", type="primary"):
-                with st.spinner(f"Generating insights with {ai_model}..."):
-                    progress_bar = st.progress(0)
-                    # Simulate progress (replace or remove sleep for real progress updates)
-                    for i in range(30):
-                        time.sleep(0.1)  # Simulate waiting
-                        progress_bar.progress(i + 1)
+            # Display current analysis info
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                st.success(f"✅ **Analyzing:** {ticker}")
+            with col2:
+                st.info(f"🤖 **Model:** {ai_model}")
             
-                    prompt = generate_comprehensive_analysis(
-                        ticker,
-                        results,
-                        results.get('sentiment', {}),
-                        results.get('news_headlines', [])
-                    )
+            st.markdown("---")
 
-                    # Generate AI response
-                    if ai_model == "Google Gemini":
-                        ai_response = get_ai_analysis_gemini(prompt)
-                    else:
-                        model_name = ai_model_map.get(ai_model, "anthropic/claude-3.5-sonnet")
-                        ai_response = get_ai_analysis_openrouter(prompt, model_name)
+            # Generate AI Analysis Button
+            if st.button("✨ Generate AI Analysis", type="primary", use_container_width=True):
+                # Double-check AI model when button is clicked
+                if ai_model is None or ai_model == "":
+                    st.error("❌ **No AI model selected!**")
+                    st.warning("👈 Please select an AI model from the **sidebar** first")
+                    st.stop()
+                
+                with st.spinner(f"🔄 Generating insights with {ai_model}..."):
+                    try:
+                        progress_bar = st.progress(0)
+                        
+                        # Progress simulation
+                        for i in range(30):
+                            time.sleep(0.1)
+                            progress_bar.progress((i + 1) / 30)
+                
+                        # Generate analysis prompt
+                        prompt = generate_comprehensive_analysis(
+                            ticker,
+                            results,
+                            results.get('sentiment', ''),
+                            results.get('news_headlines', [])
+                        )
 
-                    st.session_state['ai_analysis'] = ai_response
-                    st.success("✅ AI Analysis Generated!")
+                        # Generate AI response
+                        if ai_model == "Google Gemini":
+                            ai_response = get_ai_analysis_gemini(prompt)
+                        else:
+                            model_name = ai_model_map.get(ai_model, "anthropic/claude-3.5-sonnet")
+                            ai_response = get_ai_analysis_openrouter(prompt, model_name)
 
-                    progress_bar.empty()
+                        # Store in session state
+                        st.session_state['ai_analysis'] = ai_response
+                        st.session_state['last_analysis_time'] = datetime.now()
+                        
+                        # Add to history
+                        if "analysis_history" not in st.session_state:
+                            st.session_state["analysis_history"] = []
+                        st.session_state["analysis_history"].append(st.session_state["last_analysis_time"])
+                        
+                        st.success("✅ AI Analysis Generated!")
+                        progress_bar.empty()
+                        st.rerun()  # Refresh to show analysis
+                        
+                    except Exception as e:
+                        st.error(f"❌ **Error:** {str(e)}")
+                        st.warning("⚠️ Please check your API keys and try again")
+                        progress_bar.empty()
 
-            # Display AI analysis
-            if 'ai_analysis' in st.session_state:
-                st.markdown("---")
+            st.markdown("---")
+
+            # Display AI analysis if available
+            if 'ai_analysis' in st.session_state and st.session_state['ai_analysis']:
                 st.markdown("### 💡 AI Insights")
                 st.markdown(st.session_state['ai_analysis'])
 
-                # Option to download
-                st.download_button(
-                    "📥 Download AI Analysis",
-                    st.session_state['ai_analysis'],
-                    file_name=f"ai_analysis_{results['ticker']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain"
-                )
+                st.markdown("---")
 
-                st.session_state["last_analysis_time"] = datetime.now()
-                if "analysis_history" not in st.session_state:
-                    st.session_state["analysis_history"] = []
-                st.session_state["analysis_history"].append(st.session_state["last_analysis_time"])
-
-                import pytz
+                # Download buttons
+                col_download1, col_download2 = st.columns(2)
                 
-                # Show last analysis run timestamp
+                with col_download1:
+                    st.download_button(
+                        "⬇️ Download as TXT",
+                        st.session_state['ai_analysis'],
+                        file_name=f"ai_analysis_{ticker}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain",
+                        use_container_width=True,
+                        key="download_txt_ai"
+                    )
+                
+                with col_download2:
+                    # Markdown format
+                    md_content = f"# AI Analysis: {ticker}\n\n"
+                    md_content += f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+                    md_content += f"**Model:** {ai_model}\n\n---\n\n"
+                    md_content += st.session_state['ai_analysis']
+                    
+                    st.download_button(
+                        "⬇️ Download as MD",
+                        md_content,
+                        file_name=f"ai_analysis_{ticker}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
+                        mime="text/markdown",
+                        use_container_width=True,
+                        key="download_md_ai"
+                    )
+
+                # Show last analysis time
                 if "last_analysis_time" in st.session_state:
+                    import pytz
                     last_run = st.session_state["last_analysis_time"]
                     local_time = last_run.astimezone(pytz.timezone('Asia/Kolkata'))
-                    st.markdown(f"🕒 **Last analysis run:** {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                    st.caption(f"🕒 Last generated: {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
                 
-                # Show recent analysis history
+                # Analysis history
                 if "analysis_history" in st.session_state and st.session_state["analysis_history"]:
-                    st.subheader("🕑 Analysis Run History (Last 5 times)")
-                    for idx, ts in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
-                        local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
-                        st.markdown(f"{idx}. {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                    with st.expander("📜 Analysis History (Last 5 runs)"):
+                        import pytz
+                        for idx, ts in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
+                            local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
+                            st.markdown(f"**{idx}.** {local_time.strftime('%d-%m-%Y %H:%M:%S %Z')}")
+
 
     # ===========================================================================
     # === TAB 3-6: OPTIONS, BACKTESTING, PORTFOLIO, LIVE TRADING
