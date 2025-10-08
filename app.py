@@ -6439,14 +6439,14 @@ def main():
         st.subheader("🤖 AI-Powered Trading Insights")
 
         if 'analysis_results' not in st.session_state:
-            st.info("👈 Please run an analysis first from the Analysis tab")
-        elif ai_model == "None":
-            st.warning("⚠️ Please select an AI model from the sidebar to generate insights")
+            st.info("Please run an analysis first from the Analysis tab")
+        elif ai_model is None:
+            st.warning("Please select an AI model from the sidebar to generate insights")
         else:
             results = st.session_state['analysis_results']
             ticker = results.get('ticker', None)
-
-            st.write(f"**Analyzing:** {results['ticker']}")
+            st.write(f"Analyzing {results['ticker']}")
+                       
             st.write(f"**AI Model:** {ai_model}")
 
             if st.button("🧠 Generate AI Analysis", type="primary"):
