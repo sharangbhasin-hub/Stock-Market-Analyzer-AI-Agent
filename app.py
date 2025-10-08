@@ -6583,7 +6583,7 @@ def main():
         
         st.markdown("---")
         
-        # ============= TICKER INPUT (CLEAN) =============
+        # ============= TICKER INPUT =============
         options_analyzer = OptionsAnalyzer()
         
         # Auto-fill logic
@@ -6592,6 +6592,7 @@ def main():
         else:
             default_ticker = 'AAPL'
         
+        # Initialize session state ONCE
         if 'opt_ticker' not in st.session_state:
             st.session_state['opt_ticker'] = default_ticker
         
@@ -6602,10 +6603,10 @@ def main():
             # Get current value from session state
             current_value = st.session_state.get('opt_ticker', default_ticker)
             
-            # Text input - using value parameter (this works!)
+            # Text input with value parameter
             opt_ticker = st.text_input(
                 "Options Ticker",
-                value=current_value,
+                value=current_value,  # ✅ Use value parameter instead
                 key="opt_ticker_input_field",
                 label_visibility="collapsed",
                 placeholder="Enter ticker (e.g., AAPL, SPY, QQQ)"
@@ -6614,9 +6615,10 @@ def main():
             # Update session state when user types
             if opt_ticker != current_value:
                 st.session_state['opt_ticker'] = opt_ticker
-
+        
         with col_button:
             analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True, key="analyze_options_btn")
+
         
         # ============= SMART QUICK SELECT =============
         # Show different buttons based on context
