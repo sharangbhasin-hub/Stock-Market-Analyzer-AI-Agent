@@ -6600,19 +6600,20 @@ def main():
         col_input, col_button = st.columns([3, 1])
         
         with col_input:
-            # CRITICAL: Always read from session state (no intermediate variable)
+            # Use session state value as part of the key to force recreation
             opt_ticker = st.text_input(
                 "Options Ticker",
-                value=st.session_state.get('opt_ticker', default_ticker),  # ✅ Read directly each time
-                key="opt_ticker_input_field",
+                value=st.session_state.get('opt_ticker', default_ticker),
+                key=f"opt_ticker_input_{st.session_state.get('opt_ticker', default_ticker)}",  # ✅ Dynamic key
                 label_visibility="collapsed",
                 placeholder="Enter ticker (e.g., AAPL, SPY, QQQ)"
             )
             
             # Update session state when user types
-            if opt_ticker:
+            if opt_ticker != st.session_state.get('opt_ticker', default_ticker):
                 st.session_state['opt_ticker'] = opt_ticker
-        
+                st.rerun()  # Force update
+    
         with col_button:
             analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True, key="analyze_options_btn")
 
