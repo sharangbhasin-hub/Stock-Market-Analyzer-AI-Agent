@@ -4696,9 +4696,7 @@ def main():
         st.session_state['analysis_comparison_data'] = []
     if 'comparison_enabled' not in st.session_state:
         st.session_state['comparison_enabled'] = False
-
-        
-            results = st.session_state.get('analysis_results', {})
+        results = st.session_state.get('analysis_results', {})
 
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
