@@ -6592,37 +6592,37 @@ def main():
         else:
             default_ticker = 'AAPL'
         
-        # Initialize session state ONCE
+        # Initialize session state
         if 'opt_ticker' not in st.session_state:
             st.session_state['opt_ticker'] = default_ticker
+        
+        # Check if we need to force text input update
+        if 'force_ticker_update' in st.session_state:
+            # This flag is set by quick buttons
+            del st.session_state['force_ticker_update']
         
         # Input row
         col_input, col_button = st.columns([3, 1])
         
         with col_input:
-            # Use session state value as part of the key to force recreation
-            opt_ticker = st.text_input(
+            # Simple text input - no fancy dynamic keys
+            opt_ticker_input = st.text_input(
                 "Options Ticker",
-                value=st.session_state.get('opt_ticker', default_ticker),
-                key=f"opt_ticker_input_{st.session_state.get('opt_ticker', default_ticker)}",  # ✅ Dynamic key
+                value=st.session_state['opt_ticker'],
                 label_visibility="collapsed",
                 placeholder="Enter ticker (e.g., AAPL, SPY, QQQ)"
             )
             
-            # Update session state when user types
-            if opt_ticker != st.session_state.get('opt_ticker', default_ticker):
-                st.session_state['opt_ticker'] = opt_ticker
-                st.rerun()  # Force update
-    
+            # Update session state if user manually typed
+            if opt_ticker_input and opt_ticker_input != st.session_state['opt_ticker']:
+                st.session_state['opt_ticker'] = opt_ticker_input
+        
         with col_button:
             analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True, key="analyze_options_btn")
-
         
-        # ============= SMART QUICK SELECT =============
-        # Show different buttons based on context
+        # Quick select buttons
         if current_asset_class == "Indices":
             st.caption("📌 Popular Index Options:")
-            quick_cols = st.columns(5)
             quick_buttons = [
                 ("SPY", "S&P 500 ETF", "quick_spy"),
                 ("QQQ", "Nasdaq ETF", "quick_qqq"),
@@ -6632,7 +6632,6 @@ def main():
             ]
         else:
             st.caption("📌 Popular Stock Options:")
-            quick_cols = st.columns(5)
             quick_buttons = [
                 ("AAPL", "Apple", "quick_aapl"),
                 ("TSLA", "Tesla", "quick_tsla"),
@@ -6641,13 +6640,18 @@ def main():
                 ("MSFT", "Microsoft", "quick_msft")
             ]
         
+        quick_cols = st.columns(5)
         for idx, (ticker, label, key) in enumerate(quick_buttons):
             with quick_cols[idx]:
                 if st.button(ticker, key=key, use_container_width=True, help=label):
                     st.session_state['opt_ticker'] = ticker
-                    st.rerun()
+                    st.session_state['force_ticker_update'] = True
+                    st.rerun()  # Force immediate update
         
         st.markdown("---")
+        
+        # Get the ticker for analysis (from session state)
+        opt_ticker = st.session_state.get('opt_ticker', default_ticker)
         
         # ============= COMPACT HELP SECTION =============
         with st.expander("ℹ️ Need Help?"):
