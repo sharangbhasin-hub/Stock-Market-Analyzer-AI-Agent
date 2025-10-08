@@ -1602,13 +1602,27 @@ def generate_comparison_insights(comparison_data):
         
         # Track sentiment changes
         sentiment = entry.get('sentiment', {})
+        
+        # Handle both string and dict sentiment formats
+        if isinstance(sentiment, dict):
+            sentiment_value = sentiment.get('sentiment', 'Neutral')
+            sentiment_score = sentiment.get('score', 0)
+        elif isinstance(sentiment, str):
+            # If sentiment is already a string (e.g., "Positive", "Negative", "Neutral")
+            sentiment_value = sentiment
+            sentiment_score = 0  # No score available
+        else:
+            # Fallback for any other type
+            sentiment_value = 'Neutral'
+            sentiment_score = 0
+        
         insights['sentiment_trend'].append({
             'timestamp': entry['timestamp'],
             'ticker': entry['ticker'],
-            'sentiment': sentiment.get('sentiment', 'Neutral'),
-            'score': sentiment.get('score', 0)
+            'sentiment': sentiment_value,
+            'score': sentiment_score
         })
-        
+
         # Track pattern frequency
         for pattern in entry.get('pattern_detections', []):
             pattern_name = pattern.get('pattern', 'Unknown') if isinstance(pattern, dict) else str(pattern)
