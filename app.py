@@ -4757,7 +4757,7 @@ class StockAnalyzer:
             return atr.iloc[-1] if not pd.isna(atr.iloc[-1]) else 0
         except:
             return 0
-
+    
     def check_rate_limit():
         """Check if we can make a request based on rate limiting"""
         now = datetime.now()
@@ -4793,6 +4793,8 @@ class StockAnalyzer:
         st.session_state['request_count'] += 1
         
         return True
+
+
 
 # ==============================================================================
 # === MAIN STREAMLIT UI WITH ALL MISSING FEATURES ==============================
