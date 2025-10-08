@@ -4593,6 +4593,9 @@ def main():
         col1, col2 = st.columns([2, 1])
 
         with col1:
+            # Initialize AlphaVantage
+            av = AlphaVantageAPI()
+
             # ============= ASSET CLASS SELECTION =============
             st.subheader("🎯 Asset Selection")
             
@@ -4657,9 +4660,6 @@ def main():
             
             # ========== EQUITIES (STOCKS) ==========
             if selected_asset_class == "Equities (Stocks)":
-                
-                # Initialize AlphaVantage
-                av = AlphaVantageAPI()
                 
                 # Check if auto-analyze from pre-market scanner
                 if 'auto_analyze_ticker' in st.session_state:
