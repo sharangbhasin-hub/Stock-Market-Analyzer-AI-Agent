@@ -6703,47 +6703,6 @@ def main():
                         except:
                             st.markdown(f"**{idx}.** Invalid entry")
         
-        # ============= DISPLAY AI ANALYSIS =============
-        if 'ai_analysis' in st.session_state and st.session_state.get('ai_analysis'):
-            st.markdown("### 📝 AI Insights")
-            
-            # Show which ticker this analysis is for
-            analysis_ticker = st.session_state.get('ai_analysis_ticker', 'Unknown')
-            if analysis_ticker != ticker:
-                st.warning(f"⚠️ **Note:** This AI analysis is for **{analysis_ticker}**, but you're currently viewing analysis for **{ticker}**")
-            
-            # Display the analysis
-            st.markdown(st.session_state['ai_analysis'])
-            
-            # Download option
-            col_download1, col_download2 = st.columns(2)
-            
-            with col_download1:
-                st.download_button(
-                    "⬇️ Download AI Analysis (TXT)",
-                    st.session_state['ai_analysis'],
-                    file_name=f"ai_analysis_{analysis_ticker}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                    key="download_txt"
-                )
-            
-            with col_download2:
-                # Generate markdown format
-                md_content = f"# AI Trading Analysis: {analysis_ticker}\n\n"
-                md_content += f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-                md_content += f"**AI Model:** {ai_model}\n\n"
-                md_content += f"---\n\n{st.session_state['ai_analysis']}"
-                
-                st.download_button(
-                    "⬇️ Download AI Analysis (MD)",
-                    md_content,
-                    file_name=f"ai_analysis_{analysis_ticker}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
-                    mime="text/markdown",
-                    use_container_width=True,
-                    key="download_md"
-                )
-        
         # ============= ANALYSIS HISTORY =============
         if 'analysis_history' in st.session_state and st.session_state['analysis_history']:
             with st.expander("📜 Analysis History (Last 5 Runs)"):
