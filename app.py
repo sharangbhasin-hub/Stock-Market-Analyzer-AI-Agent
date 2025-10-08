@@ -6498,7 +6498,7 @@ def main():
             # Display current analysis info
             col1, col2 = st.columns([2, 1])
             with col1:
-                st.success(f"**Analyzing:** {results['ticker']}")
+                st.success(f"**Analyzing:** {ticker}")
             with col2:
                 st.info(f"**AI Model:** {ai_model}")
             
