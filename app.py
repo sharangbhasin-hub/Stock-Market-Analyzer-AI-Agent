@@ -1228,8 +1228,7 @@ class MultiAssetAPIHandler:
                 
                 source_info = {
                     'type': 'Finnhub',
-                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'details': 'Finnhub free tier supports US indices only'
+                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
                 return indices, source_info
