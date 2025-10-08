@@ -2531,35 +2531,92 @@ def get_company_name_multi_source(ticker, _alpha_vantage_api=None):
     print(f"   ⚠️ Using formatted ticker: {formatted_name}")
     return formatted_name
 
-@st.cache_data
-def fetch_stock_data(ticker, period="1y", interval="1d"):
-    """Fetch stock data"""
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        if not info.get('longName') and not info.get('shortName'):
-            st.error(f"Ticker '{ticker}' not found")
-            return None
-        hist = stock.history(period=period, interval=interval)
-        if hist.empty:
-            st.error(f"No data found for {ticker}")
-            return None
-        return hist
-    except Exception as e:
-        st.error(f"Error: {e}")
-        return None
+@st.cache_data(ttl=60)  # Cache for 1 minutes
+def fetch_stock_data(ticker, period="1y", interval="1d", retries=3):
+    """Fetch stock data with retry logic and rate limit handling"""
+    
+    for attempt in range(retries):
+        try:
+            # Add delay between requests to avoid rate limiting
+            if attempt > 0:
+                wait_time = (attempt + 1) * 3  # 3s, 6s, 9s
+                st.info(f"⏳ Retrying... (Attempt {attempt + 1}/{retries}) - Waiting {wait_time}s")
+                time.sleep(wait_time)
+            else:
+                # Always add a 1-second delay for first request
+                time.sleep(1)
+            
+            # Use Ticker object
+            stock = yf.Ticker(ticker)
+            
+            # Fetch history
+            hist = stock.history(period=period, interval=interval)
+            
+            if hist.empty:
+                if attempt == retries - 1:
+                    st.warning(f"⚠️ No data found for {ticker}. Please verify the ticker symbol.")
+                    return None
+                continue
+            
+            return hist
+            
+        except Exception as e:
+            error_msg = str(e).lower()
+            
+            # Check if it's a rate limit error
+            if "rate" in error_msg or "429" in error_msg or "too many" in error_msg:
+                if attempt < retries - 1:
+                    wait_time = (attempt + 2) * 10  # 20s, 30s, 40s for rate limits
+                    st.warning(f"⏳ Rate limit detected. Waiting {wait_time} seconds before retry...")
+                    time.sleep(wait_time)
+                else:
+                    st.error("❌ Rate limit exceeded. Please wait 2-3 minutes before trying again.")
+                    st.info("💡 **Tip:** Try analyzing a different stock or wait before retrying.")
+                    return None
+            else:
+                if attempt == retries - 1:
+                    st.error(f"❌ Error fetching data: {e}")
+                    return None
+    
+    return None
 
-def fetch_intraday_data(ticker, interval="5m", period="5d"):
-    """Fetch intraday data"""
-    try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period=period, interval=interval)
-        if hist.empty:
-            return None
-        hist.columns = [col.lower() for col in hist.columns]
-        return hist
-    except Exception as e:
-        return None
+def fetch_intraday_data(ticker, interval="5m", period="5d", retries=3):
+    """Fetch intraday data with retry logic"""
+    
+    for attempt in range(retries):
+        try:
+            # Add delay
+            if attempt > 0:
+                wait_time = (attempt + 1) * 3
+                time.sleep(wait_time)
+            else:
+                time.sleep(1)  # Minimum 1 second delay
+            
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=period, interval=interval)
+            
+            if hist.empty:
+                if attempt == retries - 1:
+                    return None
+                continue
+            
+            hist.columns = [col.lower() for col in hist.columns]
+            return hist
+            
+        except Exception as e:
+            error_msg = str(e).lower()
+            
+            if "rate" in error_msg or "429" in error_msg or "too many" in error_msg:
+                if attempt < retries - 1:
+                    wait_time = (attempt + 2) * 10
+                    time.sleep(wait_time)
+                else:
+                    return None
+            else:
+                if attempt == retries - 1:
+                    return None
+    
+    return None
 
 def is_market_open():
     """Check if market is open"""
@@ -2996,16 +3053,32 @@ class StockAnalyzer:
                 'error': str(e)
             }
 
-    def fetch_stock_data(self, ticker, period="60d"):
-        """Fetch stock data"""
-        try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period=period)
-            if hist.empty:
-                return None
-            return hist
-        except:
-            return None
+    def etch_stock_data(self, ticker, period="60d", retries=3):
+        """Fetch stock data with retry logic"""
+        
+        for attempt in range(retries):
+            try:
+                # Add delay
+                if attempt > 0:
+                    time.sleep((attempt + 1) * 3)
+                else:
+                    time.sleep(1)
+                
+                stock = yf.Ticker(ticker)
+                hist = stock.history(period=period)
+                
+                if hist.empty:
+                    if attempt == retries - 1:
+                        return None
+                    continue
+                    
+                return hist
+                
+            except Exception as e:
+                if attempt == retries - 1:
+                    return None
+        
+        return None
 
     def compute_rsi(self, data, window=14):
         """Calculate RSI"""
@@ -4671,6 +4744,32 @@ class StockAnalyzer:
         except:
             return 0
 
+    def check_rate_limit():
+        """Check if we can make a request based on rate limiting"""
+        now = datetime.now()
+        
+        # Reset counter every 5 minutes
+        if (now - st.session_state['request_reset_time']).seconds > 300:
+            st.session_state['request_count'] = 0
+            st.session_state['request_reset_time'] = now
+        
+        # Limit to 20 requests per 5 minutes
+        if st.session_state['request_count'] >= 20:
+            wait_time = 300 - (now - st.session_state['request_reset_time']).seconds
+            st.error(f"⏳ **Rate limit reached.** Please wait {wait_time} seconds before next analysis.")
+            st.info("💡 **Tip:** You've made too many requests. Yahoo Finance has rate limits. Please wait a few minutes.")
+            return False
+        
+        # Add minimum delay between requests (2 seconds)
+        if st.session_state['last_request_time']:
+            time_since_last = (now - st.session_state['last_request_time']).total_seconds()
+            if time_since_last < 2:
+                time.sleep(2 - time_since_last)
+        
+        st.session_state['last_request_time'] = now
+        st.session_state['request_count'] += 1
+        return True
+
 # ==============================================================================
 # === MAIN STREAMLIT UI WITH ALL MISSING FEATURES ==============================
 # ==============================================================================
@@ -4690,6 +4789,14 @@ def main():
     if 'analysis_results' not in st.session_state:
             st.session_state['analysis_results'] = {}
             
+    # Rate limiting protection
+    if 'last_request_time' not in st.session_state:
+        st.session_state['last_request_time'] = None
+    if 'request_count' not in st.session_state:
+        st.session_state['request_count'] = 0
+    if 'request_reset_time' not in st.session_state:
+        st.session_state['request_reset_time'] = datetime.now()
+      
         # NEW: Comparison feature initialization
     if 'analysis_comparison_data' not in st.session_state:
         st.session_state['analysis_comparison_data'] = []
@@ -5538,6 +5645,10 @@ def main():
             # VALIDATION BEFORE ANALYSIS
             if st.button(button_text, type="primary", use_container_width=True):
                 
+                # ⭐ NEW: Step 0 - Rate limit check (MUST BE FIRST)
+                if not check_rate_limit():
+                    st.stop()
+                
                 # Step 1: Validate ticker input exists
                 if not ticker_input or ticker_input.strip() == "":
                     st.error("⚠️ Please select or enter a valid ticker symbol first")
@@ -5650,6 +5761,7 @@ def main():
                         import traceback
                         with st.expander("🔍 View Error Details"):
                             st.code(traceback.format_exc())
+
             
         # This is now properly outside the button's if-else
         # ============================================================
