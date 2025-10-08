@@ -864,34 +864,698 @@ GLOBAL_MARKETS = {
     }
 }
 
+# ==============================================================================
+# === MULTI-ASSET API HANDLER WITH FINNHUB PRIMARY =============================
+# ==============================================================================
 
+import finnhub
+
+class MultiAssetAPIHandler:
+    """
+    Unified API handler for fetching dynamic asset data
+    Primary: Finnhub API
+    Fallback: Static data
+    Shows data source on UI (Static/Dynamic/API Name)
+    """
+    
+    def __init__(self):
+        """Initialize API clients and configuration"""
+        
+        # Load API keys from environment
+        self.finnhub_api_key = os.getenv('FINNHUB_API_KEY', '')
+        
+        # Initialize Finnhub client
+        self.finnhub_client = None
+        if self.finnhub_api_key:
+            try:
+                self.finnhub_client = finnhub.Client(api_key=self.finnhub_api_key)
+                self.finnhub_available = True
+            except Exception as e:
+                self.finnhub_available = False
+                st.warning(f"⚠️ Finnhub initialization failed: {str(e)}")
+        else:
+            self.finnhub_available = False
+        
+        # Cache for API responses (avoid repeated calls)
+        self.cache = {}
+        self.cache_duration = 3600  # 1 hour in seconds
+        
+        # Track data source for UI display
+        self.last_data_source = {
+            'type': 'Unknown',  # 'Static', 'Finnhub', 'EODHD', etc.
+            'timestamp': None,
+            'details': ''
+        }
+    
+    def _get_cached_or_fetch(self, cache_key, fetch_function):
+        """
+        Check cache first, then fetch if needed
+        
+        Args:
+            cache_key: Unique identifier for cached data
+            fetch_function: Function to call if cache miss
+        
+        Returns:
+            Tuple: (data, source_info)
+        """
+        if cache_key in self.cache:
+            cached_data, source_info, timestamp = self.cache[cache_key]
+            if time.time() - timestamp < self.cache_duration:
+                self.last_data_source = source_info
+                return cached_data, source_info
+        
+        # Fetch new data
+        data, source_info = fetch_function()
+        if data:
+            self.cache[cache_key] = (data, source_info, time.time())
+            self.last_data_source = source_info
+        
+        return data, source_info
+    
+    def get_data_source_badge(self):
+        """
+        Get HTML badge showing data source for UI display
+        
+        Returns:
+            HTML string for Streamlit
+        """
+        source = self.last_data_source
+        
+        if source['type'] == 'Finnhub':
+            color = "#00C851"  # Green
+            icon = "🟢"
+            label = "LIVE DATA (Finnhub API)"
+        elif source['type'] == 'Static':
+            color = "#ffbb33"  # Orange
+            icon = "🟡"
+            label = "CACHED DATA (Static Fallback)"
+        elif source['type'] == 'EODHD':
+            color = "#00C851"  # Green
+            icon = "🟢"
+            label = "LIVE DATA (EODHD API)"
+        elif source['type'] == 'FMP':
+            color = "#00C851"  # Green
+            icon = "🟢"
+            label = "LIVE DATA (FMP API)"
+        else:
+            color = "#9e9e9e"  # Grey
+            icon = "⚪"
+            label = "UNKNOWN SOURCE"
+        
+        details = source.get('details', '')
+        timestamp = source.get('timestamp', '')
+        
+        html = f"""
+        <div style="
+            background-color: {color}; 
+            color: white; 
+            padding: 8px 15px; 
+            border-radius: 5px; 
+            font-weight: bold;
+            font-size: 14px;
+            margin: 10px 0;
+            display: inline-block;
+        ">
+            {icon} {label}
+        </div>
+        """
+        
+        if details:
+            html += f"""
+            <div style="
+                color: #666; 
+                font-size: 12px; 
+                margin-top: 5px;
+            ">
+                {details}
+            </div>
+            """
+        
+        return html
+    
+    # ======================== INDEX CONSTITUENTS ========================
+    
+    def get_index_constituents_finnhub(self, index_symbol):
+        """
+        Fetch index constituents from Finnhub API
+        Supports: ^GSPC, ^DJI, ^NDX, ^RUT (US indices)
+        
+        Args:
+            index_symbol: Index symbol (e.g., "^GSPC")
+        
+        Returns:
+            Tuple: (List of tickers, source_info)
+        """
+        if not self.finnhub_available or not self.finnhub_client:
+            return None, {
+                'type': 'Error',
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'details': 'Finnhub API not available. Please add FINNHUB_API_KEY to .env file'
+            }
+        
+        cache_key = f"finnhub_constituents_{index_symbol}"
+        
+        def fetch():
+            try:
+                # Finnhub API call
+                result = self.finnhub_client.indices_constituents(index_symbol)
+                
+                if result and 'constituents' in result:
+                    constituents = result['constituents']
+                    
+                    source_info = {
+                        'type': 'Finnhub',
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'details': f'Fetched {len(constituents)} constituents from Finnhub API (Free tier: 60 calls/min)'
+                    }
+                    
+                    return constituents, source_info
+                else:
+                    # API returned empty or error
+                    return None, {
+                        'type': 'Error',
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'details': f'Finnhub API returned no data for {index_symbol}'
+                    }
+                    
+            except Exception as e:
+                error_msg = str(e)
+                
+                # Check for rate limit error
+                if '429' in error_msg or 'rate limit' in error_msg.lower():
+                    return None, {
+                        'type': 'Error',
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'details': '⚠️ Finnhub API rate limit exceeded (60 calls/min). Please wait.'
+                    }
+                
+                return None, {
+                    'type': 'Error',
+                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'details': f'Finnhub API error: {error_msg}'
+                }
+        
+        return self._get_cached_or_fetch(cache_key, fetch)
+    
+    def get_static_constituents(self, index_symbol):
+        """
+        Static fallback data for index constituents
+        Used when all APIs fail or for unsupported indices
+        
+        Args:
+            index_symbol: Index symbol
+        
+        Returns:
+            Tuple: (List of tickers, source_info)
+        """
+        static_data = {
+            # US Indices (Finnhub supported)
+            "^GSPC": [
+                "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
+                "UNH", "JNJ", "JPM", "V", "XOM", "PG", "MA", "HD", "CVX", "LLY",
+                "ABBV", "MRK", "PEP", "KO", "AVGO", "COST", "TMO", "WMT", "MCD",
+                "CSCO", "ABT", "ACN", "DHR", "VZ", "ADBE", "NEE", "NFLX", "CRM"
+            ],
+            "^DJI": [
+                "AAPL", "MSFT", "UNH", "HD", "GS", "MCD", "V", "BA", "CAT", "AMGN",
+                "HON", "TRV", "JPM", "IBM", "CVX", "CSCO", "AXP", "CRM", "JNJ", "PG",
+                "WMT", "MMM", "NKE", "MRK", "DIS", "KO", "DOW", "INTC", "VZ", "WBA"
+            ],
+            "^NDX": [
+                "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AVGO",
+                "COST", "PEP", "CSCO", "ADBE", "NFLX", "CMCSA", "INTC", "AMD"
+            ],
+            "^RUT": [
+                "AMC", "GME", "PLTR", "SOFI", "F", "NIO", "AAL", "LCID", "RIVN"
+            ],
+            
+            # Indian Indices (Not in Finnhub free tier)
+            "^NSEI": [
+                "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+                "HINDUNILVR.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "ITC.NS",
+                "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "TITAN.NS",
+                "SUNPHARMA.NS", "ULTRACEMCO.NS", "BAJFINANCE.NS", "WIPRO.NS", "HCLTECH.NS"
+            ],
+            "^NSEBANK": [
+                "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS",
+                "INDUSINDBK.NS", "BANDHANBNK.NS", "FEDERALBNK.NS", "IDFCFIRSTB.NS", "PNB.NS"
+            ],
+            "^BSESN": [
+                "RELIANCE.BO", "TCS.BO", "HDFCBANK.BO", "INFY.BO", "ICICIBANK.BO"
+            ],
+            
+            # UK Indices
+            "^FTSE": [
+                "BARC.L", "HSBA.L", "BP.L", "SHEL.L", "VOD.L", "AZN.L", "GLEN.L",
+                "RIO.L", "LSEG.L", "LLOY.L", "GSK.L", "ULVR.L", "DGE.L", "NG.L"
+            ],
+            "^FTMC": [
+                "WIZZ.L", "IMB.L", "MARS.L", "MNG.L", "AUTO.L"
+            ],
+            
+            # Japan Indices
+            "^N225": [
+                "7203.T", "6758.T", "9984.T", "6861.T", "8306.T", "7267.T",
+                "6098.T", "9432.T", "8035.T", "4063.T"
+            ],
+            "^TOPX": [
+                "7203.T", "6758.T", "9984.T", "8306.T"
+            ]
+        }
+        
+        constituents = static_data.get(index_symbol, [])
+        
+        source_info = {
+            'type': 'Static',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'details': f'Using static fallback data ({len(constituents)} constituents). For live data, add FINNHUB_API_KEY to .env'
+        }
+        
+        return constituents, source_info
+    
+    def get_index_constituents(self, index_symbol):
+        """
+        Get index constituents with automatic API -> Static fallback
+        
+        Priority:
+        1. Finnhub API (for supported indices)
+        2. Static fallback
+        
+        Args:
+            index_symbol: Index symbol (e.g., "^GSPC")
+        
+        Returns:
+            Tuple: (List of tickers, source_info dict)
+        """
+        # Finnhub supported indices (US only in free tier)
+        finnhub_supported = ['^GSPC', '^DJI', '^NDX', '^RUT']
+        
+        # Try Finnhub first if supported
+        if index_symbol in finnhub_supported:
+            constituents, source_info = self.get_index_constituents_finnhub(index_symbol)
+            
+            if constituents:
+                return constituents, source_info
+        
+        # Fallback to static data
+        return self.get_static_constituents(index_symbol)
+    
+    # ======================== AVAILABLE INDICES ========================
+    
+    def get_available_indices_finnhub(self):
+        """
+        Fetch list of available indices from Finnhub
+        
+        Returns:
+            Tuple: (Dictionary of indices, source_info)
+        """
+        if not self.finnhub_available or not self.finnhub_client:
+            return None, {
+                'type': 'Error',
+                'details': 'Finnhub not available'
+            }
+        
+        cache_key = "finnhub_available_indices"
+        
+        def fetch():
+            try:
+                # Finnhub doesn't have a direct "list all indices" endpoint
+                # So we return the ones we know are supported
+                indices = {
+                    "S&P 500": "^GSPC",
+                    "Dow Jones": "^DJI",
+                    "Nasdaq 100": "^NDX",
+                    "Russell 2000": "^RUT"
+                }
+                
+                source_info = {
+                    'type': 'Finnhub',
+                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'details': 'Finnhub free tier supports US indices only'
+                }
+                
+                return indices, source_info
+                
+            except Exception as e:
+                return None, {
+                    'type': 'Error',
+                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'details': f'Error: {str(e)}'
+                }
+        
+        return self._get_cached_or_fetch(cache_key, fetch)
+    
+    def get_static_indices(self, market=None):
+        """
+        Static list of indices by market
+        
+        Args:
+            market: Market name filter
+        
+        Returns:
+            Tuple: (Dictionary of indices, source_info)
+        """
+        all_indices = {
+            "🇮🇳 India (NSE/BSE)": {
+                "Nifty 50": "^NSEI",
+                "Nifty Bank": "^NSEBANK",
+                "BSE Sensex": "^BSESN",
+                "Nifty IT": "^CNXIT",
+                "Nifty Auto": "^CNXAUTO",
+                "Nifty Pharma": "^CNXPHARMA",
+                "Nifty FMCG": "^CNXFMCG",
+                "Nifty Metal": "^CNXMETAL",
+                "Nifty Realty": "^CNXREALTY"
+            },
+            "🇺🇸 USA (NYSE/NASDAQ)": {
+                "S&P 500": "^GSPC",
+                "Dow Jones": "^DJI",
+                "Nasdaq 100": "^NDX",
+                "Russell 2000": "^RUT",
+                "S&P 400 MidCap": "^MID"
+            },
+            "🇬🇧 UK (LSE)": {
+                "FTSE 100": "^FTSE",
+                "FTSE 250": "^FTMC",
+                "FTSE 350": "^FTLC",
+                "FTSE All-Share": "^FTAS"
+            },
+            "🇯🇵 Japan (TSE)": {
+                "Nikkei 225": "^N225",
+                "TOPIX": "^TOPX",
+                "JPX-Nikkei 400": "^JPXN"
+            }
+        }
+        
+        if market:
+            indices = all_indices.get(market, {})
+        else:
+            # Combine all
+            indices = {}
+            for market_indices in all_indices.values():
+                indices.update(market_indices)
+        
+        source_info = {
+            'type': 'Static',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'details': f'Static index list ({len(indices)} indices)'
+        }
+        
+        return indices, source_info
+    
+    def get_available_indices(self, market=None):
+        """
+        Get available indices with API -> Static fallback
+        
+        Args:
+            market: Market name (optional filter)
+        
+        Returns:
+            Tuple: (Dictionary of indices, source_info)
+        """
+        # For US market, try Finnhub first
+        if market and "USA" in market:
+            indices, source_info = self.get_available_indices_finnhub()
+            if indices:
+                return indices, source_info
+        
+        # Fallback to static
+        return self.get_static_indices(market)
+    
+    # ======================== CRYPTO / FOREX / COMMODITIES ========================
+    
+    def get_crypto_list(self, category=None):
+        """
+        Get cryptocurrency list
+        Currently static (can be enhanced with CoinGecko API)
+        
+        Returns:
+            Tuple: (Dictionary, source_info)
+        """
+        all_cryptos = {
+            "Major": {
+                "Bitcoin": "BTC-USD",
+                "Ethereum": "ETH-USD",
+                "BNB": "BNB-USD",
+                "XRP": "XRP-USD",
+                "Cardano": "ADA-USD",
+                "Solana": "SOL-USD",
+                "Polkadot": "DOT-USD"
+            },
+            "DeFi": {
+                "Uniswap": "UNI-USD",
+                "Aave": "AAVE-USD",
+                "Maker": "MKR-USD",
+                "Compound": "COMP-USD"
+            },
+            "Stablecoins": {
+                "Tether": "USDT-USD",
+                "USD Coin": "USDC-USD",
+                "Binance USD": "BUSD-USD",
+                "DAI": "DAI-USD"
+            }
+        }
+        
+        if category:
+            cryptos = all_cryptos.get(category, {})
+        else:
+            cryptos = {}
+            for cat_cryptos in all_cryptos.values():
+                cryptos.update(cat_cryptos)
+        
+        source_info = {
+            'type': 'Static',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'details': f'Static crypto list. Can be enhanced with live API in future.'
+        }
+        
+        return cryptos, source_info
+    
+    def get_forex_pairs(self, pair_type=None):
+        """
+        Get forex pairs
+        
+        Returns:
+            Tuple: (Dictionary, source_info)
+        """
+        all_pairs = {
+            "Major Pairs": {
+                "EUR/USD": "EURUSD=X",
+                "GBP/USD": "GBPUSD=X",
+                "USD/JPY": "JPY=X",
+                "USD/CHF": "CHF=X",
+                "AUD/USD": "AUDUSD=X",
+                "USD/CAD": "CAD=X",
+                "NZD/USD": "NZDUSD=X"
+            },
+            "Cross Pairs": {
+                "EUR/GBP": "EURGBP=X",
+                "EUR/JPY": "EURJPY=X",
+                "GBP/JPY": "GBPJPY=X",
+                "EUR/CHF": "EURCHF=X"
+            },
+            "Exotic Pairs": {
+                "USD/INR": "INR=X",
+                "USD/SGD": "SGD=X",
+                "USD/HKD": "HKD=X",
+                "USD/THB": "THB=X",
+                "EUR/TRY": "EURTRY=X"
+            }
+        }
+        
+        if pair_type:
+            pairs = all_pairs.get(pair_type, {})
+        else:
+            pairs = {}
+            for type_pairs in all_pairs.values():
+                pairs.update(type_pairs)
+        
+        source_info = {
+            'type': 'Static',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'details': 'Static forex list'
+        }
+        
+        return pairs, source_info
+    
+    def get_commodities(self, commodity_type=None):
+        """
+        Get commodities list
+        
+        Returns:
+            Tuple: (Dictionary, source_info)
+        """
+        all_commodities = {
+            "Precious Metals": {
+                "Gold": "GC=F",
+                "Silver": "SI=F",
+                "Platinum": "PL=F",
+                "Palladium": "PA=F"
+            },
+            "Energy": {
+                "Crude Oil WTI": "CL=F",
+                "Brent Crude": "BZ=F",
+                "Natural Gas": "NG=F",
+                "Heating Oil": "HO=F",
+                "Gasoline": "RB=F"
+            },
+            "Agricultural": {
+                "Corn": "ZC=F",
+                "Wheat": "ZW=F",
+                "Soybeans": "ZS=F",
+                "Coffee": "KC=F",
+                "Sugar": "SB=F",
+                "Cotton": "CT=F",
+                "Cocoa": "CC=F"
+            },
+            "Industrial Metals": {
+                "Copper": "HG=F",
+                "Aluminum": "ALI=F"
+            }
+        }
+        
+        if commodity_type:
+            commodities = all_commodities.get(commodity_type, {})
+        else:
+            commodities = {}
+            for type_commodities in all_commodities.values():
+                commodities.update(type_commodities)
+        
+        source_info = {
+            'type': 'Static',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'details': 'Static commodity list'
+        }
+        
+        return commodities, source_info
+
+
+# ==============================================================================
+# === INITIALIZE GLOBAL API HANDLER ============================================
+# ==============================================================================
+
+# Create global instance
+asset_api = MultiAssetAPIHandler()
+
+
+# ==============================================================================
+# === ASSET CLASSES CONFIGURATION ==============================================
+# ==============================================================================
+
+ASSET_CLASSES = {
+    "Equities (Stocks)": {
+        "description": "Individual company stocks",
+        "selection_methods": ["Search", "By Exchange", "Direct", "From Scanner", "By Index"],
+        "markets": list(GLOBAL_MARKETS.keys()),
+        "supports_options": True,
+        "supports_index_analysis": False
+    },
+    "Indices": {
+        "description": "Market indices (can be analyzed directly)",
+        "selection_methods": ["Search", "Direct", "By Market"],
+        "markets": ["Global"],
+        "supports_options": True,
+        "supports_index_analysis": True
+    },
+    "Cryptocurrencies": {
+        "description": "Digital currencies and tokens",
+        "selection_methods": ["Search", "Direct", "By Category"],
+        "markets": ["Global"],
+        "supports_options": False,
+        "supports_index_analysis": False
+    },
+    "Forex": {
+        "description": "Currency pairs",
+        "selection_methods": ["Search", "Direct", "By Pair Type"],
+        "markets": ["Global"],
+        "supports_options": False,
+        "supports_index_analysis": False
+    },
+    "Commodities": {
+        "description": "Raw materials and resources",
+        "selection_methods": ["Search", "Direct", "By Type"],
+        "markets": ["Global"],
+        "supports_options": True,
+        "supports_index_analysis": False
+    }
+}
+ 
 # ==============================================================================
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
 
 def get_currency_symbol(ticker, selected_market=None):
-    """Get currency symbol based on ticker suffix or selected market"""
+    """
+    Get currency symbol based on ticker suffix or selected market
+    Enhanced for all asset classes
+    """
     
     # Add safety check for None or non-string ticker
     if ticker is None or not isinstance(ticker, str):
         ticker = ""
     
-    if '.NS' in ticker or '.BO' in ticker:
-        return '₹'  # Indian Rupee
-    elif '.L' in ticker:
-        return '£'  # British Pound
-    elif '.T' in ticker:
-        return '¥'  # Japanese Yen
+    # Crypto detection
+    if '-USD' in ticker or 'BTC' in ticker or 'ETH' in ticker:
+        return '$ '
     
+    # Forex detection (no symbol, it's a rate)
+    if '=X' in ticker:
+        return ''
+    
+    # Commodities detection
+    if '=F' in ticker:
+        if 'GC' in ticker or 'SI' in ticker or 'PL' in ticker or 'PA' in ticker:  # Precious metals
+            return '$/oz '
+        elif 'CL' in ticker or 'BZ' in ticker:  # Oil
+            return '$/bbl '
+        elif 'NG' in ticker:  # Natural gas
+            return '$/MMBtu '
+        return '$ '
+    
+    # Stock market suffixes
+    if '.NS' in ticker or '.BO' in ticker:
+        return '₹ '  # Indian Rupee
+    elif '.L' in ticker:
+        return '£ '  # British Pound
+    elif '.T' in ticker:
+        return '¥ '  # Japanese Yen
+    
+    # Index detection
+    if ticker.startswith('^'):
+        if 'NSE' in ticker or 'BSE' in ticker or 'CNX' in ticker:
+            return '₹ '
+        elif 'FTSE' in ticker:
+            return '£ '
+        elif 'N225' in ticker or 'TOPX' in ticker or 'JPX' in ticker:
+            return '¥ '
+        return ''  # Most indices shown without currency
+    
+    # Market-based detection
     if selected_market:
         if 'India' in selected_market:
-            return '₹'
+            return '₹ '
         elif 'UK' in selected_market:
-            return '£'
+            return '£ '
         elif 'Japan' in selected_market:
-            return '¥'
+            return '¥ '
     
-    return '$'  # Default to USD
+    return '$ '  # Default to USD
+
+def get_asset_currency_symbol(ticker, asset_class, selected_market=None):
+    """
+    Enhanced currency detection for all asset classes
+    Wrapper around get_currency_symbol for asset-specific logic
+    
+    Args:
+        ticker: Ticker symbol
+        asset_class: Asset class name
+        selected_market: Selected market (optional)
+    
+    Returns:
+        Currency symbol string
+    """
+    return get_currency_symbol(ticker, selected_market)
+
 
 def fetchintradaydataticker(ticker, interval='5m', period='5d'):
     stock = yf.Ticker(ticker)
@@ -1207,7 +1871,6 @@ def get_dynamic_tickers(market_name, api_key=None):
         # Emergency fallback
         return get_emergency_fallback(market_name), "Emergency Fallback", errors
 
-
 def get_emergency_fallback(market_name):
     """Minimal emergency fallback lists"""
     if "USA" in market_name:
@@ -1220,6 +1883,49 @@ def get_emergency_fallback(market_name):
         return ['7203.T', '6758.T', '9984.T', '6861.T', '8306.T']
     return []
 
+
+# ==============================================================================
+# === HELPER FUNCTIONS FOR ASSET SELECTION =====================================
+# ==============================================================================
+
+def get_stocks_by_index(index_ticker, market_name):
+    """
+    Dynamically fetch constituent stocks of a given index
+    Shows data source badge (Finnhub/Static)
+    
+    Args:
+        index_ticker: Index symbol (e.g., ^NSEI, ^GSPC)
+        market_name: Market name
+    
+    Returns:
+        Tuple: (List of tickers, source_info dict)
+    """
+    
+    with st.spinner(f"🔄 Fetching {index_ticker} constituents..."):
+        constituents, source_info = asset_api.get_index_constituents(index_ticker)
+        
+        # Display data source badge
+        st.markdown(asset_api.get_data_source_badge(), unsafe_allow_html=True)
+        
+        return constituents, source_info
+
+def load_available_indices(market_name):
+    """
+    Dynamically load available indices for a market
+    
+    Args:
+        market_name: Market name (e.g., "🇮🇳 India (NSE/BSE)")
+    
+    Returns:
+        Tuple: (Dictionary of indices, source_info)
+    """
+    
+    indices, source_info = asset_api.get_available_indices(market_name)
+    
+    # Display data source badge
+    st.markdown(asset_api.get_data_source_badge(), unsafe_allow_html=True)
+    
+    return indices, source_info
 
 def run_premarket_screener(market_name, market_config):
     """Pre-market screener with comprehensive error handling and user feedback"""
@@ -3671,6 +4377,58 @@ def main():
     # ===========================================================================
     # === SIDEBAR WITH ALL FEATURES ============================================
     # ===========================================================================
+
+    # ============================================================================
+    # ===== SIDEBAR: API STATUS INDICATOR ========================================
+    # ============================================================================
+    
+    st.sidebar.title("📊 AI Trading Agent Pro")
+    
+    # API Status Section
+    st.sidebar.markdown("### 🔌 API Status")
+    
+    # Finnhub API Status
+    if asset_api.finnhub_available:
+        st.sidebar.success("✅ Finnhub API: Connected")
+        st.sidebar.caption("🟢 Live data for US index constituents")
+        
+        # Show additional info if connected
+        with st.sidebar.expander("ℹ️ Finnhub Info"):
+            st.caption("**Status:** Active")
+            st.caption("**Free Tier Limit:** 60 calls/min")
+            st.caption("**Supported Indices:**")
+            st.caption("• S&P 500 (^GSPC)")
+            st.caption("• Dow Jones (^DJI)")
+            st.caption("• Nasdaq 100 (^NDX)")
+            st.caption("• Russell 2000 (^RUT)")
+    else:
+        st.sidebar.warning("⚠️ Finnhub API: Not configured")
+        st.sidebar.caption("📊 Using static fallback data")
+        
+        # Show setup instructions
+        with st.sidebar.expander("🔧 Setup Finnhub API"):
+            st.markdown("""
+            **Quick Setup:**
+            
+            1. **Register:** https://finnhub.io/register
+            2. **Get API Key** from dashboard
+            3. **Add to `.env` file:**
+               ```
+               FINNHUB_API_KEY=your_key_here
+               ```
+            4. **Restart** the application
+            
+            **What You Get (Free):**
+            - ✅ Live S&P 500 constituents
+            - ✅ Live Dow Jones constituents
+            - ✅ Live Nasdaq 100 constituents
+            - ✅ 60 API calls per minute
+            
+            **Currently Using:**
+            - 🟡 Static fallback data (limited, not real-time)
+            """)
+    
+    st.sidebar.markdown("---")
     
     # ===== NEW: GLOBAL RESET BUTTON =====
     st.sidebar.markdown("### 🔄 System Controls")
@@ -3833,57 +4591,109 @@ def main():
 
     with tab1:
         col1, col2 = st.columns([2, 1])
-        
+
         with col1:
-            st.subheader(f"📈 Stock Selection - {selected_market}")
+            # ============= ASSET CLASS SELECTION =============
+            st.subheader("🎯 Asset Selection")
             
-            # Initialize AlphaVantage
-            av = AlphaVantageAPI()
+            col_asset, col_market = st.columns([1, 1])
+            
+            with col_asset:
+                selected_asset_class = st.selectbox(
+                    "Select Asset Class",
+                    options=list(ASSET_CLASSES.keys()),
+                    index=0,
+                    help="Choose the type of asset to analyze"
+                )
+                
+                asset_config = ASSET_CLASSES[selected_asset_class]
+                st.caption(f"ℹ️ {asset_config['description']}")
+            
+            with col_market:
+                # Market selection (only for Equities)
+                if selected_asset_class == "Equities (Stocks)":
+                    available_markets = asset_config['markets']
+                    
+                    # Get from session state or use first market
+                    default_market = st.session_state.get('selected_market', available_markets[0])
+                    if default_market not in available_markets:
+                        default_market = available_markets[0]
+                    
+                    selected_market = st.selectbox(
+                        "Select Market",
+                        options=available_markets,
+                        index=available_markets.index(default_market),
+                        help="Choose the stock exchange market"
+                    )
+                    st.session_state['selected_market'] = selected_market
+                    
+                elif selected_asset_class == "Indices":
+                    st.info("📊 Indices - Select market in 'By Market' method")
+                    selected_market = "Global"
+                    
+                else:
+                    # Crypto, Forex, Commodities are global
+                    st.info(f"🌍 {selected_asset_class} - Global Market")
+                    selected_market = "Global"
+            
+            # ============= SELECTION METHOD =============
+            st.markdown("---")
+            
+            # Get available selection methods for this asset class
+            available_methods = asset_config['selection_methods']
+            method = st.radio(
+                "**Selection Method**", 
+                available_methods, 
+                horizontal=True,
+                help=f"Choose how to select {selected_asset_class}"
+            )
+            
+            st.markdown("---")
+            
+            # Initialize ticker_input
             ticker_input = None
             
-            # Check if auto-analyze from pre-market scanner
-            if 'auto_analyze_ticker' in st.session_state:
-                ticker_input = st.session_state['auto_analyze_ticker']
-                st.info(f"Auto-analyzing from scanner: **{ticker_input}**")
-                del st.session_state['auto_analyze_ticker']
+            # ============= ASSET-SPECIFIC SELECTION LOGIC =============
             
-            if not av.api_key:
-                st.warning("⚠️ Alpha Vantage API key not configured. Using Direct entry.")
-                # Market-aware placeholder
-                placeholder_map = {
-                    "🇮🇳 India (NSE/BSE)": "RELIANCE.NS",
-                    "🇺🇸 USA (NYSE/NASDAQ)": "AAPL",
-                    "🇬🇧 UK (LSE)": "BARC.L",
-                    "🇯🇵 Japan (TSE)": "7203.T"
-                }
-                placeholder = placeholder_map.get(selected_market, "AAPL")
-                ticker_input = st.text_input("Enter Ticker", placeholder)
-            else:
-                # Selection methods - INCLUDING "From Scanner"
-                method_options = ["Search", "By Exchange", "Direct", "From Scanner"]
-                method = st.radio("Selection Method", method_options, horizontal=True)
+            # ========== EQUITIES (STOCKS) ==========
+            if selected_asset_class == "Equities (Stocks)":
                 
-                # ============= METHOD 1: SEARCH =============
+                # Initialize AlphaVantage
+                av = AlphaVantageAPI()
+                
+                # Check if auto-analyze from pre-market scanner
+                if 'auto_analyze_ticker' in st.session_state:
+                    ticker_input = st.session_state['auto_analyze_ticker']
+                    st.info(f"🎯 Auto-analyzing from scanner: **{ticker_input}**")
+                    del st.session_state['auto_analyze_ticker']
+                
+                # METHOD 1: SEARCH
                 if method == "Search":
                     search_query = st.text_input(
                         f"🔍 Search {selected_market} Stock", 
-                        placeholder="Apple, Tesla, Reliance..."
+                        placeholder="e.g., Apple, Tesla, Reliance..."
                     )
+                    
                     if search_query and len(search_query) >= 3:
                         with st.spinner("Searching..."):
-                            results = av.search_symbols(search_query)
+                            if av.api_key:
+                                results = av.search_symbols(search_query)
+                            else:
+                                # Use Yahoo Finance search (your existing function if available)
+                                results = search_for_ticker(search_query, "Equities (Stocks)")
+                            
                             if results:
-                                # Filter results by selected market
+                                # Filter by market
                                 filtered_results = {}
+                                
                                 for name, symbol in results.items():
-                                    # Market-specific filtering
-                                    if "India" in selected_market and (".NS" in symbol or ".BO" in symbol):
+                                    if selected_market == "🇮🇳 India (NSE/BSE)" and (".NS" in symbol or ".BO" in symbol):
                                         filtered_results[name] = symbol
-                                    elif "USA" in selected_market and not any(suffix in symbol for suffix in [".NS", ".BO", ".L", ".T"]):
+                                    elif selected_market == "🇺🇸 USA (NYSE/NASDAQ)" and not any(s in symbol for s in [".NS", ".BO", ".L", ".T"]):
                                         filtered_results[name] = symbol
-                                    elif "UK" in selected_market and ".L" in symbol:
+                                    elif selected_market == "🇬🇧 UK (LSE)" and ".L" in symbol:
                                         filtered_results[name] = symbol
-                                    elif "Japan" in selected_market and ".T" in symbol:
+                                    elif selected_market == "🇯🇵 Japan (TSE)" and ".T" in symbol:
                                         filtered_results[name] = symbol
                                 
                                 if filtered_results:
@@ -3893,29 +4703,24 @@ def main():
                                     )
                                     ticker_input = filtered_results[selected]
                                     
-                                    # Get quote
-                                    quote = av.get_quote(ticker_input)
-                                    if quote:
-                                        q_col1, q_col2, q_col3 = st.columns(3)
-                                        q_col1.metric("Price", f"${quote['price']:.2f}")
-                                        q_col2.metric("Change", f"{quote['change']:.2f}")
-                                        q_col3.metric("Volume", f"{quote['volume']:,}")
+                                    # Get quote if AV available
+                                    if av.api_key:
+                                        quote = av.get_quote(ticker_input)
+                                        if quote:
+                                            q_col1, q_col2, q_col3 = st.columns(3)
+                                            q_col1.metric("Price", f"${quote['price']:.2f}")
+                                            q_col2.metric("Change", f"{quote['change']:.2f}")
+                                            q_col3.metric("Volume", f"{quote['volume']:,}")
                                 else:
-                                    st.warning(f"No results found for {selected_market}. Try different keywords.")
+                                    st.warning(f"No results found for {selected_market}")
                             else:
                                 st.warning("No results found. Try different keywords.")
                 
-                # ============= METHOD 2: BY EXCHANGE =============
+                # METHOD 2: BY EXCHANGE
                 elif method == "By Exchange":
                     # Get market-specific currency symbol
-                    currency_map = {
-                        "🇮🇳 India (NSE/BSE)": "{currency}",
-                        "🇺🇸 USA (NYSE/NASDAQ)": "$",
-                        "🇬🇧 UK (LSE)": "£",
-                        "🇯🇵 Japan (TSE)": "¥"
-                    }
-
-
+                    currency = get_currency_symbol("", selected_market)
+                    
                     if st.button(f"🔄 Load {selected_market} Stocks", type="primary"):
                         with st.spinner(f"Loading..."):
                             # Use the same dynamic fetcher
@@ -3993,8 +4798,10 @@ def main():
                     else:
                         st.info("👆 Click button above to load stocks")
                 
-                # ============= METHOD 3: DIRECT =============
+                # METHOD 3: DIRECT
                 elif method == "Direct":
+                    st.markdown("### ✍️ Enter Ticker Symbol Directly")
+                    
                     # Market-aware placeholders
                     placeholder_map = {
                         "🇮🇳 India (NSE/BSE)": "RELIANCE.NS",
@@ -4005,128 +4812,520 @@ def main():
                     placeholder = placeholder_map.get(selected_market, "AAPL")
                     
                     ticker_input = st.text_input(
-                        f"Enter Ticker Symbol for {selected_market}", 
-                        placeholder,
-                        help=f"Format: {placeholder}"
+                        f"Enter {selected_market} Ticker",
+                        placeholder=placeholder,
+                        help=f"Example: {placeholder}"
                     )
-                
-                # ============= METHOD 4: FROM SCANNER (NEW) =============
-                elif method == "From Scanner":
-                    if 'screened_stocks' in st.session_state and st.session_state['screened_stocks']:
-                        st.success(f"✅ {len(st.session_state['screened_stocks'])} stocks available from pre-market scanner")
-                        
-                        # Create formatted options
-                        stock_options = {}
-                        for ticker, data in st.session_state['screened_stocks'].items():
-                            ticker_currency = data.get('currency', get_currency_symbol(ticker, selected_market))
-                            display_name = f"{ticker} - {ticker_currency}{data['price']:.2f} ({data['change_pct']:.2f}%)"
-                            stock_options[display_name] = ticker
-
-                        selected_display = st.selectbox(
-                            f"Select from {selected_market} Scanner Results:",
-                            list(stock_options.keys())
-                        )
-                        ticker_input = stock_options[selected_display]
-                        
-                        # Show stock details
-                        if ticker_input in st.session_state['screened_stocks']:
-                            stock_data = st.session_state['screened_stocks'][ticker_input]
-                            display_currency = stock_data.get('currency', get_currency_symbol(ticker_input, selected_market))
-                            detail_col1, detail_col2, detail_col3 = st.columns(3)
-                            detail_col1.metric("Price", f"{display_currency}{stock_data['price']:.2f}")
-                            detail_col2.metric("Volume", f"{stock_data['volume']:,}")
-                            detail_col3.metric("Change", f"{stock_data['change_pct']:.2f}%")
-    
-                    else:
-                        st.warning("⚠️ No stocks in scanner. Run 'Pre-Market Scan' from sidebar first.")
-                        st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
                     
-
-            # ANALYSIS BUTTON
-            if st.button("📊 Analyze with Full Suite", type="primary"):
-                if not ticker_input:
-                    st.error("⚠️ Please select or enter a valid ticker symbol first")
-                else:
-                    with st.spinner("Running complete analysis..."):
-                        try:
-                            company_name = get_company_name_multi_source(ticker_input, av)
-                            analyzer = StockAnalyzer(ticker=ticker_input)
+                    if ticker_input:
+                        st.success(f"✅ Ticker selected: **{ticker_input}**")
+                
+                # METHOD 4: FROM SCANNER
+                elif method == "From Scanner":
+                    st.markdown("### 📊 Select from Pre-Market Screener")
+                    
+                    if 'screened_stocks' not in st.session_state or not st.session_state['screened_stocks']:
+                        st.warning("⚠️ No stocks in scanner. Run Pre-Market Screener first.")
+                        st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
+                    else:
+                        screened = st.session_state['screened_stocks']
+                        
+                        # Create display options
+                        stock_options = []
+                        for ticker, info in screened.items():
+                            ticker_currency = info.get('currency', get_currency_symbol(ticker, selected_market))
+                            display = f"{ticker} - {ticker_currency}{info['price']:.2f} ({info['change_pct']:+.2f}%) Vol: {info['volume']:,}"
+                            stock_options.append((display, ticker))
+                        
+                        if stock_options:
+                            st.success(f"✅ {len(stock_options)} stocks in screener")
                             
-                            if trading_mode == "Intraday Trading":
-                                results = analyzer.analyze_for_intraday()
-                            else:
-                                results = analyzer.analyze_for_swing()
+                            selected_display = st.selectbox(
+                                "📊 Select Stock from Screener",
+                                [opt[0] for opt in stock_options]
+                            )
                             
-                            if results:
-                                # ✅ Add company name to results
-                                results['company_name'] = company_name
+                            # Extract ticker from selection
+                            ticker_input = [opt[1] for opt in stock_options if opt[0] == selected_display][0]
                             
-                            if results:
-                                # Add Fibonacci
-                                fib_analysis = analyzer.analyze_with_fibonacci(results['daily_data'])
-                                results['fibonacci'] = fib_analysis
-            
-                                # Fetch news and sentiment
-                                headlines = analyzer.scrape_news_headlines(ticker_input)
-                                print(f"📰 Fetched {len(headlines) if headlines else 0} headlines")
-                                if headlines and len(headlines) > 0:
-                                    sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
-                                    print(f"💭 Sentiment analysis complete: {sentiment_detailed.get('overall_sentiment')}")
-                                    print(f"📊 Articles processed: {len(sentiment_detailed.get('articles', []))}")
-                                else:
-                                    # Create default sentiment structure
-                                    sentiment_detailed = {
-                                        'overall_sentiment': 'Neutral',
-                                        'overall_score': 0.0,
-                                        'articles': [],
-                                        'total_articles': 0,
-                                        'positive_count': 0,
-                                        'negative_count': 0,
-                                        'neutral_count': 0
-                                    }
-                                    print("⚠️ No headlines found - using default sentiment")
+                            # Show quick info
+                            info = screened[ticker_input]
+                            col1, col2, col3 = st.columns(3)
+                            col1.metric("Price", f"{info['currency']}{info['price']:.2f}")
+                            col2.metric("Change", f"{info['change_pct']:+.2f}%")
+                            col3.metric("Volume", f"{info['volume']:,}")
+                
+                # METHOD 5: BY INDEX (NEW!)
+                elif method == "By Index":
+                    st.markdown("### 📊 Select Index to View Constituents")
+                    
+                    # Get indices for selected market
+                    indices, source_info = load_available_indices(selected_market)
+                    
+                    if indices:
+                        col1, col2 = st.columns([2, 1])
+                        
+                        with col1:
+                            selected_index_name = st.selectbox(
+                                f"Select {selected_market} Index",
+                                options=list(indices.keys())
+                            )
+                            selected_index_ticker = indices[selected_index_name]
+                        
+                        with col2:
+                            st.metric("Index Selected", selected_index_name)
+                            
+                            if st.button("📈 Analyze Index Itself", help="Switch to Indices and analyze the index"):
+                                st.session_state['auto_analyze_ticker'] = selected_index_ticker
+                                st.session_state['switch_to_indices'] = True
+                                st.rerun()
+                        
+                        st.markdown("---")
+                        
+                        # Get constituent stocks
+                        constituents, const_source = get_stocks_by_index(selected_index_ticker, selected_market)
+                        
+                        if constituents:
+                            st.success(f"✅ Found **{len(constituents)}** stocks in {selected_index_name}")
+                            
+                            # Display as selectbox
+                            selected_stock = st.selectbox(
+                                f"Select Stock from {selected_index_name}",
+                                options=constituents,
+                                format_func=lambda x: x.replace('.NS', '').replace('.BO', '').replace('.L', '').replace('.T', '')
+                            )
+                            
+                            ticker_input = selected_stock
+                            
+                            # Optional: Screen all constituents
+                            with st.expander("🔍 Screen All Constituents (Advanced)"):
+                                if st.button("Run Quick Screen"):
+                                    with st.spinner("Screening constituents..."):
+                                        constituent_data = []
                                         
-                                results['news_headlines'] = headlines
-                                results['sentiment'] = sentiment_detailed['overall_sentiment']
-                                results['sentiment_score'] = sentiment_detailed['overall_score']
-                                results['sentiment_detailed'] = sentiment_detailed
-
-                                # Debug: Check what's stored
-                                print(f"✅ Stored in results:")
-                                print(f"   - sentiment_detailed exists: {'sentiment_detailed' in results}")
-                                print(f"   - articles count: {len(results['sentiment_detailed'].get('articles', []))}")
+                                        # Limit to 20 for speed
+                                        for ticker in constituents[:20]:
+                                            try:
+                                                data = yf.Ticker(ticker).history(period="2d")
+                                                if not data.empty and len(data) >= 2:
+                                                    price = data['Close'].iloc[-1]
+                                                    prev_price = data['Close'].iloc[-2]
+                                                    change = ((price - prev_price) / prev_price) * 100
+                                                    volume = data['Volume'].iloc[-1]
+                                                    
+                                                    constituent_data.append({
+                                                        'Ticker': ticker,
+                                                        'Price': f"{get_currency_symbol(ticker, selected_market)}{price:.2f}",
+                                                        'Change %': f"{change:+.2f}",
+                                                        'Volume': f"{int(volume):,}"
+                                                    })
+                                            except:
+                                                continue
+                                        
+                                        if constituent_data:
+                                            df = pd.DataFrame(constituent_data)
+                                            st.dataframe(df, use_container_width=True)
+                                        else:
+                                            st.warning("Unable to screen constituents")
+                        else:
+                            st.error(f"⚠️ Could not fetch constituents for {selected_index_name}")
+                    else:
+                        st.error(f"No indices available for {selected_market}")
             
-                                st.session_state['analysis_results'] = results
-                                st.session_state['current_ticker'] = ticker_input
             
-                                # Log to database
-                                log_trade_to_db(
+            # ========== INDICES ==========
+            elif selected_asset_class == "Indices":
+                
+                st.markdown("### 📊 Index Analysis")
+                st.info("💡 Analyze market indices directly (e.g., Nifty 50, S&P 500)")
+                
+                # Check if auto-switch from "Analyze Index Itself" button
+                if st.session_state.get('switch_to_indices', False):
+                    if 'auto_analyze_ticker' in st.session_state:
+                        ticker_input = st.session_state['auto_analyze_ticker']
+                        st.success(f"🎯 Analyzing Index: **{ticker_input}**")
+                        del st.session_state['auto_analyze_ticker']
+                        st.session_state['switch_to_indices'] = False
+                
+                # METHOD 1: SEARCH
+                if method == "Search":
+                    search_query = st.text_input(
+                        "🔍 Search Index", 
+                        placeholder="e.g., S&P 500, Nifty, FTSE..."
+                    )
+                    
+                    if search_query and len(search_query) >= 3:
+                        with st.spinner("Searching indices..."):
+                            # Use your existing search function if available
+                            results = search_for_ticker(search_query, "Indices")
+                            
+                            if results:
+                                selected = st.selectbox("Select Index:", list(results.keys()))
+                                ticker_input = results[selected]
+                            else:
+                                st.warning("No results found. Try 'By Market' method.")
+                
+                # METHOD 2: DIRECT
+                elif method == "Direct":
+                    st.markdown("### ✍️ Enter Index Symbol Directly")
+                    
+                    ticker_input = st.text_input(
+                        "Enter Index Symbol",
+                        placeholder="^NSEI",
+                        help="Examples: ^NSEI (Nifty 50), ^GSPC (S&P 500), ^FTSE (FTSE 100), ^N225 (Nikkei)"
+                    )
+                    
+                    if ticker_input:
+                        st.success(f"✅ Index selected: **{ticker_input}**")
+                
+                # METHOD 3: BY MARKET
+                elif method == "By Market":
+                    st.markdown("### 🌍 Select Market and Index")
+                    
+                    # Market selection
+                    index_markets = ["🇮🇳 India (NSE/BSE)", "🇺🇸 USA (NYSE/NASDAQ)", "🇬🇧 UK (LSE)", "🇯🇵 Japan (TSE)"]
+                    selected_index_market = st.selectbox("Select Market", index_markets)
+                    
+                    # Load indices for market
+                    indices, source_info = load_available_indices(selected_index_market)
+                    
+                    if indices:
+                        selected_index_name = st.selectbox(
+                            f"Select Index from {selected_index_market}",
+                            list(indices.keys())
+                        )
+                        
+                        ticker_input = indices[selected_index_name]
+                        st.success(f"✅ Selected: **{selected_index_name}** ({ticker_input})")
+                    else:
+                        st.error(f"No indices found for {selected_index_market}")
+            
+            
+            # ========== CRYPTOCURRENCIES ==========
+            elif selected_asset_class == "Cryptocurrencies":
+                
+                st.markdown("### 🪙 Cryptocurrency Selection")
+                
+                # METHOD 1: SEARCH
+                if method == "Search":
+                    search_query = st.text_input(
+                        "🔍 Search Cryptocurrency", 
+                        placeholder="e.g., Bitcoin, Ethereum, Solana..."
+                    )
+                    
+                    if search_query and len(search_query) >= 3:
+                        with st.spinner("Searching..."):
+                            # Use search function if available
+                            results = search_for_ticker(search_query, "Cryptocurrencies")
+                            
+                            if results:
+                                selected = st.selectbox("Select Crypto:", list(results.keys()))
+                                ticker_input = results[selected]
+                            else:
+                                st.warning("No results found. Try 'By Category' method.")
+                
+                # METHOD 2: DIRECT
+                elif method == "Direct":
+                    st.markdown("### ✍️ Enter Crypto Symbol Directly")
+                    
+                    ticker_input = st.text_input(
+                        "Enter Crypto Symbol",
+                        placeholder="BTC-USD",
+                        help="Examples: BTC-USD (Bitcoin), ETH-USD (Ethereum), SOL-USD (Solana)"
+                    )
+                    
+                    if ticker_input:
+                        st.success(f"✅ Crypto selected: **{ticker_input}**")
+                
+                # METHOD 3: BY CATEGORY
+                elif method == "By Category":
+                    st.markdown("### 🗂️ Browse by Category")
+                    
+                    cryptos, source_info = asset_api.get_crypto_list()
+                    
+                    # Get categories
+                    all_categories = {}
+                    categories_order = ["Major", "DeFi", "Stablecoins"]
+                    
+                    for cat in categories_order:
+                        cat_cryptos, _ = asset_api.get_crypto_list(cat)
+                        if cat_cryptos:
+                            all_categories[cat] = cat_cryptos
+                    
+                    if all_categories:
+                        selected_category = st.selectbox("Select Category", list(all_categories.keys()))
+                        
+                        category_cryptos = all_categories[selected_category]
+                        selected_crypto_name = st.selectbox(
+                            f"Select Crypto from {selected_category}",
+                            list(category_cryptos.keys())
+                        )
+                        
+                        ticker_input = category_cryptos[selected_crypto_name]
+                        st.success(f"✅ Selected: **{selected_crypto_name}** ({ticker_input})")
+                        
+                        # Show data source
+                        st.markdown(asset_api.get_data_source_badge(), unsafe_allow_html=True)
+            
+            
+            # ========== FOREX ==========
+            elif selected_asset_class == "Forex":
+                
+                st.markdown("### 💱 Forex Pair Selection")
+                
+                # METHOD 1: SEARCH
+                if method == "Search":
+                    search_query = st.text_input(
+                        "🔍 Search Currency Pair", 
+                        placeholder="e.g., EUR/USD, GBP/JPY..."
+                    )
+                    
+                    if search_query and len(search_query) >= 3:
+                        with st.spinner("Searching..."):
+                            results = search_for_ticker(search_query, "Currencies / Forex")
+                            
+                            if results:
+                                selected = st.selectbox("Select Pair:", list(results.keys()))
+                                ticker_input = results[selected]
+                            else:
+                                st.warning("No results found. Try 'By Pair Type' method.")
+                
+                # METHOD 2: DIRECT
+                elif method == "Direct":
+                    st.markdown("### ✍️ Enter Forex Pair Symbol Directly")
+                    
+                    ticker_input = st.text_input(
+                        "Enter Forex Pair Symbol",
+                        placeholder="EURUSD=X",
+                        help="Examples: EURUSD=X (EUR/USD), GBPUSD=X (GBP/USD), JPY=X (USD/JPY)"
+                    )
+                    
+                    if ticker_input:
+                        st.success(f"✅ Forex pair selected: **{ticker_input}**")
+                
+                # METHOD 3: BY PAIR TYPE
+                elif method == "By Pair Type":
+                    st.markdown("### 🗂️ Browse by Pair Type")
+                    
+                    pairs, source_info = asset_api.get_forex_pairs()
+                    
+                    # Get pair types
+                    all_pair_types = {}
+                    types_order = ["Major Pairs", "Cross Pairs", "Exotic Pairs"]
+                    
+                    for ptype in types_order:
+                        type_pairs, _ = asset_api.get_forex_pairs(ptype)
+                        if type_pairs:
+                            all_pair_types[ptype] = type_pairs
+                    
+                    if all_pair_types:
+                        selected_type = st.selectbox("Select Pair Type", list(all_pair_types.keys()))
+                        
+                        type_pairs = all_pair_types[selected_type]
+                        selected_pair_name = st.selectbox(
+                            f"Select Pair from {selected_type}",
+                            list(type_pairs.keys())
+                        )
+                        
+                        ticker_input = type_pairs[selected_pair_name]
+                        st.success(f"✅ Selected: **{selected_pair_name}** ({ticker_input})")
+                        
+                        # Show data source
+                        st.markdown(asset_api.get_data_source_badge(), unsafe_allow_html=True)
+            
+            
+            # ========== COMMODITIES ==========
+            elif selected_asset_class == "Commodities":
+                
+                st.markdown("### 🏭 Commodity Selection")
+                
+                # METHOD 1: SEARCH
+                if method == "Search":
+                    search_query = st.text_input(
+                        "🔍 Search Commodity", 
+                        placeholder="e.g., Gold, Oil, Copper..."
+                    )
+                    
+                    if search_query and len(search_query) >= 3:
+                        with st.spinner("Searching..."):
+                            results = search_for_ticker(search_query, "Commodities")
+                            
+                            if results:
+                                selected = st.selectbox("Select Commodity:", list(results.keys()))
+                                ticker_input = results[selected]
+                            else:
+                                st.warning("No results found. Try 'By Type' method.")
+                
+                # METHOD 2: DIRECT
+                elif method == "Direct":
+                    st.markdown("### ✍️ Enter Commodity Symbol Directly")
+                    
+                    ticker_input = st.text_input(
+                        "Enter Commodity Symbol",
+                        placeholder="GC=F",
+                        help="Examples: GC=F (Gold), CL=F (Crude Oil), SI=F (Silver), HG=F (Copper)"
+                    )
+                    
+                    if ticker_input:
+                        st.success(f"✅ Commodity selected: **{ticker_input}**")
+                
+                # METHOD 3: BY TYPE
+                elif method == "By Type":
+                    st.markdown("### 🗂️ Browse by Commodity Type")
+                    
+                    commodities, source_info = asset_api.get_commodities()
+                    
+                    # Get commodity types
+                    all_commodity_types = {}
+                    types_order = ["Precious Metals", "Energy", "Agricultural", "Industrial Metals"]
+                    
+                    for ctype in types_order:
+                        type_commodities, _ = asset_api.get_commodities(ctype)
+                        if type_commodities:
+                            all_commodity_types[ctype] = type_commodities
+                    
+                    if all_commodity_types:
+                        selected_type = st.selectbox("Select Commodity Type", list(all_commodity_types.keys()))
+                        
+                        type_commodities = all_commodity_types[selected_type]
+                        selected_commodity_name = st.selectbox(
+                            f"Select Commodity from {selected_type}",
+                            list(type_commodities.keys())
+                        )
+                        
+                        ticker_input = type_commodities[selected_commodity_name]
+                        st.success(f"✅ Selected: **{selected_commodity_name}** ({ticker_input})")
+                        
+                        # Show data source
+                        st.markdown(asset_api.get_data_source_badge(), unsafe_allow_html=True)
+                    
+            # ANALYSIS BUTTON
+            st.markdown("---")
+            # Dynamic button text based on asset class
+            button_labels = {
+                "Equities (Stocks)": "📊 Analyze Stock with Full Suite",
+                "Indices": "📊 Analyze Index with Full Suite",
+                "Cryptocurrencies": "🪙 Analyze Crypto with Full Suite",
+                "Forex": "💱 Analyze Forex Pair with Full Suite",
+                "Commodities": "🏭 Analyze Commodity with Full Suite"
+            }
+            
+            button_text = button_labels.get(selected_asset_class, "📊 Analyze with Full Suite")
+            
+            # VALIDATION BEFORE ANALYSIS
+            if st.button(button_text, type="primary", use_container_width=True):
+                
+                # Step 1: Validate ticker input exists
+                if not ticker_input or ticker_input.strip() == "":
+                    st.error("⚠️ Please select or enter a valid ticker symbol first")
+                    st.stop()
+                
+                # Step 2: Asset-specific format validations (warnings only, not blocking)
+                if selected_asset_class == "Indices" and not ticker_input.startswith("^"):
+                    st.warning("⚠️ Index tickers typically start with '^'. Example: ^NSEI, ^GSPC")
+                
+                if selected_asset_class == "Cryptocurrencies" and "-USD" not in ticker_input:
+                    st.warning("⚠️ Crypto tickers typically end with '-USD'. Example: BTC-USD")
+                
+                if selected_asset_class == "Forex" and "=X" not in ticker_input:
+                    st.warning("⚠️ Forex tickers typically end with '=X'. Example: EURUSD=X")
+                
+                if selected_asset_class == "Commodities" and "=F" not in ticker_input:
+                    st.warning("⚠️ Commodity tickers typically end with '=F'. Example: GC=F")
+                
+                # Step 3: Get currency symbol (enhanced for all asset classes)
+                currency = get_currency_symbol(ticker_input, selected_market)
+                
+                # Step 4: Store asset class info in session state
+                st.session_state['current_asset_class'] = selected_asset_class
+                st.session_state['current_market'] = selected_market
+                st.session_state['current_currency'] = currency
+                
+                # Step 5: YOUR EXISTING ANALYSIS CODE (UNCHANGED)
+                with st.spinner("Running complete analysis..."):
+                    try:
+                        company_name = get_company_name_multi_source(ticker_input, av)
+                        analyzer = StockAnalyzer(ticker=ticker_input)
+                        
+                        if trading_mode == "Intraday Trading":
+                            results = analyzer.analyze_for_intraday()
+                        else:
+                            results = analyzer.analyze_for_swing()
+                        
+                        if results:
+                            # ✅ Add company name to results
+                            results['company_name'] = company_name
+                            
+                            # ✅ Add asset class info to results
+                            results['asset_class'] = selected_asset_class
+                            results['market'] = selected_market
+                            results['currency'] = currency
+                        
+                        if results:
+                            # Add Fibonacci
+                            fib_analysis = analyzer.analyze_with_fibonacci(results['daily_data'])
+                            results['fibonacci'] = fib_analysis
+            
+                            # Fetch news and sentiment
+                            headlines = analyzer.scrape_news_headlines(ticker_input)
+                            print(f"📰 Fetched {len(headlines) if headlines else 0} headlines")
+                            if headlines and len(headlines) > 0:
+                                sentiment_detailed = analyzer.analyze_sentiment_detailed(headlines)
+                                print(f"💭 Sentiment analysis complete: {sentiment_detailed.get('overall_sentiment')}")
+                                print(f"📊 Articles processed: {len(sentiment_detailed.get('articles', []))}")
+                            else:
+                                # Create default sentiment structure
+                                sentiment_detailed = {
+                                    'overall_sentiment': 'Neutral',
+                                    'overall_score': 0.0,
+                                    'articles': [],
+                                    'total_articles': 0,
+                                    'positive_count': 0,
+                                    'negative_count': 0,
+                                    'neutral_count': 0
+                                }
+                                print("⚠️ No headlines found - using default sentiment")
+                                    
+                            results['news_headlines'] = headlines
+                            results['sentiment'] = sentiment_detailed['overall_sentiment']
+                            results['sentiment_score'] = sentiment_detailed['overall_score']
+                            results['sentiment_detailed'] = sentiment_detailed
+    
+                            # Debug: Check what's stored
+                            print(f"✅ Stored in results:")
+                            print(f"   - sentiment_detailed exists: {'sentiment_detailed' in results}")
+                            print(f"   - articles count: {len(results['sentiment_detailed'].get('articles', []))}")
+            
+                            st.session_state['analysis_results'] = results
+                            st.session_state['current_ticker'] = ticker_input
+            
+                            # Log to database
+                            log_trade_to_db(
+                                ticker_input,
+                                results.get('signal', 'HOLD'),
+                                results['latest_price'],
+                                results.get('position_size', 0),
+                                trading_mode.lower()
+                            )
+            
+                            # Send alerts
+                            if results.get('signal') in ['🟢 BUY', '🔴 SELL']:
+                                send_multi_channel_alert(
                                     ticker_input,
-                                    results.get('signal', 'HOLD'),
+                                    results['signal'],
                                     results['latest_price'],
-                                    results.get('position_size', 0),
-                                    trading_mode.lower()
+                                    [ch.lower() for ch in alert_channels]
                                 )
             
-                                # Send alerts
-                                if results.get('signal') in ['🟢 BUY', '🔴 SELL']:
-                                    send_multi_channel_alert(
-                                        ticker_input,
-                                        results['signal'],
-                                        results['latest_price'],
-                                        [ch.lower() for ch in alert_channels]
-                                    )
-            
-                                st.success("✅ Complete Analysis Done!")
-                            else:
-                                st.error("❌ Analysis failed. Please check the ticker symbol.")
-                                
-                        except Exception as e:
-                            st.error(f"❌ Error during analysis: {str(e)}")
-                            import traceback
-                            with st.expander("🔍 View Error Details"):
-                                st.code(traceback.format_exc())
-                    # END OF try-except block - properly closed now
+                            st.success(f"✅ Complete Analysis Done for {selected_asset_class}!")
+                        else:
+                            st.error("❌ Analysis failed. Please check the ticker symbol.")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Error during analysis: {str(e)}")
+                        import traceback
+                        with st.expander("🔍 View Error Details"):
+                            st.code(traceback.format_exc())
             
         # This is now properly outside the button's if-else
         # ============================================================
@@ -5318,7 +6517,30 @@ def main():
 
     with tab3:
         st.subheader("🎯 Options Trading Dashboard")
+
+        # ============= ASSET CLASS CHECK (NEW) =============
+        # Check if asset class is in session state
+        current_asset_class = st.session_state.get('current_asset_class', 'Equities (Stocks)')
+        asset_config = ASSET_CLASSES.get(current_asset_class, {})
         
+        # Check if options are supported
+        if not asset_config.get('supports_options', False):
+            st.warning(f"⚠️ Options trading is not available for {current_asset_class}")
+            
+            st.info("""
+            **Options are available for:**
+            - ✅ Equities (Stocks)
+            - ✅ Indices (e.g., Nifty 50, S&P 500)
+            - ✅ Some Commodities (e.g., Gold, Oil)
+            
+            **Not available for:**
+            - ❌ Cryptocurrencies
+            - ❌ Forex pairs
+            """)
+            
+            st.stop()
+        
+        # ============= REST OF YOUR OPTIONS CODE =============
         # Important notice for users
         st.info("ℹ️ **Note:** This feature works best with US stocks (AAPL, TSLA, SPY, etc.). Indian options data (Nifty/Bank Nifty) is not reliably available via free APIs.")
         
@@ -5335,38 +6557,53 @@ def main():
         col1, col2 = st.columns([3, 1])
         
         with col1:
+            # Initialize session state for options ticker
+            if 'opt_ticker' not in st.session_state:
+                st.session_state['opt_ticker'] = 'AAPL'
+            
             opt_ticker = st.text_input(
                 "Enter Options Ticker Symbol",
-                "AAPL",
-                key="opt_tick",
+                value=st.session_state.get('opt_ticker', 'AAPL'),
+                key="opt_tick_input",
                 help="Enter a ticker symbol. US stocks work best (AAPL, TSLA, SPY, QQQ, MSFT)"
             )
+            
+            # Update session state
+            st.session_state['opt_ticker'] = opt_ticker
         
         with col2:
             st.markdown("###")  # Spacing
-            analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True)
+            analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True, key="analyze_options_btn")
         
         # Quick select buttons for popular tickers
         st.markdown("**📌 Popular Options:**")
         quick_col1, quick_col2, quick_col3, quick_col4, quick_col5 = st.columns(5)
         
-        if quick_col1.button("AAPL"):
-            opt_ticker = "AAPL"
-            analyze_btn = True
-        if quick_col2.button("TSLA"):
-            opt_ticker = "TSLA"
-            analyze_btn = True
-        if quick_col3.button("SPY"):
-            opt_ticker = "SPY"
-            analyze_btn = True
-        if quick_col4.button("QQQ"):
-            opt_ticker = "QQQ"
-            analyze_btn = True
-        if quick_col5.button("MSFT"):
-            opt_ticker = "MSFT"
-            analyze_btn = True
+        # FIX: Use session state to handle quick selects
+        if quick_col1.button("AAPL", key="quick_aapl"):
+            st.session_state['opt_ticker'] = "AAPL"
+            st.rerun()
+        
+        if quick_col2.button("TSLA", key="quick_tsla"):
+            st.session_state['opt_ticker'] = "TSLA"
+            st.rerun()
+        
+        if quick_col3.button("SPY", key="quick_spy"):
+            st.session_state['opt_ticker'] = "SPY"
+            st.rerun()
+        
+        if quick_col4.button("QQQ", key="quick_qqq"):
+            st.session_state['opt_ticker'] = "QQQ"
+            st.rerun()
+        
+        if quick_col5.button("MSFT", key="quick_msft"):
+            st.session_state['opt_ticker'] = "MSFT"
+            st.rerun()
         
         st.markdown("---")
+        
+        # Get ticker from session state (in case quick button was clicked)
+        opt_ticker = st.session_state.get('opt_ticker', 'AAPL')
         
         if analyze_btn:
             with st.spinner(f"🔄 Fetching options data for {opt_ticker}..."):
@@ -5438,7 +6675,8 @@ def main():
                             "⬇️ Download Call Options CSV",
                             csv_calls,
                             f"{options_data['ticker']}_calls_{options_data['expiry']}.csv",
-                            "text/csv"
+                            "text/csv",
+                            key="download_calls"
                         )
                     with col2:
                         csv_puts = options_data['puts'].to_csv(index=False)
@@ -5446,7 +6684,8 @@ def main():
                             "⬇️ Download Put Options CSV",
                             csv_puts,
                             f"{options_data['ticker']}_puts_{options_data['expiry']}.csv",
-                            "text/csv"
+                            "text/csv",
+                            key="download_puts"
                         )
                 else:
                     # Failed to fetch
