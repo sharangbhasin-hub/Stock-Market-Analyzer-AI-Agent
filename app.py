@@ -504,10 +504,48 @@ class OptionsAnalyzer:
             3: "Nifty 50"
         }
 
-    def get_todays_expiry(self):
-        """Get today's expiring index"""
-        today = datetime.now().weekday()
-        return self.expiry_schedule.get(today, "No expiry today")
+    def get_nearest_expiry(self, ticker):
+        """
+        Get the nearest expiry date for a ticker using Yahoo Finance API
+        
+        Args:
+            ticker: Stock/ETF/Index ticker symbol
+        
+        Returns:
+            Dict with expiry info or None
+        """
+        try:
+            stock = yf.Ticker(ticker)
+            expiry_dates = stock.options
+            
+            if not expiry_dates or len(expiry_dates) == 0:
+                return None
+            
+            today = datetime.now().date()
+            today_str = today.strftime("%Y-%m-%d")
+            
+            # Find if options expire today
+            expires_today = today_str in expiry_dates
+            
+            # Find nearest future expiry
+            future_expiries = [exp for exp in expiry_dates if exp >= today_str]
+            nearest_expiry = future_expiries[0] if future_expiries else None
+            
+            if nearest_expiry:
+                expiry_date = datetime.strptime(nearest_expiry, "%Y-%m-%d").date()
+                days_until = (expiry_date - today).days
+                
+                return {
+                    'date': nearest_expiry,
+                    'days_until': days_until,
+                    'expires_today': expires_today,
+                    'total_expiries': len(expiry_dates)
+                }
+            
+            return None
+            
+        except Exception as e:
+            return None
 
     def fetch_options_chain(self, ticker):
         """Fetch options chain data with error handling"""
@@ -6646,22 +6684,36 @@ def main():
                 options_data = options_analyzer.fetch_options_chain(opt_ticker)
                 
                 if options_data:
-                    # ============= SUCCESS - SHOW DATA =============
                     st.success(f"✅ Options loaded: **{options_data['ticker']}**")
                     
-                    # Compact info row
+                    # Get expiry info dynamically
+                    expiry_info = options_analyzer.get_nearest_expiry(opt_ticker)
+                    
+                    # Compact info row with real data from API
                     info_col1, info_col2, info_col3 = st.columns(3)
+                    
                     with info_col1:
-                        st.metric("Nearest Expiry", options_data['expiry'])
+                        if expiry_info:
+                            expiry_label = f"{expiry_info['date']}"
+                            if expiry_info['expires_today']:
+                                expiry_label += " 🔴 TODAY"
+                            st.metric("Nearest Expiry", expiry_label)
+                        else:
+                            st.metric("Nearest Expiry", options_data['expiry'])
+                    
                     with info_col2:
                         st.metric("Available Expiries", len(options_data['all_expiries']))
-                    with info_col3:
-                        try:
-                            todays_expiry = options_analyzer.get_todays_expiry()
-                            st.metric("Today's Expiry", todays_expiry)
-                        except:
-                            st.metric("Today's Expiry", "N/A")
                     
+                    with info_col3:
+                        if expiry_info:
+                            days_label = expiry_info['days_until']
+                            if expiry_info['expires_today']:
+                                st.metric("Days Until Expiry", "0 (TODAY)", delta="Expires Today", delta_color="inverse")
+                            else:
+                                st.metric("Days Until Expiry", f"{days_label} days")
+                        else:
+                            st.metric("Days Until Expiry", "N/A")
+
                     st.markdown("---")
                     
                     # ============= PCR ANALYSIS =============
