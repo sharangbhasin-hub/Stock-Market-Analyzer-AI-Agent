@@ -6599,15 +6599,21 @@ def main():
         col_input, col_button = st.columns([3, 1])
         
         with col_input:
+            # IMPORTANT: Remove 'value' parameter, use only session state
             opt_ticker = st.text_input(
                 "Options Ticker",
-                value=st.session_state.get('opt_ticker', default_ticker),
-                key="opt_tick_input",
+                key="opt_ticker_input",  # Changed key name
                 label_visibility="collapsed",
                 placeholder="Enter ticker (e.g., AAPL, SPY, QQQ)"
             )
-            st.session_state['opt_ticker'] = opt_ticker
-        
+            
+            # Sync with session state (both directions)
+            if opt_ticker:
+                st.session_state['opt_ticker'] = opt_ticker
+            elif 'opt_ticker' in st.session_state:
+                # Initialize with session state value on first load
+                st.session_state['opt_ticker_input'] = st.session_state['opt_ticker']
+
         with col_button:
             analyze_btn = st.button("🔍 Analyze", type="primary", use_container_width=True, key="analyze_options_btn")
         
@@ -6693,14 +6699,14 @@ def main():
                     info_col1, info_col2, info_col3 = st.columns(3)
                     
                     with info_col1:
-                        if expiry_info:
-                            expiry_label = f"{expiry_info['date']}"
-                            if expiry_info['expires_today']:
-                                expiry_label += " 🔴 TODAY"
-                            st.metric("Nearest Expiry", expiry_label)
+                    if expiry_info:
+                        if expiry_info['expires_today']:
+                            st.error(f"🔴 **Options Expire TODAY:** {expiry_info['date']}")
                         else:
-                            st.metric("Nearest Expiry", options_data['expiry'])
-                    
+                            st.info(f"📆 **Nearest Expiry:** {expiry_info['date']} ({expiry_info['days_until']} days) | **Available Expiries:** {len(options_data['all_expiries'])}")
+                    else:
+                        st.info(f"📆 **Nearest Expiry:** {options_data['expiry']} | **Available Expiries:** {len(options_data['all_expiries'])}")
+                                        
                     with info_col2:
                         st.metric("Available Expiries", len(options_data['all_expiries']))
                     
