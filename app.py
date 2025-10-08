@@ -6478,14 +6478,7 @@ def main():
 
         # Check 1: No analysis results
         if 'analysis_results' not in st.session_state:
-            st.info("👈 Please run an analysis first from the **Analysis** tab")
-            st.markdown("""
-            **To get AI insights:**
-            1. Go to the **Analysis** tab
-            2. Select an asset class and ticker
-            3. Click **Analyze with Full Suite**
-            4. Return here to generate AI insights
-            """)
+            st.info("👈 Please run an analysis first from the Analysis tab")
         
         # Check 2: No AI model selected
         elif ai_model == "None":
@@ -6505,7 +6498,7 @@ def main():
             st.markdown("---")
 
             # Generate AI Analysis Button
-            if st.button("✨ Generate AI Analysis", type="primary", use_container_width=True):
+            if st.button("🧠 Generate AI Analysis", type="primary", use_container_width=True):
                 # Double-check AI model when button is clicked
                 if ai_model is None or ai_model == "":
                     st.error("❌ **No AI model selected!**")
