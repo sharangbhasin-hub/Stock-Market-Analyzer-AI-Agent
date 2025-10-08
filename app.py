@@ -6493,7 +6493,7 @@ def main():
 
         else:
             results = st.session_state['analysis_results']
-            ticker = results.get('ticker', 'Unknown')
+            ticker = results.get('ticker', None)
 
             # Display current analysis info
             col1, col2 = st.columns([2, 1])
