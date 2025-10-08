@@ -4875,10 +4875,10 @@ def main():
                         with col2:
                             st.metric("Index Selected", selected_index_name)
                             
-                            if st.button("📈 Analyze Index Itself", help="Switch to Indices and analyze the index"):
-                                st.session_state['auto_analyze_ticker'] = selected_index_ticker
-                                st.session_state['switch_to_indices'] = True
-                                st.rerun()
+                            # if st.button("📈 Analyze Index Itself", help="Switch to Indices and analyze the index"):
+                            #   st.session_state['auto_analyze_ticker'] = selected_index_ticker
+                            #    st.session_state['switch_to_indices'] = True
+                            #   st.rerun()
                         
                         st.markdown("---")
                         
