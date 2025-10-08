@@ -2767,7 +2767,7 @@ def get_ai_analysis_gemini(prompt):
         return "Gemini API key not configured"
 
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-pro')
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
@@ -4762,14 +4762,22 @@ class StockAnalyzer:
         """Check if we can make a request based on rate limiting"""
         now = datetime.now()
         
-        # Reset counter every 5 minutes
-        if (now - st.session_state['request_reset_time']).seconds > 300:
+        # Initialize session state variables if they don't exist
+        if 'last_request_time' not in st.session_state:
+            st.session_state['last_request_time'] = None
+        if 'request_count' not in st.session_state:
+            st.session_state['request_count'] = 0
+        if 'request_reset_time' not in st.session_state:
+            st.session_state['request_reset_time'] = now
+        
+        # Reset counter every 5 minutes (300 seconds)
+        if (now - st.session_state['request_reset_time']).total_seconds() > 300:
             st.session_state['request_count'] = 0
             st.session_state['request_reset_time'] = now
         
         # Limit to 20 requests per 5 minutes
         if st.session_state['request_count'] >= 20:
-            wait_time = 300 - (now - st.session_state['request_reset_time']).seconds
+            wait_time = 300 - int((now - st.session_state['request_reset_time']).total_seconds())
             st.error(f"⏳ **Rate limit reached.** Please wait {wait_time} seconds before next analysis.")
             st.info("💡 **Tip:** You've made too many requests. Yahoo Finance has rate limits. Please wait a few minutes.")
             return False
@@ -4780,8 +4788,10 @@ class StockAnalyzer:
             if time_since_last < 2:
                 time.sleep(2 - time_since_last)
         
+        # Update tracking
         st.session_state['last_request_time'] = now
         st.session_state['request_count'] += 1
+        
         return True
 
 # ==============================================================================
