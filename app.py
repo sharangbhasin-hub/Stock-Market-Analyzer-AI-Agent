@@ -6488,31 +6488,19 @@ def main():
             """)
         
         # Check 2: No AI model selected
-        elif ai_model is None or ai_model == "":  # ✅ Fixed to check None properly
-            st.warning("⚠️ **Please select an AI model from the sidebar**")
-            st.info("""
-            **Available AI Models:**
-            - Google Gemini (Free with API key)
-            - Claude 3.5 Sonnet
-            - GPT-4 Turbo
-            - GPT-4
-            - Claude 3 Opus
-            
-            **How to select:**
-            Look for **"AI Model Selection"** in the left sidebar
-            """)
-        
-        # All checks passed - show analysis interface
+        elif ai_model == "None":
+            st.warning("⚠️ Please select an AI model from the sidebar to generate insights")
+
         else:
             results = st.session_state['analysis_results']
-            ticker = results.get('ticker', 'Unknown')
+            ticker = results.get('ticker', None)
 
             # Display current analysis info
             col1, col2 = st.columns([2, 1])
             with col1:
-                st.success(f"✅ **Analyzing:** {ticker}")
+                st.success(f"**Analyzing:** {results['ticker']}")
             with col2:
-                st.info(f"🤖 **Model:** {ai_model}")
+                st.info(f"**AI Model:** {ai_model}")
             
             st.markdown("---")
 
