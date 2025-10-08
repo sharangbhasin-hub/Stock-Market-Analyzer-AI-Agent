@@ -6600,20 +6600,17 @@ def main():
         col_input, col_button = st.columns([3, 1])
         
         with col_input:
-            # Get current value from session state
-            current_value = st.session_state.get('opt_ticker', default_ticker)
-            
-            # Text input with value parameter
+            # CRITICAL: Always read from session state (no intermediate variable)
             opt_ticker = st.text_input(
                 "Options Ticker",
-                value=current_value,  # ✅ Use value parameter instead
+                value=st.session_state.get('opt_ticker', default_ticker),  # ✅ Read directly each time
                 key="opt_ticker_input_field",
                 label_visibility="collapsed",
                 placeholder="Enter ticker (e.g., AAPL, SPY, QQQ)"
             )
             
             # Update session state when user types
-            if opt_ticker != current_value:
+            if opt_ticker:
                 st.session_state['opt_ticker'] = opt_ticker
         
         with col_button:
