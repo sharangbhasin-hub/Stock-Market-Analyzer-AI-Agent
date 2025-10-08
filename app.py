@@ -6482,7 +6482,7 @@ def main():
             st.warning("⚠️ Please select an AI model from the sidebar to generate insights")
         else:
             results = st.session_state['analysis_results']
-            ticker = results.get('ticker', None)
+            ticker = results.get('ticker', 'Unknown')
 
             st.success(f"✅ **Analyzing:** {ticker}")
             st.write(f"**AI Model:** {ai_model}")
