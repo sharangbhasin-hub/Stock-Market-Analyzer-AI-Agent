@@ -6484,7 +6484,7 @@ def main():
             results = st.session_state['analysis_results']
             ticker = results.get('ticker', None)
 
-            st.write(f"**Analyzing:** {results['ticker']}")
+            st.success(f"✅ **Analyzing:** {ticker}")
             st.write(f"**AI Model:** {ai_model}")
 
             if st.button("🧠 Generate AI Analysis", type="primary"):
