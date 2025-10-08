@@ -6482,10 +6482,9 @@ def main():
             st.warning("Please select an AI model from the sidebar to generate insights")
         else:
             results = st.session_state['analysis_results']
-            ticker = results.get('ticker', None)
-            st.write(f"Analyzing {results['ticker']}")
-                       
-            st.write(f"**AI Model:** {ai_model}")
+            ticker = results.get('ticker', st.session_state.get('current_ticker', 'Unknown'))
+            st.success(f"✅ **Analysis available for:** {ticker}")
+            st.info(f"🤖 **AI Model:** {ai_model}")
 
             if st.button("🧠 Generate AI Analysis", type="primary"):
                 with st.spinner(f"Generating insights with {ai_model}..."):
