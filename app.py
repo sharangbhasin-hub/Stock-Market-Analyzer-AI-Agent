@@ -6488,7 +6488,7 @@ def main():
             st.write(f"**AI Model:** {ai_model}")
 
             if st.button("🧠 Generate AI Analysis", type="primary"):
-                with st.spinner(f"🔄 Generating insights with {ai_model}..."):
+                with st.spinner(f"Generating insights with {ai_model}..."):
                     progress_bar = st.progress(0)
                     # Simulate progress (replace or remove sleep for real progress updates)
                     for i in range(30):
@@ -6518,13 +6518,7 @@ def main():
             if 'ai_analysis' in st.session_state:
                 st.markdown("---")
                 st.markdown("### 💡 AI Insights")
-				 
-				 # Check if analysis matches current ticker
-				analysis_ticker = st.session_state.get('ai_analysis_ticker', ticker)
-				if analysis_ticker != ticker:
-					st.warning(f"⚠️ **Note:** This AI analysis is for **{analysis_ticker}**, not **{ticker}**")
-                
-				st.markdown(st.session_state['ai_analysis'])
+                st.markdown(st.session_state['ai_analysis'])
 
                 # Option to download
                 st.download_button(
@@ -6541,34 +6535,18 @@ def main():
 
                 import pytz
                 
-				# ============= SHOW GENERATION TIME =============
-				if "last_analysis_time" in st.session_state:
-					import pytz
-					last_run = st.session_state["last_analysis_time"]
-					local_time = last_run.astimezone(pytz.timezone('Asia/Kolkata'))
-					st.caption(f"🕒 Generated: {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
-				
-				# ============= ANALYSIS HISTORY =============
-				if "analysis_history" in st.session_state and st.session_state["analysis_history"]:
-					with st.expander("📜 Analysis History (Last 5 runs)"):
-						import pytz
-						
-						for idx, entry in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
-							try:
-								if isinstance(entry, dict):
-									# New format with details
-									ts = entry.get('time')
-									hist_ticker = entry.get('ticker', 'Unknown')
-									hist_model = entry.get('model', 'Unknown')
-									
-									local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
-									st.markdown(f"**{idx}.** `{hist_ticker}` | {hist_model} | {local_time.strftime('%d-%m-%Y %H:%M:%S')}")
-								else:
-									# Old format (just timestamp) - fallback
-									local_time = entry.astimezone(pytz.timezone('Asia/Kolkata'))
-									st.markdown(f"**{idx}.** {local_time.strftime('%d-%m-%Y %H:%M:%S')}")
-							except Exception as e:
-								st.markdown(f"**{idx}.** Invalid entry")
+                # Show last analysis run timestamp
+                if "last_analysis_time" in st.session_state:
+                    last_run = st.session_state["last_analysis_time"]
+                    local_time = last_run.astimezone(pytz.timezone('Asia/Kolkata'))
+                    st.markdown(f"🕒 **Last analysis run:** {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                
+                # Show recent analysis history
+                if "analysis_history" in st.session_state and st.session_state["analysis_history"]:
+                    st.subheader("🕑 Analysis Run History (Last 5 times)")
+                    for idx, ts in enumerate(reversed(st.session_state["analysis_history"][-5:]), 1):
+                        local_time = ts.astimezone(pytz.timezone('Asia/Kolkata'))
+                        st.markdown(f"{idx}. {local_time.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
     # ===========================================================================
     # === TAB 3-6: OPTIONS, BACKTESTING, PORTFOLIO, LIVE TRADING
