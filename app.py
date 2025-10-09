@@ -1741,7 +1741,7 @@ def run_auto_analysis(asset_class, market):
 
     for index_name, index_ticker in indices_dict.items():
         try:
-            option_chain = options_analyzer.fetchoptionschain(index_ticker)
+            option_chain = options_analyzer.fetch_options_chain(index_ticker)
             if option_chain is None:
                 st.write(f"Skipping {index_name}: No option chain data.")
                 continue
