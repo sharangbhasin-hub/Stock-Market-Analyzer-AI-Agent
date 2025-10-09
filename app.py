@@ -7819,24 +7819,323 @@ def main():
                 st.success("✅ All settings reset!")
                 st.rerun()
 
+    # ============================================================================
+    # FIXED AUTO TAB IMPLEMENTATION
+    # Replace the existing Tab 8 code (around line 4900) with this
+    # ============================================================================
+    
     with tab8:
-        st.header("Auto Index Option Analyzer")
-    
-        # Asset Class selection from your ASSETCLASSES dictionary (already present at top):
-        asset_classes = list(ASSETCLASSES.keys())
-        selected_asset_class = st.selectbox("Select Asset Class", asset_classes, key="auto_asset_class")
-    
+        st.header("🤖 Auto Index Option Analyzer")
+        st.caption("Automatically scan indices and generate option trading signals")
+        
+        # Asset Class selection
+        asset_classes = list(ASSET_CLASSES.keys())
+        selected_asset_class = st.selectbox(
+            "Select Asset Class", 
+            asset_classes, 
+            key="auto_asset_class",
+            index=1  # Default to Indices
+        )
+        
         # Market selection based on selected asset class
-        market_options = ASSETCLASSES[selected_asset_class].get('markets', []) if selected_asset_class in ASSETCLASSES else []
-        selected_market = st.selectbox("Select Market", market_options, key="auto_market") if market_options else None
-    
-        # Mode Selector: Manual vs Auto (for your reference, you already have manual in Options tab)
-        mode = st.radio("Mode", ['Manual', 'Auto'], index=1, key="auto_mode")
-    
-        if mode == 'Auto':
-            run_auto_analysis(selected_asset_class, selected_market)
-        else:
-            st.info("Please use the Options tab for manual option analysis.")
+        asset_config = ASSET_CLASSES.get(selected_asset_class, {})
+        market_options = asset_config.get('markets', [])
+        
+        selected_market = st.selectbox(
+            "Select Market", 
+            market_options, 
+            key="auto_market"
+        ) if market_options else None
+        
+        # ============================================================================
+        # VALIDATION: Check if Options are supported
+        # ============================================================================
+        
+        if not asset_config.get('supports_options', False):
+            st.error(f"❌ Options trading not supported for {selected_asset_class}")
+            st.info("💡 Auto analysis requires options data. Please select 'Equities (Stocks)' or 'Indices'")
+            st.stop()
+        
+        if not selected_market:
+            st.warning("⚠️ Please select a market")
+            st.stop()
+        
+        st.markdown("---")
+        
+        # ============================================================================
+        # AUTO ANALYSIS CONFIGURATION
+        # ============================================================================
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            min_pcr = st.number_input(
+                "Min PCR (Put-Call Ratio)", 
+                value=0.7, 
+                step=0.1,
+                help="Minimum PCR to consider (e.g., 0.7 = moderately bullish)"
+            )
+        
+        with col2:
+            max_pcr = st.number_input(
+                "Max PCR (Put-Call Ratio)", 
+                value=1.3, 
+                step=0.1,
+                help="Maximum PCR to consider (e.g., 1.3 = moderately bearish)"
+            )
+        
+        with col3:
+            max_days_to_expiry = st.number_input(
+                "Max Days to Expiry", 
+                value=7, 
+                min_value=1,
+                help="Only analyze options expiring within this many days"
+            )
+        
+        st.markdown("---")
+        
+        # ============================================================================
+        # RUN AUTO ANALYSIS BUTTON
+        # ============================================================================
+        
+        if st.button("▶️ Run Auto Analysis", type="primary", use_container_width=True):
+            
+            with st.spinner(f"🔍 Scanning {selected_market} for trading opportunities..."):
+                
+                # Initialize OptionsAnalyzer
+                options_analyzer = OptionsAnalyzer()
+                
+                # ===== STEP 1: GET INDICES FOR SELECTED MARKET =====
+                st.info(f"📊 Loading indices for {selected_market}...")
+                
+                indices_dict, source_info = asset_api.get_available_indices(selected_market)
+                
+                if not indices_dict:
+                    st.error(f"❌ No indices found for {selected_market}")
+                    st.stop()
+                
+                st.success(f"✅ Found {len(indices_dict)} indices")
+                
+                # ===== STEP 2: ANALYZE EACH INDEX =====
+                all_signals = []
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                for idx, (index_name, index_ticker) in enumerate(indices_dict.items(), 1):
+                    
+                    status_text.text(f"Analyzing {idx}/{len(indices_dict)}: {index_name}...")
+                    
+                    try:
+                        # Fetch options chain
+                        options_data = options_analyzer.fetch_options_chain(index_ticker)
+                        
+                        if not options_data:
+                            continue
+                        
+                        # Get expiry info
+                        expiry_info = options_analyzer.get_nearest_expiry(index_ticker)
+                        
+                        if not expiry_info:
+                            continue
+                        
+                        days_until_expiry = expiry_info.get('days_until', 999)
+                        
+                        # Skip if expiry too far
+                        if days_until_expiry > max_days_to_expiry:
+                            continue
+                        
+                        # Calculate PCR
+                        pcr_data = options_analyzer.calculate_pcr(options_data)
+                        
+                        if not pcr_data:
+                            continue
+                        
+                        pcr_oi = pcr_data.get('pcr_oi', 0)
+                        
+                        # Filter by PCR range
+                        if not (min_pcr <= pcr_oi <= max_pcr):
+                            continue
+                        
+                        # Get current price
+                        try:
+                            ticker_obj = yf.Ticker(index_ticker)
+                            current_data = ticker_obj.history(period='1d')
+                            
+                            if current_data.empty:
+                                continue
+                            
+                            current_price = current_data['Close'].iloc[-1]
+                        except:
+                            continue
+                        
+                        # Determine signal based on PCR
+                        if pcr_oi > 1.0:
+                            signal_type = "BULLISH"
+                            signal_desc = "High put volume - Market expects upside"
+                            recommended_action = "BUY CALL"
+                        elif pcr_oi < 1.0:
+                            signal_type = "BEARISH"
+                            signal_desc = "High call volume - Market expects downside"
+                            recommended_action = "BUY PUT"
+                        else:
+                            signal_type = "NEUTRAL"
+                            signal_desc = "Balanced put-call ratio"
+                            recommended_action = "WAIT"
+                        
+                        # Calculate confidence (based on PCR distance from 1.0)
+                        confidence = min(100, abs(pcr_oi - 1.0) * 100)
+                        
+                        # Find ITM options
+                        if signal_type == "BULLISH":
+                            itm_options = options_analyzer.filter_itm_options(
+                                options_data, 
+                                current_price, 
+                                'call'
+                            )
+                        elif signal_type == "BEARISH":
+                            itm_options = options_analyzer.filter_itm_options(
+                                options_data, 
+                                current_price, 
+                                'put'
+                            )
+                        else:
+                            itm_options = pd.DataFrame()
+                        
+                        # Store signal
+                        all_signals.append({
+                            'Index': index_name,
+                            'Ticker': index_ticker,
+                            'Current Price': current_price,
+                            'PCR': pcr_oi,
+                            'Signal': signal_type,
+                            'Action': recommended_action,
+                            'Confidence': confidence,
+                            'Days to Expiry': days_until_expiry,
+                            'Expiry Date': expiry_info.get('date', 'N/A'),
+                            'Description': signal_desc,
+                            'ITM Options': itm_options
+                        })
+                        
+                    except Exception as e:
+                        # Silent fail - continue to next index
+                        continue
+                    
+                    finally:
+                        progress_bar.progress(idx / len(indices_dict))
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
+                # ===== STEP 3: DISPLAY RESULTS =====
+                
+                if not all_signals:
+                    st.warning("⚠️ No trading signals found matching your criteria")
+                    st.info("💡 Try adjusting PCR range or max days to expiry")
+                else:
+                    st.success(f"✅ Found {len(all_signals)} trading opportunities!")
+                    
+                    # Sort by confidence
+                    all_signals.sort(key=lambda x: x['Confidence'], reverse=True)
+                    
+                    # Display summary table
+                    st.markdown("### 📊 Trading Signals Summary")
+                    
+                    summary_df = pd.DataFrame([
+                        {
+                            'Index': s['Index'],
+                            'Ticker': s['Ticker'],
+                            'Price': f"${s['Current Price']:.2f}",
+                            'PCR': f"{s['PCR']:.2f}",
+                            'Signal': s['Signal'],
+                            'Action': s['Action'],
+                            'Confidence': f"{s['Confidence']:.0f}%",
+                            'Expiry': s['Expiry Date']
+                        }
+                        for s in all_signals
+                    ])
+                    
+                    st.dataframe(summary_df, use_container_width=True)
+                    
+                    # Display detailed analysis for each signal
+                    st.markdown("---")
+                    st.markdown("### 🔍 Detailed Analysis")
+                    
+                    for signal in all_signals:
+                        with st.expander(f"📈 {signal['Index']} - {signal['Signal']} ({signal['Confidence']:.0f}% confidence)"):
+                            
+                            col1, col2, col3, col4 = st.columns(4)
+                            
+                            col1.metric("Current Price", f"${signal['Current Price']:.2f}")
+                            col2.metric("PCR (OI)", f"{signal['PCR']:.2f}")
+                            col3.metric("Days to Expiry", signal['Days to Expiry'])
+                            col4.metric("Recommended", signal['Action'])
+                            
+                            # Signal description
+                            if signal['Signal'] == 'BULLISH':
+                                st.success(f"🟢 {signal['Description']}")
+                            elif signal['Signal'] == 'BEARISH':
+                                st.error(f"🔴 {signal['Description']}")
+                            else:
+                                st.info(f"⚪ {signal['Description']}")
+                            
+                            # ITM Options
+                            if not signal['ITM Options'].empty:
+                                st.markdown("#### 🎯 Recommended ITM Options")
+                                st.dataframe(
+                                    signal['ITM Options'].head(5),
+                                    use_container_width=True
+                                )
+                            else:
+                                st.warning("No ITM options data available")
+                            
+                            # Action buttons
+                            st.markdown("---")
+                            btn_col1, btn_col2 = st.columns(2)
+                            
+                            with btn_col1:
+                                if st.button(
+                                    f"📊 View Full Options Chain", 
+                                    key=f"view_{signal['Ticker']}"
+                                ):
+                                    st.info(f"💡 Switch to 'Options' tab and enter ticker: {signal['Ticker']}")
+                            
+                            with btn_col2:
+                                if st.button(
+                                    f"📈 Analyze {signal['Index']}", 
+                                    key=f"analyze_{signal['Ticker']}"
+                                ):
+                                    # Store for analysis
+                                    st.session_state['auto_analyze_ticker'] = signal['Ticker']
+                                    st.session_state['current_ticker'] = signal['Ticker']
+                                    st.info(f"💡 Switch to 'Analysis' tab to view detailed analysis")
+                    
+                    # Export option
+                    st.markdown("---")
+                    if st.button("📥 Export Signals to CSV"):
+                        export_df = pd.DataFrame([
+                            {
+                                'Index': s['Index'],
+                                'Ticker': s['Ticker'],
+                                'Current_Price': s['Current Price'],
+                                'PCR': s['PCR'],
+                                'Signal': s['Signal'],
+                                'Recommended_Action': s['Action'],
+                                'Confidence': s['Confidence'],
+                                'Days_to_Expiry': s['Days to Expiry'],
+                                'Expiry_Date': s['Expiry Date'],
+                                'Description': s['Description']
+                            }
+                            for s in all_signals
+                        ])
+                        
+                        csv = export_df.to_csv(index=False)
+                        st.download_button(
+                            "Download CSV",
+                            csv,
+                            f"auto_signals_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            "text/csv"
+                        )
 
 
 # ==============================================================================
