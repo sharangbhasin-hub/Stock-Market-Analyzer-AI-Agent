@@ -505,6 +505,19 @@ class OptionsAnalyzer:
             3: "Nifty 50"
         }
 
+    def fetchoptionschain_adaptive(self, ticker):
+        """
+        Fetch option chain using Alpha Vantage API as primary,
+        Finnhub API as fallback.
+        """
+        df = self.fetchoptionschain_alpha(ticker)
+        if df is not None:
+            return df
+    
+        # fallback to finnhub
+        df = self.fetchoptionschain_finnhub(ticker)
+        return df
+
     def get_nearest_expiry(self, ticker):
         """
         Get the nearest expiry date for a ticker using Yahoo Finance API
@@ -599,6 +612,73 @@ class OptionsAnalyzer:
             return None
             
         except Exception as e:
+            return None
+
+    import requests
+    import pandas as pd
+    import os
+    
+    def fetchoptionschain_alpha(self, ticker):
+        """
+        Fetch option chain data from Alpha Vantage API.
+        Returns Pandas DataFrame or None on failure.
+        """
+        api_key = os.getenv("ALPHAVANTAGEAPIKEY")
+        if not api_key:
+            print("Alpha Vantage API key missing.")
+            return None
+    
+        url = f"https://www.alphavantage.co/query"
+        params = {
+            "function": "OPTION_CHAIN",  # Hypothetical, Alpha Vantage does not officially support options chain currently
+            "symbol": ticker,
+            "apikey": api_key
+        }
+    
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+    
+            # Parse JSON into DataFrame according to the API response structure
+            # Example placeholder parser, adapt to actual JSON format
+            if "optionChain" in data:
+                options = data["optionChain"]["result"]
+                df = pd.DataFrame(options)
+                return df
+            else:
+                print("Alpha Vantage option chain data unavailable or invalid response")
+                return None
+        except Exception as e:
+            print(f"Alpha Vantage option chain fetch error: {e}")
+            return None
+            
+    def fetchoptionschain_finnhub(self, ticker):
+        """
+        Fetch option chain data from Finnhub API as fallback.
+        Returns Pandas DataFrame or None.
+        """
+        import os
+        finnhub_api_key = os.getenv("FINNHUBAPIKEY")
+        if not finnhub_api_key:
+            print("Finnhub API key missing.")
+            return None
+    
+        try:
+            # Assume finnhub client already initialized globally or pass client here
+            finnhub_client = finnhub.Client(api_key=finnhub_api_key)
+            option_data = finnhub_client.options(ticker)
+    
+            if not option_data or "data" not in option_data or len(option_data["data"]) == 0:
+                print("No option data returned by Finnhub")
+                return None
+    
+            # Convert option_data to DataFrame
+            df = pd.DataFrame(option_data["data"])
+            return df
+    
+        except Exception as e:
+            print(f"Finnhub option chain fetch error: {e}")
             return None
     
     def fetchoptionschain_kite(self, ticker):
@@ -1796,7 +1876,7 @@ def run_auto_analysis(asset_class, market):
 
     for index_name, index_ticker in indices_dict.items():
         try:
-            option_chain = options_analyzer.fetchoptionschain_kite(index_ticker)
+            option_chain = options_analyzer.fetchoptionschain_adaptive(index_ticker)
             if option_chain is None:
                 st.write(f"Skipping {index_name}: No option chain data.")
                 continue
