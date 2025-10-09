@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
+from constants import ASSETCLASSES
 import openai
 import google.generativeai as genai
 import smtplib
