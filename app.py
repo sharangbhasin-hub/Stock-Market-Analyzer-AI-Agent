@@ -1521,6 +1521,289 @@ ASSET_CLASSES = {
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
 
+def filter_itm_options(option_chain, underlying_price, direction):
+    try:
+        df = option_chain.copy()
+        if df.empty or underlying_price is None:
+            return pd.DataFrame()
+
+        if direction.upper() == 'CALL':
+            filtered = df[(df['putCall'] == 'call') & (df['strike'] <= underlying_price)]
+        elif direction.upper() == 'PUT':
+            filtered = df[(df['putCall'] == 'put') & (df['strike'] >= underlying_price)]
+        else:
+            return pd.DataFrame()
+
+        return filtered.sort_values(by='strike', ascending=True)
+    except Exception as e:
+        print(f"Error in filtering ITM options: {e}")
+        return pd.DataFrame()
+
+def calculate_rsi(series, period=14):
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+def check_momentum_signal(ticker):
+    try:
+        df = yf.Ticker(ticker).history(period="60d", interval="1d")
+        if df.empty or len(df) < 30:
+            return False
+
+        close = df['Close']
+        ema21 = close.ewm(span=21, adjust=False).mean()
+        rsi = calculate_rsi(close, 14)
+
+        latest_close = close.iloc[-1]
+        latest_ema21 = ema21.iloc[-1]
+        latest_rsi = rsi.iloc[-1]
+
+        bullish = (latest_close > latest_ema21) and (latest_rsi > 55)
+        return bullish
+    except Exception as e:
+        print(f"Error in momentum signal for {ticker}: {e}")
+        return False
+
+def calculate_pcr(option_chain, expiry_date):
+    try:
+        df_expiry = option_chain[option_chain['expiration'] == expiry_date]
+        if df_expiry.empty:
+            return None
+
+        put_oi = df_expiry[df_expiry['putCall'] == 'put']['openInterest'].sum()
+        call_oi = df_expiry[df_expiry['putCall'] == 'call']['openInterest'].sum()
+
+        # Prevent division by zero
+        if call_oi == 0:
+            return None
+
+        pcr = put_oi / call_oi
+        return pcr
+    except Exception as e:
+        print(f"Error calculating PCR: {e}")
+        return None
+
+def check_retest_signal(ticker):
+    try:
+        data = yf.Ticker(ticker).history(period="30d", interval="1d")
+        if data.empty or len(data) < 20:
+            return False
+
+        close = data['Close']
+        high = data['High']
+        low = data['Low']
+
+        # Calculate recent resistance as last 5-day high
+        resistance = high[-10:-5].max()
+        # Check breakout: price moved above resistance in last 5 days
+        breakout = close[-5:] > resistance
+
+        if not breakout.any():
+            return False
+
+        breakout_day_idx = np.where(breakout)[0][0] + (len(close) - 5)
+        # Check retest: price after breakout dropped but stayed above resistance
+        if breakout_day_idx + 1 >= len(close):
+            return False  # No data after breakout day
+
+        post_breakout_prices = close[breakout_day_idx+1:]
+        retrace_below_resistance = post_breakout_prices.min() < resistance
+        hold_above_level = post_breakout_prices.min() > (resistance * 0.985)  # 1.5% below resistance threshold
+
+        retest_confirmed = retrace_below_resistance and hold_above_level
+        return retest_confirmed
+    except Exception as e:
+        print(f"Error in retest signal for {ticker}: {e}")
+        return False
+
+def get_underlying_price(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        data = stock.history(period="1d")
+        if data.empty:
+            return None
+        close_price = data['Close'][-1]
+        return close_price
+    except Exception as e:
+        print(f"Error fetching price for {ticker}: {e}")
+        return None
+
+def detect_option_signal(ticker, option_chain, expiry_date):
+    """
+    Detect Call/Put option trading signal for given ticker & expiry using combined
+    retest, PCR, momentum logic.
+
+    Args:
+        ticker (str): Underlying ticker symbol.
+        option_chain (pd.DataFrame): Full option chain data for ticker.
+        expiry_date (str): Expiry date string in YYYY-MM-DD format.
+
+    Returns:
+        dict or None: {
+          "direction": "CALL" or "PUT",
+          "score": float confidence score 0-1,
+          "details": pd.DataFrame filtered ITM option data
+        } or None if no strong signal found.
+    """
+
+    # Step 1: Get latest price of underlying
+    underlying_price = get_underlying_price(ticker)
+    if underlying_price is None:
+        print(f"Underlying price not found for {ticker}")
+        return None
+
+    # Step 2: Check retest breakout signal
+    retest_passed = check_retest_signal(ticker)
+
+    # Step 3: Calculate Put Call Ratio for expiry
+    pcr_value = calculate_pcr(option_chain, expiry_date)
+    if pcr_value is None:
+        print(f"PCR calculation failed for {ticker} expiry {expiry_date}")
+        return None
+
+    # Step 4: Check momentum signal using EMA/RSI
+    bullish_momentum = check_momentum_signal(ticker)
+
+    # Step 5: Decision logic combining all
+    # Scoring based on combined conditions
+    score = 0.0
+    direction = None
+
+    # Basic rules to assign signal and confidence score:
+    # - Retest is mandatory for signal
+    # - PCR < 0.9 and momentum bullish = strong CALL
+    # - PCR > 1.1 and momentum bearish = strong PUT
+    # - Mid values result in weaker/no signal
+
+    if retest_passed:
+        if pcr_value < 0.9 and bullish_momentum:
+            direction = "CALL"
+            score = min(1.0, (0.95 - pcr_value) + 0.5)  # Score weighted towards strong PCR and momentum
+        elif pcr_value > 1.1 and not bullish_momentum:
+            direction = "PUT"
+            score = min(1.0, (pcr_value - 1.05) + 0.5)
+        else:
+            # Weak or ambiguous signals, no trade
+            return None
+    else:
+        # No retest failed signal, no trade
+        return None
+
+    # Step 6: Filter ITM Options for strike recommendation
+    details = filter_itm_options(option_chain, underlying_price, direction)
+
+    # Return full signal info for Auto tab use
+    return {
+        "direction": direction,
+        "score": round(score, 2),
+        "details": details
+    }
+
+def get_indices_for_market(asset_class, market):
+    # Use your existing dict or define one here dynamically
+    # Example for India and US markets
+    indices_map = {
+        "India": {
+            "NIFTY 50": "NSE:NIFTY",
+            "BANK NIFTY": "NSE:BANKNIFTY",
+            "FIN NIFTY": "NSE:FINNIFTY",
+        },
+        "US": {
+            "S&P 500": "^GSPC",
+            "Nasdaq 100": "^NDX",
+            "Russell 2000": "^RUT",
+        }
+        # extend as per your market coverage
+    }
+    return indices_map.get(market, {})
+
+def run_auto_analysis(asset_class, market):
+    import streamlit as st
+
+    if not asset_class or not market:
+        st.warning("Please select both Asset Class and Market to proceed.")
+        return
+
+    options_analyzer = OptionsAnalyzer()  # Your existing class instance
+
+    # Dynamically get list of indices for market
+    indices_dict = get_indices_for_market(asset_class, market)
+    if not indices_dict:
+        st.warning(f"No indices found for market: {market}")
+        return
+
+    st.write(f"Running auto-analysis for {asset_class} in {market}...")
+    all_suggestions = []
+
+    for index_name, index_ticker in indices_dict.items():
+        try:
+            option_chain = options_analyzer.fetchoptionschain(index_ticker)
+            if option_chain is None:
+                st.write(f"Skipping {index_name}: No option chain data.")
+                continue
+
+            expiry_info = options_analyzer.getnearestexpiry(index_ticker)
+            if expiry_info is None:
+                st.write(f"Skipping {index_name}: No expiry info.")
+                continue
+
+            expiry_date = expiry_info[0]
+            days_to_expiry = expiry_info[1]
+
+            if days_to_expiry <= 0:
+                st.write(f"Skipping {index_name}: Expiry too close or passed.")
+                continue
+
+            signal = detect_option_signal(index_ticker, option_chain, expiry_date)
+
+            if signal is None:
+                st.write(f"No signal generated for {index_name}.")
+                continue
+
+            all_suggestions.append({
+                "Index Name": index_name,
+                "Ticker": index_ticker,
+                "Expiry Date": expiry_date,
+                "Direction": signal["direction"],
+                "Confidence": signal["score"],
+                "Details": signal["details"]
+            })
+        except Exception as e:
+            st.error(f"Error processing {index_name}: {str(e)}")
+
+    if not all_suggestions:
+        st.warning("No trading suggestions found after analysis.")
+        return
+
+    import pandas as pd
+    df = pd.DataFrame(all_suggestions)[["Index Name", "Ticker", "Expiry Date", "Direction", "Confidence"]]
+    st.dataframe(df)
+
+    for sug in all_suggestions:
+        with st.expander(f"Details for {sug['Index Name']} {sug['Direction']}"):
+            st.write(sug["Details"])
+            if st.button(f"Place Live Trade for {sug['Index Name']}", key=f"trade_{sug['Index Name']}"):
+                place_live_trade(sug)
+
+def create_price_ema_chart(ticker):
+    import yfinance as yf
+    data = yf.Ticker(ticker).history(period="60d", interval="1d")
+    if data.empty:
+        return go.Figure()
+
+    close = data['Close']
+    ema21 = close.ewm(span=21, adjust=False).mean()
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=data.index, y=close, mode='lines', name='Close Price'))
+    fig.add_trace(go.Scatter(x=data.index, y=ema21, mode='lines', name='21 EMA'))
+
+    fig.update_layout(title=f"Price and 21 EMA for {ticker}", xaxis_title="Date", yaxis_title="Price")
+    return fig
+    
 def save_analysis_for_comparison(ticker, results, ai_analysis=None):
     """
     Save analysis results for comparison
@@ -4907,14 +5190,15 @@ def main():
     # === MAIN TABS ============================================================
     # ===========================================================================
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📊 Analysis",
         "🤖 AI Insights",
         "🎯 Options",
         "📈 Backtesting",
         "💼 Portfolio",
         "📱 Live Trading",
-        "⚙️ Settings"
+        "⚙️ Settings",
+        "Auto"
     ])
 
     # ===========================================================================
@@ -7463,6 +7747,26 @@ def main():
                     del st.session_state[key]
                 st.success("✅ All settings reset!")
                 st.rerun()
+
+    with tab8:
+        st.header("Auto Index Option Analyzer")
+    
+        # Asset Class selection from your ASSETCLASSES dictionary (already present at top):
+        asset_classes = list(ASSETCLASSES.keys())
+        selected_asset_class = st.selectbox("Select Asset Class", asset_classes, key="auto_asset_class")
+    
+        # Market selection based on selected asset class
+        market_options = ASSETCLASSES[selected_asset_class].get('markets', []) if selected_asset_class in ASSETCLASSES else []
+        selected_market = st.selectbox("Select Market", market_options, key="auto_market") if market_options else None
+    
+        # Mode Selector: Manual vs Auto (for your reference, you already have manual in Options tab)
+        mode = st.radio("Mode", ['Manual', 'Auto'], index=1, key="auto_mode")
+    
+        if mode == 'Auto':
+            run_auto_analysis(selected_asset_class, selected_market)
+        else:
+            st.info("Please use the Options tab for manual option analysis.")
+
 
 # ==============================================================================
 # === RUN THE APP ==============================================================
