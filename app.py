@@ -1566,6 +1566,13 @@ def generate_comparison_insights(comparison_data):
     Returns:
         dict: Comparison insights
     """
+
+    REQUIRED_KEYS = {'timestamp', 'ticker', 'signal', 'rsi', 'price'}
+    cleaned_data = []
+    for entry in comparison_data:
+        if isinstance(entry, dict) and REQUIRED_KEYS.issubset(entry.keys()):
+            cleaned_data.append(entry)
+   
     if len(comparison_data) < 2:
         return None
     
