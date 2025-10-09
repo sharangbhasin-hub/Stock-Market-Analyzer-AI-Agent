@@ -1602,6 +1602,8 @@ def generate_comparison_insights(comparison_data):
         
         # Track sentiment changes
         sentiment = entry.get('sentiment', {})
+        if not isinstance(sentiment, dict):
+            sentiment = {'sentiment': str(sentiment) if sentiment else 'Neutral', 'score': 0}
         insights['sentiment_trend'].append({
             'timestamp': entry['timestamp'],
             'ticker': entry['ticker'],
