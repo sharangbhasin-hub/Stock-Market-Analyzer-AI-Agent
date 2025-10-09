@@ -334,7 +334,6 @@ def get_trade_history(limit=100):
 # ==============================================================================
 
 class BrokerAPI:
-    """Wrapper for Zerodha Kite Connect API"""
 
     def __init__(self):
         self.kite = None
@@ -516,6 +515,7 @@ class OptionsAnalyzer:
     
         return None
 
+
     def get_nearest_expiry(self, ticker):
         """
         Get the nearest expiry date for a ticker using Yahoo Finance API
@@ -617,18 +617,19 @@ class OptionsAnalyzer:
     import os
     
     def fetchoptionschain_alpha(self, ticker):
-        """
-        Fetch option chain data from Alpha Vantage API.
-        Returns Pandas DataFrame or None on failure.
-        """
+        import requests
+        import os
+        import pandas as pd
+    
         api_key = os.getenv("ALPHAVANTAGEAPIKEY")
         if not api_key:
             print("Alpha Vantage API key missing.")
             return None
     
-        url = f"https://www.alphavantage.co/query"
+        # Hypothetical Alpha Vantage endpoint (replace with actual if available)
+        url = "https://www.alphavantage.co/query"
         params = {
-            "function": "OPTION_CHAIN",  # Hypothetical, Alpha Vantage does not officially support options chain currently
+            "function": "OPTION_CHAIN",  # Check if your plan supports this
             "symbol": ticker,
             "apikey": api_key
         }
@@ -638,100 +639,36 @@ class OptionsAnalyzer:
             response.raise_for_status()
             data = response.json()
     
-            # Parse JSON into DataFrame according to the API response structure
-            # Example placeholder parser, adapt to actual JSON format
             if "optionChain" in data:
                 options = data["optionChain"]["result"]
-                df = pd.DataFrame(options)
-                return df
+                return pd.DataFrame(options)
             else:
-                print("Alpha Vantage option chain data unavailable or invalid response")
+                print("Alpha Vantage option chain not found or invalid response")
                 return None
         except Exception as e:
-            print(f"Alpha Vantage option chain fetch error: {e}")
+            print(f"Alpha Vantage fetch error: {e}")
             return None
             
     def fetchoptionschain_finnhub(self, ticker):
-        """
-        Fetch option chain data from Finnhub API as fallback.
-        Returns Pandas DataFrame or None.
-        """
         import os
-        finnhub_api_key = os.getenv("FINNHUBAPIKEY")
-        if not finnhub_api_key:
+        import pandas as pd
+        import finnhub
+    
+        api_key = os.getenv("FINNHUBAPIKEY")
+        if not api_key:
             print("Finnhub API key missing.")
             return None
-    
         try:
-            # Assume finnhub client already initialized globally or pass client here
-            finnhub_client = finnhub.Client(api_key=finnhub_api_key)
-            option_data = finnhub_client.options(ticker)
+            client = finnhub.Client(api_key=api_key)
+            option_data = client.options(ticker)
     
-            if not option_data or "data" not in option_data or len(option_data["data"]) == 0:
-                print("No option data returned by Finnhub")
+            if not option_data or "data" not in option_data or not option_data["data"]:
+                print("No option data from Finnhub")
                 return None
     
-            # Convert option_data to DataFrame
-            df = pd.DataFrame(option_data["data"])
-            return df
-    
+            return pd.DataFrame(option_data["data"])
         except Exception as e:
-            print(f"Finnhub option chain fetch error: {e}")
-            return None
-    
-    def fetchoptionschain_kite(self, ticker):
-        """
-        Fetch option chain data from Kite Connect API for Indian indices.
-        Returns DataFrame with columns: strike, expiry, putCall, openInterest, etc.
-        """
-        import pandas as pd
-    
-        if not KITEAVAILABLE or not broker_api.connected:
-            print("Kite Connect API not connected.")
-            return None
-    
-        try:
-            # Get all instruments for NFO exchange (Nifty, Bank Nifty Options)
-            all_instruments = broker_api.kite.instruments(exchange='NFO')
-            df_instruments = pd.DataFrame(all_instruments)
-    
-            # Filter for required ticker symbol and options
-            # For example, for NIFTY 50 options:
-            if "NIFTY" in ticker.upper():
-                df_filtered = df_instruments[df_instruments['tradingsymbol'].str.contains('NIFTY') & (df_instruments['instrument_type'].isin(['CE', 'PE']))]
-            elif "BANK" in ticker.upper():
-                df_filtered = df_instruments[df_instruments['tradingsymbol'].str.contains('BANKNIFTY') & (df_instruments['instrument_type'].isin(['CE', 'PE']))]
-            else:
-                return None
-    
-            # Optionally filter for near expiry dates or particular expiry (string comparison)
-    
-            # Get latest market data (LTP, OI) for filtered symbols:
-            tokens = df_filtered['instrument_token'].tolist()
-            ltp_data = broker_api.kite.ltp(tokens)  # Returns dict of symbol info keyed by token
-    
-            # Construct DataFrame with LTP, OI, strike, expiry, type
-            option_chain_data = []
-            for idx, row in df_filtered.iterrows():
-                token = row['instrument_token']
-                ltp_info = ltp_data.get(str(token), {})
-                option_chain_data.append({
-                    'tradingsymbol': row['tradingsymbol'],
-                    'strike': row['strike'],
-                    'expiry': row['expiry'],
-                    'putCall': 'call' if row['instrument_type'] == 'CE' else 'put',
-                    'openInterest': ltp_info.get('oi', 0),
-                    'lastPrice': ltp_info.get('last_price', 0),
-                    'bid': ltp_info.get('bid_price', 0),
-                    'ask': ltp_info.get('ask_price', 0),
-                    'volume': ltp_info.get('volume', 0),
-                    'impliedVolatility': ltp_info.get('implied_volatility', 0),
-                })
-    
-            df_option_chain = pd.DataFrame(option_chain_data)
-            return df_option_chain
-        except Exception as e:
-            print(f"Error fetching option chain from KiteConnect: {e}")
+            print(f"Finnhub fetch error: {e}")
             return None
 
     def calculate_pcr(self, options_data):
