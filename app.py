@@ -506,17 +506,15 @@ class OptionsAnalyzer:
         }
 
     def fetchoptionschain_adaptive(self, ticker):
-        """
-        Fetch option chain using Alpha Vantage API as primary,
-        Finnhub API as fallback.
-        """
         df = self.fetchoptionschain_alpha(ticker)
-        if df is not None:
+        if df is not None and not df.empty:
             return df
     
-        # fallback to finnhub
         df = self.fetchoptionschain_finnhub(ticker)
-        return df
+        if df is not None and not df.empty:
+            return df
+    
+        return None
 
     def get_nearest_expiry(self, ticker):
         """
