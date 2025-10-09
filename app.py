@@ -600,6 +600,61 @@ class OptionsAnalyzer:
             
         except Exception as e:
             return None
+    
+    def fetchoptionschain_kite(self, ticker):
+        """
+        Fetch option chain data from Kite Connect API for Indian indices.
+        Returns DataFrame with columns: strike, expiry, putCall, openInterest, etc.
+        """
+        import pandas as pd
+    
+        if not KITEAVAILABLE or not broker_api.connected:
+            print("Kite Connect API not connected.")
+            return None
+    
+        try:
+            # Get all instruments for NFO exchange (Nifty, Bank Nifty Options)
+            all_instruments = broker_api.kite.instruments(exchange='NFO')
+            df_instruments = pd.DataFrame(all_instruments)
+    
+            # Filter for required ticker symbol and options
+            # For example, for NIFTY 50 options:
+            if "NIFTY" in ticker.upper():
+                df_filtered = df_instruments[df_instruments['tradingsymbol'].str.contains('NIFTY') & (df_instruments['instrument_type'].isin(['CE', 'PE']))]
+            elif "BANK" in ticker.upper():
+                df_filtered = df_instruments[df_instruments['tradingsymbol'].str.contains('BANKNIFTY') & (df_instruments['instrument_type'].isin(['CE', 'PE']))]
+            else:
+                return None
+    
+            # Optionally filter for near expiry dates or particular expiry (string comparison)
+    
+            # Get latest market data (LTP, OI) for filtered symbols:
+            tokens = df_filtered['instrument_token'].tolist()
+            ltp_data = broker_api.kite.ltp(tokens)  # Returns dict of symbol info keyed by token
+    
+            # Construct DataFrame with LTP, OI, strike, expiry, type
+            option_chain_data = []
+            for idx, row in df_filtered.iterrows():
+                token = row['instrument_token']
+                ltp_info = ltp_data.get(str(token), {})
+                option_chain_data.append({
+                    'tradingsymbol': row['tradingsymbol'],
+                    'strike': row['strike'],
+                    'expiry': row['expiry'],
+                    'putCall': 'call' if row['instrument_type'] == 'CE' else 'put',
+                    'openInterest': ltp_info.get('oi', 0),
+                    'lastPrice': ltp_info.get('last_price', 0),
+                    'bid': ltp_info.get('bid_price', 0),
+                    'ask': ltp_info.get('ask_price', 0),
+                    'volume': ltp_info.get('volume', 0),
+                    'impliedVolatility': ltp_info.get('implied_volatility', 0),
+                })
+    
+            df_option_chain = pd.DataFrame(option_chain_data)
+            return df_option_chain
+        except Exception as e:
+            print(f"Error fetching option chain from KiteConnect: {e}")
+            return None
 
     def calculate_pcr(self, options_data):
         """Calculate Put-Call Ratio"""
@@ -1741,7 +1796,7 @@ def run_auto_analysis(asset_class, market):
 
     for index_name, index_ticker in indices_dict.items():
         try:
-            option_chain = options_analyzer.fetch_options_chain(index_ticker)
+            option_chain = options_analyzer.fetchoptionschain_kite(index_ticker)
             if option_chain is None:
                 st.write(f"Skipping {index_name}: No option chain data.")
                 continue
