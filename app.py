@@ -27,6 +27,38 @@ import pytz
 import sqlite3
 from io import StringIO
 
+# ============================================================================
+# === NEW: ADVANCED FEATURES (ADD AFTER EXISTING IMPORTS) ===================
+# ============================================================================
+
+# WebSocket for real-time streaming
+try:
+    import websocket
+    WEBSOCKET_AVAILABLE = True
+except ImportError:
+    WEBSOCKET_AVAILABLE = False
+
+# ML libraries for predictions
+try:
+    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.preprocessing import MinMaxScaler
+    from sklearn.model_selection import train_test_split
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+
+try:
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import LSTM, Dense, Dropout
+    TENSORFLOW_AVAILABLE = True
+except ImportError:
+    TENSORFLOW_AVAILABLE = False
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Dict, List, Optional, Callable
+from collections import defaultdict
+
 TALIB_AVAILABLE = True
 
 # Optional imports
@@ -1547,6 +1579,580 @@ asset_api = MultiAssetAPIHandler()
 
 
 # ==============================================================================
+# === NEW: REAL-TIME STREAMING CLASS (ADD HERE) ===============================
+# ==============================================================================
+
+class MarketDataStream:
+    """
+    Real-time market data streaming using WebSocket
+    Compatible with: Polygon.io, Alpaca, Finnhub
+    """
+    
+    def __init__(self, api_key: str = None, provider: str = "polygon"):
+        self.api_key = api_key or os.getenv("POLYGON_API_KEY")
+        self.provider = provider
+        self.connection = None
+        self.subscribers = defaultdict(list)
+        self.is_connected = False
+        
+    def connect(self) -> bool:
+        """Establish WebSocket connection"""
+        if not WEBSOCKET_AVAILABLE:
+            st.warning("⚠️ websocket-client not installed. Run: pip install websocket-client")
+            return False
+            
+        if not self.api_key:
+            st.warning("⚠️ No API key provided for streaming")
+            return False
+        
+        try:
+            if self.provider == "polygon":
+                ws_url = f"wss://socket.polygon.io/stocks"
+                
+                def on_message(ws, message):
+                    try:
+                        data = json.loads(message)
+                        self._handle_message(data)
+                    except Exception as e:
+                        print(f"Message error: {e}")
+                
+                def on_error(ws, error):
+                    print(f"WebSocket Error: {error}")
+                
+                def on_close(ws, close_status_code, close_msg):
+                    self.is_connected = False
+                    print("WebSocket connection closed")
+                
+                def on_open(ws):
+                    # Authenticate
+                    ws.send(json.dumps({
+                        "action": "auth",
+                        "params": self.api_key
+                    }))
+                    self.is_connected = True
+                
+                self.connection = websocket.WebSocketApp(
+                    ws_url,
+                    on_message=on_message,
+                    on_error=on_error,
+                    on_close=on_close,
+                    on_open=on_open
+                )
+                
+                return True
+            
+        except Exception as e:
+            st.error(f"Connection failed: {e}")
+            return False
+    
+    def subscribe_ticker(self, ticker: str, callback: Callable):
+        """Subscribe to real-time updates for a ticker"""
+        self.subscribers[ticker].append(callback)
+        
+        if self.connection and self.is_connected:
+            self.connection.send(json.dumps({
+                "action": "subscribe",
+                "params": f"T.{ticker}"  # Trade updates
+            }))
+    
+    def unsubscribe_ticker(self, ticker: str):
+        """Unsubscribe from ticker updates"""
+        if ticker in self.subscribers:
+            del self.subscribers[ticker]
+        
+        if self.connection and self.is_connected:
+            self.connection.send(json.dumps({
+                "action": "unsubscribe",
+                "params": f"T.{ticker}"
+            }))
+    
+    def _handle_message(self, data):
+        """Process incoming WebSocket messages"""
+        if isinstance(data, list):
+            for item in data:
+                if item.get('ev') == 'T':  # Trade event
+                    ticker = item.get('sym')
+                    price = item.get('p')
+                    volume = item.get('s')
+                    timestamp = item.get('t')
+                    
+                    # Notify all subscribers
+                    if ticker in self.subscribers:
+                        update = {
+                            'ticker': ticker,
+                            'price': price,
+                            'volume': volume,
+                            'timestamp': datetime.fromtimestamp(timestamp/1000)
+                        }
+                        
+                        for callback in self.subscribers[ticker]:
+                            try:
+                                callback(update)
+                            except Exception as e:
+                                print(f"Callback error: {e}")
+    
+    def start_streaming(self):
+        """Start streaming in background thread"""
+        if self.connection:
+            import threading
+            thread = threading.Thread(target=self.connection.run_forever)
+            thread.daemon = True
+            thread.start()
+            return True
+        return False
+
+
+# ==============================================================================
+# === NEW: ADVANCED ORDER TYPES (ADD HERE) ====================================
+# ==============================================================================
+
+class OrderType(Enum):
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP_LOSS = "stop_loss"
+    STOP_LIMIT = "stop_limit"
+    TRAILING_STOP = "trailing_stop"
+    OCO = "one_cancels_other"
+    BRACKET = "bracket"
+
+
+class OrderStatus(Enum):
+    PENDING = "pending"
+    FILLED = "filled"
+    PARTIAL = "partial"
+    CANCELLED = "cancelled"
+    REJECTED = "rejected"
+
+
+@dataclass
+class Order:
+    order_id: str
+    ticker: str
+    order_type: OrderType
+    side: str  # BUY or SELL
+    quantity: int
+    price: Optional[float] = None
+    stop_price: Optional[float] = None
+    trailing_percent: Optional[float] = None
+    status: OrderStatus = OrderStatus.PENDING
+    filled_quantity: int = 0
+    avg_fill_price: float = 0.0
+    timestamp: datetime = None
+    linked_order: Optional[str] = None  # For OCO orders
+    
+    def __post_init__(self):
+        if self.timestamp is None:
+            self.timestamp = datetime.now()
+
+
+class AdvancedOrderManager:
+    """
+    Advanced order management with bracket orders, OCO, trailing stops
+    """
+    
+    def __init__(self, broker_api=None):
+        self.broker = broker_api
+        self.active_orders: Dict[str, Order] = {}
+        self.order_history: List[Order] = []
+        self.positions = {}
+        
+    def place_bracket_order(
+        self,
+        ticker: str,
+        side: str,
+        quantity: int,
+        entry_price: float,
+        stop_loss: float,
+        target: float
+    ) -> Dict[str, str]:
+        """
+        Place bracket order: Entry + Stop Loss + Target
+        """
+        
+        timestamp = int(time.time())
+        entry_id = f"ENTRY_{ticker}_{timestamp}"
+        sl_id = f"SL_{ticker}_{timestamp}"
+        target_id = f"TARGET_{ticker}_{timestamp}"
+        
+        # Entry order
+        entry_order = Order(
+            order_id=entry_id,
+            ticker=ticker,
+            order_type=OrderType.LIMIT,
+            side=side,
+            quantity=quantity,
+            price=entry_price
+        )
+        
+        # Stop-loss (opposite side)
+        sl_side = "SELL" if side == "BUY" else "BUY"
+        sl_order = Order(
+            order_id=sl_id,
+            ticker=ticker,
+            order_type=OrderType.STOP_LOSS,
+            side=sl_side,
+            quantity=quantity,
+            stop_price=stop_loss
+        )
+        
+        # Target order (opposite side)
+        target_order = Order(
+            order_id=target_id,
+            ticker=ticker,
+            order_type=OrderType.LIMIT,
+            side=sl_side,
+            quantity=quantity,
+            price=target
+        )
+        
+        # Store orders
+        self.active_orders[entry_id] = entry_order
+        self.active_orders[sl_id] = sl_order
+        self.active_orders[target_id] = target_order
+        
+        return {
+            "entry_id": entry_id,
+            "stop_loss_id": sl_id,
+            "target_id": target_id,
+            "status": "bracket_order_placed",
+            "message": f"Bracket order placed: Entry @ {entry_price}, SL @ {stop_loss}, Target @ {target}"
+        }
+    
+    def place_oco_order(
+        self,
+        ticker: str,
+        side: str,
+        quantity: int,
+        limit_price: float,
+        stop_price: float
+    ) -> Dict[str, str]:
+        """
+        Place OCO (One-Cancels-Other) order
+        """
+        
+        timestamp = int(time.time())
+        limit_id = f"LIMIT_{ticker}_{timestamp}"
+        stop_id = f"STOP_{ticker}_{timestamp}"
+        
+        limit_order = Order(
+            order_id=limit_id,
+            ticker=ticker,
+            order_type=OrderType.LIMIT,
+            side=side,
+            quantity=quantity,
+            price=limit_price,
+            linked_order=stop_id
+        )
+        
+        stop_order = Order(
+            order_id=stop_id,
+            ticker=ticker,
+            order_type=OrderType.STOP_LOSS,
+            side=side,
+            quantity=quantity,
+            stop_price=stop_price,
+            linked_order=limit_id
+        )
+        
+        self.active_orders[limit_id] = limit_order
+        self.active_orders[stop_id] = stop_order
+        
+        return {
+            "limit_id": limit_id,
+            "stop_id": stop_id,
+            "status": "oco_order_placed",
+            "message": f"OCO order: Limit @ {limit_price} OR Stop @ {stop_price}"
+        }
+    
+    def place_trailing_stop(
+        self,
+        ticker: str,
+        side: str,
+        quantity: int,
+        trail_percent: float
+    ) -> str:
+        """Place trailing stop-loss order"""
+        
+        order_id = f"TRAIL_{ticker}_{int(time.time())}"
+        
+        order = Order(
+            order_id=order_id,
+            ticker=ticker,
+            order_type=OrderType.TRAILING_STOP,
+            side=side,
+            quantity=quantity,
+            trailing_percent=trail_percent
+        )
+        
+        self.active_orders[order_id] = order
+        
+        return order_id
+    
+    def cancel_order(self, order_id: str) -> bool:
+        """Cancel an order"""
+        if order_id not in self.active_orders:
+            return False
+        
+        order = self.active_orders[order_id]
+        order.status = OrderStatus.CANCELLED
+        
+        # Move to history
+        self.order_history.append(order)
+        del self.active_orders[order_id]
+        
+        # Cancel linked order if OCO
+        if order.linked_order and order.linked_order in self.active_orders:
+            linked = self.active_orders[order.linked_order]
+            linked.status = OrderStatus.CANCELLED
+            self.order_history.append(linked)
+            del self.active_orders[order.linked_order]
+        
+        return True
+    
+    def get_active_orders_df(self) -> pd.DataFrame:
+        """Get active orders as DataFrame"""
+        if not self.active_orders:
+            return pd.DataFrame()
+        
+        orders_data = []
+        for order_id, order in self.active_orders.items():
+            orders_data.append({
+                'Order ID': order_id,
+                'Ticker': order.ticker,
+                'Type': order.order_type.value,
+                'Side': order.side,
+                'Quantity': order.quantity,
+                'Price': order.price if order.price else order.stop_price,
+                'Status': order.status.value,
+                'Timestamp': order.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return pd.DataFrame(orders_data)
+
+
+# ==============================================================================
+# === NEW: ML PREDICTOR (ADD HERE) ============================================
+# ==============================================================================
+
+class MLPredictor:
+    """Machine Learning price predictions"""
+    
+    def __init__(self):
+        self.models = {}
+        self.scaler = None
+        
+    def predict_random_forest(self, data: pd.DataFrame) -> Optional[Dict]:
+        """Random Forest prediction with confidence interval"""
+        
+        if not ML_AVAILABLE:
+            st.warning("⚠️ Install scikit-learn: pip install scikit-learn")
+            return None
+        
+        try:
+            # Feature engineering
+            df = data.copy()
+            df['Returns'] = df['Close'].pct_change()
+            df['MA_5'] = df['Close'].rolling(5).mean()
+            df['MA_20'] = df['Close'].rolling(20).mean()
+            df['Volatility'] = df['Returns'].rolling(20).std()
+            df['Volume_MA'] = df['Volume'].rolling(20).mean()
+            
+            df = df.dropna()
+            
+            if len(df) < 50:
+                return None
+            
+            features = ['Returns', 'MA_5', 'MA_20', 'Volatility', 'Volume_MA']
+            X = df[features]
+            y = df['Close'].shift(-1).dropna()
+            X = X[:-1]
+            
+            # Train-test split
+            split_idx = int(len(X) * 0.8)
+            X_train, X_test = X[:split_idx], X[split_idx:]
+            y_train, y_test = y[:split_idx], y[split_idx:]
+            
+            # Train model
+            rf = RandomForestRegressor(
+                n_estimators=100,
+                max_depth=10,
+                random_state=42,
+                n_jobs=-1
+            )
+            rf.fit(X_train, y_train)
+            
+            # Predict next day
+            last_features = X.iloc[-1:].values
+            prediction = rf.predict(last_features)[0]
+            
+            # Confidence interval (using tree predictions)
+            predictions = [tree.predict(last_features)[0] for tree in rf.estimators_]
+            lower_bound = np.percentile(predictions, 5)
+            upper_bound = np.percentile(predictions, 95)
+            
+            # Model accuracy
+            test_score = rf.score(X_test, y_test)
+            
+            return {
+                'prediction': prediction,
+                'lower_bound': lower_bound,
+                'upper_bound': upper_bound,
+                'confidence': test_score,
+                'current_price': df['Close'].iloc[-1],
+                'prediction_change': prediction - df['Close'].iloc[-1],
+                'prediction_change_pct': ((prediction - df['Close'].iloc[-1]) / df['Close'].iloc[-1]) * 100
+            }
+            
+        except Exception as e:
+            st.error(f"RF Prediction error: {e}")
+            return None
+    
+    def predict_lstm(self, data: pd.DataFrame) -> Optional[float]:
+        """LSTM neural network prediction"""
+        
+        if not TENSORFLOW_AVAILABLE:
+            st.warning("⚠️ Install TensorFlow: pip install tensorflow")
+            return None
+        
+        try:
+            # Prepare data
+            scaler = MinMaxScaler(feature_range=(0, 1))
+            scaled_data = scaler.fit_transform(data[['Close']])
+            
+            # Create sequences
+            lookback = 60
+            if len(scaled_data) < lookback + 10:
+                return None
+            
+            X, y = [], []
+            for i in range(lookback, len(scaled_data)):
+                X.append(scaled_data[i-lookback:i, 0])
+                y.append(scaled_data[i, 0])
+            
+            X, y = np.array(X), np.array(y)
+            X = np.reshape(X, (X.shape[0], X.shape[1], 1))
+            
+            # Build LSTM model
+            model = Sequential([
+                LSTM(50, return_sequences=True, input_shape=(X.shape[1], 1)),
+                Dropout(0.2),
+                LSTM(50, return_sequences=False),
+                Dropout(0.2),
+                Dense(25),
+                Dense(1)
+            ])
+            
+            model.compile(optimizer='adam', loss='mean_squared_error')
+            
+            # Train (quietly)
+            model.fit(X, y, batch_size=32, epochs=10, verbose=0, validation_split=0.1)
+            
+            # Predict
+            last_60_days = scaled_data[-lookback:]
+            last_60_days = np.reshape(last_60_days, (1, lookback, 1))
+            
+            predicted_price = model.predict(last_60_days, verbose=0)
+            predicted_price = scaler.inverse_transform(predicted_price)
+            
+            self.models['lstm'] = model
+            self.scaler = scaler
+            
+            return float(predicted_price[0][0])
+            
+        except Exception as e:
+            st.error(f"LSTM Prediction error: {e}")
+            return None
+
+
+# ==============================================================================
+# === NEW: PORTFOLIO ANALYZER (ADD HERE) ======================================
+# ==============================================================================
+
+class PortfolioAnalyzer:
+    """Advanced portfolio analytics and risk metrics"""
+    
+    def __init__(self):
+        pass
+    
+    def calculate_sharpe_ratio(
+        self,
+        returns: pd.Series,
+        risk_free_rate: float = 0.02
+    ) -> float:
+        """
+        Sharpe Ratio = (Return - Risk Free Rate) / Std Deviation
+        """
+        excess_returns = returns - risk_free_rate / 252
+        if excess_returns.std() == 0:
+            return 0.0
+        return np.sqrt(252) * excess_returns.mean() / excess_returns.std()
+    
+    def calculate_max_drawdown(self, returns: pd.Series) -> Dict:
+        """Maximum Drawdown calculation"""
+        cumulative = (1 + returns).cumprod()
+        running_max = cumulative.cummax()
+        drawdown = (cumulative - running_max) / running_max
+        
+        max_dd = drawdown.min()
+        max_dd_idx = drawdown.idxmin() if not drawdown.empty else None
+        
+        if max_dd_idx:
+            peak_idx = cumulative[:max_dd_idx].idxmax()
+            
+            return {
+                'max_drawdown': max_dd,
+                'max_drawdown_pct': max_dd * 100,
+                'peak_date': peak_idx,
+                'trough_date': max_dd_idx
+            }
+        
+        return {
+            'max_drawdown': 0,
+            'max_drawdown_pct': 0,
+            'peak_date': None,
+            'trough_date': None
+        }
+    
+    def calculate_beta(
+        self,
+        stock_returns: pd.Series,
+        market_returns: pd.Series
+    ) -> float:
+        """Beta (stock volatility vs market)"""
+        covariance = np.cov(stock_returns, market_returns)[0][1]
+        market_variance = np.var(market_returns)
+        
+        if market_variance == 0:
+            return 1.0
+        
+        return covariance / market_variance
+    
+    def calculate_var(
+        self,
+        returns: pd.Series,
+        confidence: float = 0.95
+    ) -> float:
+        """Value at Risk (VaR) - maximum expected loss"""
+        return np.percentile(returns, (1 - confidence) * 100)
+    
+    def calculate_sortino_ratio(
+        self,
+        returns: pd.Series,
+        risk_free_rate: float = 0.02
+    ) -> float:
+        """
+        Sortino Ratio - like Sharpe but only considers downside volatility
+        """
+        excess_returns = returns - risk_free_rate / 252
+        downside_returns = returns[returns < 0]
+        
+        if len(downside_returns) == 0 or downside_returns.std() == 0:
+            return 0.0
+        
+        return np.sqrt(252) * excess_returns.mean() / downside_returns.std()
+
+
+# ==============================================================================
 # === ASSET CLASSES CONFIGURATION ==============================================
 # ==============================================================================
 
@@ -1587,7 +2193,7 @@ ASSET_CLASSES = {
         "supports_index_analysis": False
     }
 }
- 
+
 # ==============================================================================
 # === HELPER FUNCTIONS =========================================================
 # ==============================================================================
@@ -5197,6 +5803,72 @@ def main():
         help="Select your trading style"
     )
 
+    # ============================================================================
+    # NEW: ADD THESE FEATURES BELOW (AFTER trading_mode)
+    # ============================================================================
+    
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("🚀 Advanced Features")
+    
+    # Real-time streaming toggle
+    enable_streaming = st.sidebar.checkbox(
+        "🔴 Real-Time Streaming",
+        value=False,
+        help="Enable WebSocket streaming for live price updates"
+    )
+    
+    if enable_streaming:
+        streaming_provider = st.sidebar.selectbox(
+            "Streaming Provider",
+            ["Polygon.io", "Alpaca", "Finnhub"]
+        )
+        
+        if streaming_provider == "Polygon.io":
+            polygon_key = st.sidebar.text_input(
+                "Polygon API Key",
+                type="password",
+                help="Get free key at polygon.io"
+            )
+            
+            if polygon_key and 'market_stream' not in st.session_state:
+                stream = MarketDataStream(polygon_key, "polygon")
+                if stream.connect():
+                    st.session_state['market_stream'] = stream
+                    stream.start_streaming()
+                    st.sidebar.success("✅ Streaming active")
+    
+    # ML Predictions toggle
+    enable_ml = st.sidebar.checkbox(
+        "🧠 ML Predictions",
+        value=False,
+        help="Enable machine learning price predictions"
+    )
+    
+    if enable_ml:
+        ml_models = st.sidebar.multiselect(
+            "Select Models",
+            ["Random Forest", "LSTM Neural Network"],
+            default=["Random Forest"]
+        )
+        
+        st.session_state['ml_enabled'] = True
+        st.session_state['ml_models'] = ml_models
+    
+    # Advanced orders toggle
+    enable_advanced_orders = st.sidebar.checkbox(
+        "🎯 Advanced Orders",
+        value=False,
+        help="Enable bracket orders, OCO, trailing stops"
+    )
+    
+    if enable_advanced_orders:
+        st.session_state['advanced_orders_enabled'] = True
+        
+        if 'order_manager' not in st.session_state:
+            st.session_state['order_manager'] = AdvancedOrderManager(
+                broker_api=st.session_state.get('broker')
+            )
+
     # ========== PRE-MARKET SCREENER (RESTORED) ==========
     if trading_mode == "Intraday Trading":
         st.sidebar.subheader("🔍 Pre-Market Screener")
@@ -6634,6 +7306,88 @@ def main():
                 
                 st.markdown("---")
 
+        # ============================================================================
+        # NEW: ADD ML PREDICTIONS SECTION HERE (BEFORE THE CHARTS SECTION)
+        # ============================================================================
+        
+            # ML Predictions Section
+            if st.session_state.get('ml_enabled', False) and 'daily_data' in results:
+                st.markdown("---")
+                st.subheader("🧠 Machine Learning Price Predictions")
+                
+                predictor = MLPredictor()
+                ml_models = st.session_state.get('ml_models', [])
+                
+                pred_col1, pred_col2 = st.columns(2)
+                
+                # Random Forest Prediction
+                if "Random Forest" in ml_models:
+                    with pred_col1:
+                        st.markdown("### 🌲 Random Forest Model")
+                        
+                        with st.spinner("Training model..."):
+                            rf_pred = predictor.predict_random_forest(results['daily_data'])
+                            
+                            if rf_pred:
+                                current_price = rf_pred['current_price']
+                                pred_price = rf_pred['prediction']
+                                pred_change = rf_pred['prediction_change']
+                                pred_change_pct = rf_pred['prediction_change_pct']
+                                
+                                st.metric(
+                                    "Next Day Prediction",
+                                    f"{currency}{pred_price:.2f}",
+                                    f"{pred_change:+.2f} ({pred_change_pct:+.2f}%)"
+                                )
+                                
+                                st.progress(min(1.0, rf_pred['confidence']))
+                                st.caption(f"Model Confidence: {rf_pred['confidence']:.1%}")
+                                
+                                st.write(f"**Confidence Interval:**")
+                                st.write(f"Low: {currency}{rf_pred['lower_bound']:.2f}")
+                                st.write(f"High: {currency}{rf_pred['upper_bound']:.2f}")
+                                
+                                if pred_change > 0:
+                                    st.success("🟢 Bullish Prediction")
+                                else:
+                                    st.error("🔴 Bearish Prediction")
+                            else:
+                                st.warning("Insufficient data for prediction")
+                
+                # LSTM Prediction
+                if "LSTM Neural Network" in ml_models:
+                    with pred_col2:
+                        st.markdown("### 🧠 LSTM Neural Network")
+                        
+                        with st.spinner("Training neural network..."):
+                            lstm_pred = predictor.predict_lstm(results['daily_data'])
+                            
+                            if lstm_pred:
+                                current_price = results['latest_price']
+                                pred_change = lstm_pred - current_price
+                                pred_change_pct = (pred_change / current_price) * 100
+                                
+                                st.metric(
+                                    "Next Day Prediction",
+                                    f"{currency}{lstm_pred:.2f}",
+                                    f"{pred_change:+.2f} ({pred_change_pct:+.2f}%)"
+                                )
+                                
+                                st.caption("Deep learning model (60-day lookback)")
+                                
+                                if pred_change > 0:
+                                    st.success("🟢 Neural Network: Bullish")
+                                else:
+                                    st.error("🔴 Neural Network: Bearish")
+                            else:
+                                st.warning("Insufficient data for LSTM")
+                
+                # Consensus prediction
+                if len(ml_models) > 1:
+                    st.markdown("---")
+                    st.info("💡 **Consensus:** Use both models for confirmation. Agreement increases confidence.")
+
+
                 # ========== DISPLAY CHARTS ==========
                 st.subheader("📈 Multi-Timeframe Technical Charts")
                 
@@ -6709,7 +7463,10 @@ def main():
                         st.info("Please run an analysis first to load a chart")
                 
                 st.markdown("---")
-                
+
+
+
+
                 # ===== INSERT THIS ENTIRE BLOCK BEFORE st.subheader("🎯 Stop-Loss & Targets") =====
                 # Calculate Stop-Loss and Profit Targets if not already calculated
                 if results.get('signal') in ['BUY', 'STRONG BUY', 'SELL', 'STRONG SELL']:
