@@ -5933,7 +5933,7 @@ def main():
     # === MAIN TABS ============================================================
     # ===========================================================================
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
         "📊 Analysis",
         "🤖 AI Insights",
         "🎯 Options",
@@ -5941,7 +5941,8 @@ def main():
         "💼 Portfolio",
         "📱 Live Trading",
         "⚙️ Settings",
-        "Auto"
+        "Auto",
+        "🎯 Advanced Orders"
     ])
 
     # ===========================================================================
@@ -6751,6 +6752,49 @@ def main():
                 st.markdown("")
                 st.caption("Click the 'Analyze with Full Suite' button to populate this panel")
 
+            # Real-time streaming display
+            if ('market_stream' in st.session_state and 
+                st.session_state['market_stream'].is_connected and
+                'analysis_results' in st.session_state):
+                
+                results = st.session_state['analysis_results']
+                ticker = results.get('ticker', 'N/A')
+                
+                st.markdown("---")
+                st.markdown("### 🔴 LIVE STREAMING DATA")
+                
+                # Create placeholder for live updates
+                live_placeholder = st.empty()
+                
+                # Real-time update callback
+                def update_live_price(data):
+                    with live_placeholder.container():
+                        live_col1, live_col2, live_col3 = st.columns(3)
+                        
+                        live_col1.metric(
+                            "🔴 Live Price",
+                            f"${data['price']:.2f}",
+                            delta="Streaming"
+                        )
+                        
+                        live_col2.metric(
+                            "Volume",
+                            f"{data['volume']:,}"
+                        )
+                        
+                        live_col3.metric(
+                            "Updated",
+                            data['timestamp'].strftime('%H:%M:%S')
+                        )
+                
+                # Subscribe to ticker
+                stream = st.session_state['market_stream']
+                stream.subscribe_ticker(ticker, update_live_price)
+                
+                st.caption("📡 Real-time WebSocket streaming active")
+                
+                st.markdown("---")
+
         # ============================================================
         # ✅ DISPLAY SELECTED STOCK NAME (NEW SECTION)
         # ============================================================
@@ -7464,8 +7508,98 @@ def main():
                 
                 st.markdown("---")
 
-
-
+                # ============================================================================
+                # NEW: ADD PORTFOLIO ANALYTICS SECTION HERE
+                # ============================================================================
+                
+                    # Portfolio Risk Analytics
+                    if 'daily_data' in results and len(results['daily_data']) > 20:
+                        st.markdown("---")
+                        st.subheader("💼 Advanced Risk Analytics")
+                        
+                        analyzer = PortfolioAnalyzer()
+                        returns = results['daily_data']['Close'].pct_change().dropna()
+                        
+                        if len(returns) > 0:
+                            
+                            risk_col1, risk_col2, risk_col3, risk_col4 = st.columns(4)
+                            
+                            with risk_col1:
+                                sharpe = analyzer.calculate_sharpe_ratio(returns)
+                                st.metric("📊 Sharpe Ratio", f"{sharpe:.2f}")
+                                
+                                if sharpe > 1:
+                                    st.success("✅ Excellent")
+                                elif sharpe > 0:
+                                    st.info("ℹ️ Good")
+                                else:
+                                    st.error("❌ Poor")
+                                
+                                st.caption("Risk-adjusted returns")
+                            
+                            with risk_col2:
+                                max_dd = analyzer.calculate_max_drawdown(returns)
+                                st.metric("📉 Max Drawdown", f"{max_dd['max_drawdown_pct']:.2f}%")
+                                
+                                if max_dd['peak_date']:
+                                    st.caption(f"Peak: {max_dd['peak_date'].strftime('%Y-%m-%d')}")
+                            
+                            with risk_col3:
+                                var_95 = analyzer.calculate_var(returns, 0.95)
+                                st.metric("⚠️ VaR (95%)", f"{var_95*100:.2f}%")
+                                st.caption("Max daily loss (95% confidence)")
+                            
+                            with risk_col4:
+                                sortino = analyzer.calculate_sortino_ratio(returns)
+                                st.metric("📈 Sortino Ratio", f"{sortino:.2f}")
+                                st.caption("Downside-focused risk metric")
+                            
+                            # Beta calculation (vs S&P 500)
+                            with st.expander("🔍 View Beta Analysis (vs S&P 500)"):
+                                try:
+                                    spy = yf.Ticker("SPY")
+                                    spy_data = spy.history(period="1y")
+                                    
+                                    if not spy_data.empty and len(spy_data) > 20:
+                                        spy_returns = spy_data['Close'].pct_change().dropna()
+                                        
+                                        # Align dates
+                                        common_dates = returns.index.intersection(spy_returns.index)
+                                        if len(common_dates) > 20:
+                                            aligned_returns = returns.loc[common_dates]
+                                            aligned_spy = spy_returns.loc[common_dates]
+                                            
+                                            beta = analyzer.calculate_beta(aligned_returns, aligned_spy)
+                                            
+                                            beta_col1, beta_col2 = st.columns(2)
+                                            
+                                            with beta_col1:
+                                                st.metric("β (Beta)", f"{beta:.2f}")
+                                            
+                                            with beta_col2:
+                                                if beta > 1:
+                                                    st.info("📈 More volatile than market")
+                									
+                								elif beta < 1 and beta > 0:
+                                                    st.info("📉 Less volatile than market")
+                                                elif beta < 0:
+                                                    st.warning("⚠️ Moves opposite to market")
+                                                else:
+                                                    st.info("➡️ Similar to market")
+                                            
+                                            st.markdown("""
+                                            **Beta Interpretation:**
+                                            - β > 1.0: Stock is more volatile than market
+                                            - β = 1.0: Stock moves with market
+                                            - β < 1.0: Stock is less volatile than market
+                                            - β < 0: Stock moves opposite to market
+                                            """)
+                                except Exception as e:
+                                    st.caption(f"Beta calculation unavailable: {e}")
+                
+                # ============================================================================
+                # EXISTING CODE CONTINUES (DON'T MODIFY)
+                # ============================================================================
 
                 # ===== INSERT THIS ENTIRE BLOCK BEFORE st.subheader("🎯 Stop-Loss & Targets") =====
                 # Calculate Stop-Loss and Profit Targets if not already calculated
@@ -8460,6 +8594,89 @@ def main():
 
         st.markdown("---")
 
+        # ========================================================================
+        # NEW: ADD STREAMING & ML API KEYS (AFTER EXISTING KEYS)
+        # ========================================================================
+        
+        st.markdown("---")
+        st.markdown("### 🚀 Advanced Features API Keys")
+        
+        advanced_col1, advanced_col2 = st.columns(2)
+        
+        with advanced_col1:
+            st.markdown("**Real-Time Streaming**")
+            polygon_api = os.getenv("POLYGON_API_KEY")
+            st.text_input(
+                "Polygon.io API Key",
+                value=polygon_api if polygon_api else "",
+                type="password",
+                disabled=True,
+                help="For WebSocket streaming"
+            )
+            
+            alpaca_api = os.getenv("ALPACA_API_KEY")
+            st.text_input(
+                "Alpaca API Key",
+                value=alpaca_api if alpaca_api else "",
+                type="password",
+                disabled=True,
+                help="Alternative streaming provider"
+            )
+        
+        with advanced_col2:
+            st.markdown("**ML & Analytics**")
+            
+            ml_status = "✅ Installed" if ML_AVAILABLE else "❌ Not Installed"
+            st.metric("Scikit-learn", ml_status)
+            
+            tf_status = "✅ Installed" if TENSORFLOW_AVAILABLE else "❌ Not Installed"
+            st.metric("TensorFlow", tf_status)
+            
+            ws_status = "✅ Installed" if WEBSOCKET_AVAILABLE else "❌ Not Installed"
+            st.metric("WebSocket Client", ws_status)
+        
+        # Installation instructions
+        with st.expander("📦 Install Missing Libraries"):
+            st.code("""
+    # Install ML libraries
+    pip install scikit-learn tensorflow
+    
+    # Install streaming
+    pip install websocket-client
+    
+    # Install all at once
+    pip install scikit-learn tensorflow websocket-client
+            """, language="bash")
+        
+        st.markdown("---")
+        
+        # Feature status
+        st.markdown("### ✅ Feature Status")
+        
+        feature_col1, feature_col2, feature_col3 = st.columns(3)
+        
+        with feature_col1:
+            streaming_enabled = st.session_state.get('market_stream') is not None
+            st.metric(
+                "Real-Time Streaming",
+                "🟢 Active" if streaming_enabled else "⚪ Inactive"
+            )
+        
+        with feature_col2:
+            ml_enabled = st.session_state.get('ml_enabled', False)
+            st.metric(
+                "ML Predictions",
+                "🟢 Enabled" if ml_enabled else "⚪ Disabled"
+            )
+        
+        with feature_col3:
+            adv_orders = st.session_state.get('advanced_orders_enabled', False)
+            st.metric(
+                "Advanced Orders",
+                "🟢 Enabled" if adv_orders else "⚪ Disabled"
+            )
+
+
         # API Status Check
         st.markdown("### ✅ API Status")
 
@@ -8894,6 +9111,339 @@ def main():
                             "text/csv"
                         )
 
+    # ============================================================================
+    # NEW: TAB 9 - ADVANCED ORDERS (ADD AFTER TAB 8)
+    # ============================================================================
+    
+    with tab9:
+        st.header("🎯 Advanced Order Management")
+        st.markdown("Place sophisticated orders: Bracket, OCO, Trailing Stops")
+        
+        # Check if advanced orders enabled
+        if not st.session_state.get('advanced_orders_enabled', False):
+            st.warning("⚠️ Advanced orders not enabled")
+            st.info("👈 Enable 'Advanced Orders' in the sidebar to use this feature")
+            
+            if st.button("✅ Enable Advanced Orders Now"):
+                st.session_state['advanced_orders_enabled'] = True
+                st.session_state['order_manager'] = AdvancedOrderManager(
+                    broker_api=st.session_state.get('broker')
+                )
+                st.rerun()
+            
+            st.stop()
+        
+        # Initialize order manager if not exists
+        if 'order_manager' not in st.session_state:
+            st.session_state['order_manager'] = AdvancedOrderManager(
+                broker_api=st.session_state.get('broker')
+            )
+        
+        order_manager = st.session_state['order_manager']
+        
+        # ========================================================================
+        # ORDER TYPE SELECTION
+        # ========================================================================
+        
+        st.markdown("---")
+        st.subheader("📝 Place New Order")
+        
+        order_type_tab1, order_type_tab2, order_type_tab3 = st.tabs([
+            "🎯 Bracket Order",
+            "🔄 OCO Order",
+            "📈 Trailing Stop"
+        ])
+        
+        # ========================================================================
+        # BRACKET ORDER
+        # ========================================================================
+        
+        with order_type_tab1:
+            st.markdown("### 🎯 Bracket Order")
+            st.caption("Entry + Stop Loss + Target (all linked)")
+            
+            bracket_col1, bracket_col2, bracket_col3 = st.columns(3)
+            
+            with bracket_col1:
+                bracket_ticker = st.text_input(
+                    "Ticker",
+                    value=st.session_state.get('current_ticker', 'AAPL'),
+                    key="bracket_ticker"
+                )
+                bracket_side = st.selectbox("Side", ["BUY", "SELL"], key="bracket_side")
+            
+            with bracket_col2:
+                bracket_quantity = st.number_input(
+                    "Quantity",
+                    min_value=1,
+                    value=100,
+                    step=1,
+                    key="bracket_qty"
+                )
+                bracket_entry = st.number_input(
+                    "Entry Price ($)",
+                    min_value=0.01,
+                    value=150.0,
+                    step=0.1,
+                    key="bracket_entry"
+                )
+            
+            with bracket_col3:
+                bracket_sl = st.number_input(
+                    "Stop Loss ($)",
+                    min_value=0.01,
+                    value=145.0,
+                    step=0.1,
+                    key="bracket_sl"
+                )
+                bracket_target = st.number_input(
+                    "Target ($)",
+                    min_value=0.01,
+                    value=155.0,
+                    step=0.1,
+                    key="bracket_target"
+                )
+            
+            # Risk-reward calculation
+            risk = abs(bracket_entry - bracket_sl)
+            reward = abs(bracket_target - bracket_entry)
+            risk_reward = reward / risk if risk > 0 else 0
+            
+            st.markdown("---")
+            
+            rr_col1, rr_col2, rr_col3 = st.columns(3)
+            rr_col1.metric("Risk per Share", f"${risk:.2f}")
+            rr_col2.metric("Reward per Share", f"${reward:.2f}")
+            rr_col3.metric("Risk:Reward", f"1:{risk_reward:.2f}")
+            
+            if risk_reward < 1.5:
+                st.warning("⚠️ Risk:Reward ratio below 1.5 - Not ideal")
+            elif risk_reward >= 2:
+                st.success("✅ Excellent Risk:Reward ratio (≥2)")
+            else:
+                st.info("ℹ️ Acceptable Risk:Reward ratio")
+            
+            st.markdown("---")
+            
+            if st.button("🚀 Place Bracket Order", type="primary", key="place_bracket"):
+                with st.spinner("Placing bracket order..."):
+                    result = order_manager.place_bracket_order(
+                        ticker=bracket_ticker,
+                        side=bracket_side,
+                        quantity=bracket_quantity,
+                        entry_price=bracket_entry,
+                        stop_loss=bracket_sl,
+                        target=bracket_target
+                    )
+                    
+                    st.success("✅ Bracket Order Placed Successfully!")
+                    st.json(result)
+                    
+                    st.info(f"""
+                    **Order Details:**
+                    - Entry: {bracket_side} {bracket_quantity} @ ${bracket_entry}
+                    - Stop Loss: ${bracket_sl} (Risk: ${risk * bracket_quantity:,.2f})
+                    - Target: ${bracket_target} (Profit: ${reward * bracket_quantity:,.2f})
+                    """)
+        
+        # ========================================================================
+        # OCO ORDER
+        # ========================================================================
+        
+        with order_type_tab2:
+            st.markdown("### 🔄 OCO (One-Cancels-Other) Order")
+            st.caption("Place two orders - if one fills, the other cancels automatically")
+            
+            oco_col1, oco_col2, oco_col3 = st.columns(3)
+            
+            with oco_col1:
+                oco_ticker = st.text_input(
+                    "Ticker",
+                    value=st.session_state.get('current_ticker', 'AAPL'),
+                    key="oco_ticker"
+                )
+                oco_side = st.selectbox("Side", ["BUY", "SELL"], key="oco_side")
+            
+            with oco_col2:
+                oco_quantity = st.number_input(
+                    "Quantity",
+                    min_value=1,
+                    value=100,
+                    step=1,
+                    key="oco_qty"
+                )
+                oco_limit = st.number_input(
+                    "Limit Price ($)",
+                    min_value=0.01,
+                    value=150.0,
+                    step=0.1,
+                    key="oco_limit"
+                )
+            
+            with oco_col3:
+                oco_stop = st.number_input(
+                    "Stop Price ($)",
+                    min_value=0.01,
+                    value=155.0,
+                    step=0.1,
+                    key="oco_stop"
+                )
+            
+            st.markdown("---")
+            st.info(f"""
+            **How OCO Works:**
+            - Limit Order: {oco_side} at ${oco_limit}
+            - Stop Order: {oco_side} at ${oco_stop}
+            - Whichever fills first, the other cancels automatically
+            """)
+            
+            if st.button("🚀 Place OCO Order", type="primary", key="place_oco"):
+                with st.spinner("Placing OCO order..."):
+                    result = order_manager.place_oco_order(
+                        ticker=oco_ticker,
+                        side=oco_side,
+                        quantity=oco_quantity,
+                        limit_price=oco_limit,
+                        stop_price=oco_stop
+                    )
+                    
+                    st.success("✅ OCO Order Placed Successfully!")
+                    st.json(result)
+        
+        # ========================================================================
+        # TRAILING STOP
+        # ========================================================================
+        
+        with order_type_tab3:
+            st.markdown("### 📈 Trailing Stop-Loss")
+            st.caption("Stop-loss that automatically adjusts as price moves in your favor")
+            
+            trail_col1, trail_col2, trail_col3 = st.columns(3)
+            
+            with trail_col1:
+                trail_ticker = st.text_input(
+                    "Ticker",
+                    value=st.session_state.get('current_ticker', 'AAPL'),
+                    key="trail_ticker"
+                )
+                trail_side = st.selectbox(
+                    "Side",
+                    ["SELL (Exit Long)", "BUY (Exit Short)"],
+                    key="trail_side"
+                )
+            
+            with trail_col2:
+                trail_quantity = st.number_input(
+                    "Quantity",
+                    min_value=1,
+                    value=100,
+                    step=1,
+                    key="trail_qty"
+                )
+            
+            with trail_col3:
+                trail_percent = st.slider(
+                    "Trail Percentage",
+                    min_value=0.5,
+                    max_value=10.0,
+                    value=2.0,
+                    step=0.5,
+                    key="trail_pct"
+                )
+            
+            st.markdown("---")
+            
+            # Example calculation
+            example_price = 150.0
+            trail_distance = example_price * (trail_percent / 100)
+            
+            st.info(f"""
+            **Trailing Stop Example:**
+            - Current Price: ${example_price}
+            - Trail Distance: {trail_percent}% = ${trail_distance:.2f}
+            - Initial Stop: ${example_price - trail_distance:.2f}
+            
+            **How it works:**
+            - If price rises to $160, stop adjusts to ${160 - trail_distance:.2f}
+            - Stop only moves UP, never down (for long positions)
+            - Locks in profits as price increases
+            """)
+            
+            if st.button("🚀 Place Trailing Stop", type="primary", key="place_trail"):
+                with st.spinner("Placing trailing stop..."):
+                    side_map = {
+                        "SELL (Exit Long)": "SELL",
+                        "BUY (Exit Short)": "BUY"
+                    }
+                    
+                    order_id = order_manager.place_trailing_stop(
+                        ticker=trail_ticker,
+                        side=side_map[trail_side],
+                        quantity=trail_quantity,
+                        trail_percent=trail_percent
+                    )
+                    
+                    st.success(f"✅ Trailing Stop Placed! Order ID: {order_id}")
+        
+        # ========================================================================
+        # ACTIVE ORDERS DISPLAY
+        # ========================================================================
+        
+        st.markdown("---")
+        st.markdown("---")
+        st.subheader("📊 Active Orders")
+        
+        active_orders_df = order_manager.get_active_orders_df()
+        
+        if not active_orders_df.empty:
+            st.dataframe(active_orders_df, use_container_width=True)
+            
+            # Cancel order section
+            st.markdown("---")
+            cancel_col1, cancel_col2 = st.columns([3, 1])
+            
+            with cancel_col1:
+                order_to_cancel = st.selectbox(
+                    "Select Order to Cancel",
+                    options=active_orders_df['Order ID'].tolist(),
+                    key="cancel_order_select"
+                )
+            
+            with cancel_col2:
+                st.write("")
+                st.write("")
+                if st.button("❌ Cancel Order", key="cancel_order_btn"):
+                    if order_manager.cancel_order(order_to_cancel):
+                        st.success(f"✅ Order {order_to_cancel} cancelled")
+                        st.rerun()
+                    else:
+                        st.error("Failed to cancel order")
+        else:
+            st.info("No active orders. Place an order using the forms above.")
+        
+        # ========================================================================
+        # ORDER HISTORY
+        # ========================================================================
+        
+        if order_manager.order_history:
+            st.markdown("---")
+            st.subheader("📜 Order History")
+            
+            history_data = []
+            for order in order_manager.order_history[-20:]:  # Last 20 orders
+                history_data.append({
+                    'Order ID': order.order_id,
+                    'Ticker': order.ticker,
+                    'Type': order.order_type.value,
+                    'Side': order.side,
+                    'Quantity': order.quantity,
+                    'Price': order.price if order.price else order.stop_price,
+                    'Status': order.status.value,
+                    'Timestamp': order.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+                })
+            
+            history_df = pd.DataFrame(history_data)
+            st.dataframe(history_df, use_container_width=True)
 
 # ==============================================================================
 # === RUN THE APP ==============================================================
