@@ -19,11 +19,7 @@ oauth2client>=4.1.3
 plotly>=5.20.0
 google-generativeai==0.8.5
 pandas_ta
-transformers>=4.30.0
-torch>=2.0.0
 finnhub-python
-requests
-python-dotenv
 
 # Machine Learning
 scikit-learn==1.3.2
