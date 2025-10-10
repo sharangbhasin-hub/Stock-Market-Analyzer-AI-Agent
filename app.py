@@ -7512,90 +7512,90 @@ def main():
                 # NEW: ADD PORTFOLIO ANALYTICS SECTION HERE
                 # ============================================================================
                 
-                    # Portfolio Risk Analytics
-                    if 'daily_data' in results and len(results['daily_data']) > 20:
-                        st.markdown("---")
-                        st.subheader("💼 Advanced Risk Analytics")
+                # Portfolio Risk Analytics
+                if 'daily_data' in results and len(results['daily_data']) > 20:
+                    st.markdown("---")
+                    st.subheader("💼 Advanced Risk Analytics")
+                    
+                    analyzer = PortfolioAnalyzer()
+                    returns = results['daily_data']['Close'].pct_change().dropna()
+                    
+                    if len(returns) > 0:
                         
-                        analyzer = PortfolioAnalyzer()
-                        returns = results['daily_data']['Close'].pct_change().dropna()
+                        risk_col1, risk_col2, risk_col3, risk_col4 = st.columns(4)
                         
-                        if len(returns) > 0:
+                        with risk_col1:
+                            sharpe = analyzer.calculate_sharpe_ratio(returns)
+                            st.metric("📊 Sharpe Ratio", f"{sharpe:.2f}")
                             
-                            risk_col1, risk_col2, risk_col3, risk_col4 = st.columns(4)
+                            if sharpe > 1:
+                                st.success("✅ Excellent")
+                            elif sharpe > 0:
+                                st.info("ℹ️ Good")
+                            else:
+                                st.error("❌ Poor")
                             
-                            with risk_col1:
-                                sharpe = analyzer.calculate_sharpe_ratio(returns)
-                                st.metric("📊 Sharpe Ratio", f"{sharpe:.2f}")
+                            st.caption("Risk-adjusted returns")
+                        
+                        with risk_col2:
+                            max_dd = analyzer.calculate_max_drawdown(returns)
+                            st.metric("📉 Max Drawdown", f"{max_dd['max_drawdown_pct']:.2f}%")
+                            
+                            if max_dd['peak_date']:
+                                st.caption(f"Peak: {max_dd['peak_date'].strftime('%Y-%m-%d')}")
+                        
+                        with risk_col3:
+                            var_95 = analyzer.calculate_var(returns, 0.95)
+                            st.metric("⚠️ VaR (95%)", f"{var_95*100:.2f}%")
+                            st.caption("Max daily loss (95% confidence)")
+                        
+                        with risk_col4:
+                            sortino = analyzer.calculate_sortino_ratio(returns)
+                            st.metric("📈 Sortino Ratio", f"{sortino:.2f}")
+                            st.caption("Downside-focused risk metric")
+                        
+                        # Beta calculation (vs S&P 500)
+                        with st.expander("🔍 View Beta Analysis (vs S&P 500)"):
+                            try:
+                                spy = yf.Ticker("SPY")
+                                spy_data = spy.history(period="1y")
                                 
-                                if sharpe > 1:
-                                    st.success("✅ Excellent")
-                                elif sharpe > 0:
-                                    st.info("ℹ️ Good")
-                                else:
-                                    st.error("❌ Poor")
-                                
-                                st.caption("Risk-adjusted returns")
-                            
-                            with risk_col2:
-                                max_dd = analyzer.calculate_max_drawdown(returns)
-                                st.metric("📉 Max Drawdown", f"{max_dd['max_drawdown_pct']:.2f}%")
-                                
-                                if max_dd['peak_date']:
-                                    st.caption(f"Peak: {max_dd['peak_date'].strftime('%Y-%m-%d')}")
-                            
-                            with risk_col3:
-                                var_95 = analyzer.calculate_var(returns, 0.95)
-                                st.metric("⚠️ VaR (95%)", f"{var_95*100:.2f}%")
-                                st.caption("Max daily loss (95% confidence)")
-                            
-                            with risk_col4:
-                                sortino = analyzer.calculate_sortino_ratio(returns)
-                                st.metric("📈 Sortino Ratio", f"{sortino:.2f}")
-                                st.caption("Downside-focused risk metric")
-                            
-                            # Beta calculation (vs S&P 500)
-                            with st.expander("🔍 View Beta Analysis (vs S&P 500)"):
-                                try:
-                                    spy = yf.Ticker("SPY")
-                                    spy_data = spy.history(period="1y")
+                                if not spy_data.empty and len(spy_data) > 20:
+                                    spy_returns = spy_data['Close'].pct_change().dropna()
                                     
-                                    if not spy_data.empty and len(spy_data) > 20:
-                                        spy_returns = spy_data['Close'].pct_change().dropna()
+                                    # Align dates
+                                    common_dates = returns.index.intersection(spy_returns.index)
+                                    if len(common_dates) > 20:
+                                        aligned_returns = returns.loc[common_dates]
+                                        aligned_spy = spy_returns.loc[common_dates]
                                         
-                                        # Align dates
-                                        common_dates = returns.index.intersection(spy_returns.index)
-                                        if len(common_dates) > 20:
-                                            aligned_returns = returns.loc[common_dates]
-                                            aligned_spy = spy_returns.loc[common_dates]
-                                            
-                                            beta = analyzer.calculate_beta(aligned_returns, aligned_spy)
-                                            
-                                            beta_col1, beta_col2 = st.columns(2)
-                                            
-                                            with beta_col1:
-                                                st.metric("β (Beta)", f"{beta:.2f}")
-                                            
-                                            with beta_col2:
-                                                if beta > 1:
-                                                    st.info("📈 More volatile than market")
-                									
-                								elif beta < 1 and beta > 0:
-                                                    st.info("📉 Less volatile than market")
-                                                elif beta < 0:
-                                                    st.warning("⚠️ Moves opposite to market")
-                                                else:
-                                                    st.info("➡️ Similar to market")
-                                            
-                                            st.markdown("""
-                                            **Beta Interpretation:**
-                                            - β > 1.0: Stock is more volatile than market
-                                            - β = 1.0: Stock moves with market
-                                            - β < 1.0: Stock is less volatile than market
-                                            - β < 0: Stock moves opposite to market
-                                            """)
-                                except Exception as e:
-                                    st.caption(f"Beta calculation unavailable: {e}")
+                                        beta = analyzer.calculate_beta(aligned_returns, aligned_spy)
+                                        
+                                        beta_col1, beta_col2 = st.columns(2)
+                                        
+                                        with beta_col1:
+                                            st.metric("β (Beta)", f"{beta:.2f}")
+                                        
+                                        with beta_col2:
+                                            if beta > 1:
+                                                st.info("📈 More volatile than market")
+                                                
+                                            elif beta < 1 and beta > 0:
+                                                st.info("📉 Less volatile than market")
+                                            elif beta < 0:
+                                                st.warning("⚠️ Moves opposite to market")
+                                            else:
+                                                st.info("➡️ Similar to market")
+                                        
+                                        st.markdown("""
+                                        **Beta Interpretation:**
+                                        - β > 1.0: Stock is more volatile than market
+                                        - β = 1.0: Stock moves with market
+                                        - β < 1.0: Stock is less volatile than market
+                                        - β < 0: Stock moves opposite to market
+                                        """)
+                            except Exception as e:
+                                st.caption(f"Beta calculation unavailable: {e}")
                 
                 # ============================================================================
                 # EXISTING CODE CONTINUES (DON'T MODIFY)
