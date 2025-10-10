@@ -24,3 +24,13 @@ torch>=2.0.0
 finnhub-python
 requests
 python-dotenv
+
+# Machine Learning
+scikit-learn==1.3.2
+tensorflow==2.15.0
+
+# Real-Time Streaming
+websocket-client==1.6.4
+
+# Enhanced Analytics
+scipy==1.11.4
