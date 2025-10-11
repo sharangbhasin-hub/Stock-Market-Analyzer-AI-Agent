@@ -23,7 +23,6 @@ finnhub-python
 
 # Machine Learning
 scikit-learn>=1.4.0
-tensorflow-io
 
 # Real-Time Streaming
 websocket-client==1.6.4
