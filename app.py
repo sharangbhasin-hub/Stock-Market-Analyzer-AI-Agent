@@ -515,10 +515,10 @@ class KiteDataFetcher:
         # Use instruments list and filter by segment
 
         if not KITE_AVAILABLE:
-        return []
+            return []
         
         if not self.connected:
-        return []
+            return []
         
         index_mapping = {
             "NIFTY 50": "NIFTY 50",
@@ -548,7 +548,7 @@ class KiteDataFetcher:
     def get_historical_data(self, symbol, from_date, to_date, interval="day"):
         """Fetch historical OHLCV data"""
         if not KITE_AVAILABLE:
-        return None
+            return None
         
         if not self.connected:
             return None
@@ -595,7 +595,7 @@ class KiteDataFetcher:
     def get_quote(self, symbols):
         """Get real-time quotes for symbols"""
         if not KITE_AVAILABLE:
-        return None
+            return None
         
         if not self.connected:
             return {}
@@ -612,7 +612,7 @@ class KiteDataFetcher:
     def get_ltp(self, symbols):
         """Get Last Traded Price"""
         if not KITE_AVAILABLE:
-        return None
+            return None
         
         if not self.connected:
             return {}
