@@ -630,40 +630,70 @@ class KiteDataFetcher:
             return []
     
     def get_index_constituents(self, index_name):
-        """Get stocks in a specific index (Nifty 50, Bank Nifty, etc.)"""
-        # Kite doesn't directly provide index constituents
-        # Use instruments list and filter by segment
-
+        """
+        Get stocks in a specific index
+        
+        NOTE: Kite Connect API doesn't provide index constituents directly.
+        This method returns a curated static list of major stocks for each index.
+        
+        Args:
+            index_name (str): Index name (e.g., "NIFTY 50", "NIFTY BANK")
+        
+        Returns:
+            list: List of stock symbols (without .NS suffix)
+        """
         if not KITE_AVAILABLE:
             return []
         
         if not self.connected:
             return []
         
-        index_mapping = {
-            "NIFTY 50": "NIFTY 50",
-            "NIFTY BANK": "NIFTY BANK",
-            "NIFTY IT": "NIFTY IT",
-            "NIFTY AUTO": "NIFTY AUTO"
+        # Kite doesn't have index constituent API
+        # Use static mapping of major stocks for each index
+        index_constituents = {
+            "NIFTY 50": [
+                "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
+                "HINDUNILVR", "SBIN", "BHARTIARTL", "KOTAKBANK", "LT",
+                "ITC", "AXISBANK", "ASIANPAINT", "MARUTI", "TITAN",
+                "SUNPHARMA", "ULTRACEMCO", "BAJFINANCE", "WIPRO", "HCLTECH",
+                "NESTLEIND", "TATAMOTORS", "TATASTEEL", "POWERGRID", "NTPC",
+                "ONGC", "M&M", "TECHM", "ADANIPORTS", "HINDALCO",
+                "DIVISLAB", "DRREDDY", "BAJAJFINSV", "INDUSINDBK", "CIPLA",
+                "JSWSTEEL", "GRASIM", "COALINDIA", "BPCL", "EICHERMOT",
+                "HEROMOTOCO", "BRITANNIA", "SHREECEM", "UPL", "TATACONSUM",
+                "APOLLOHOSP", "ADANIENT", "SBILIFE", "HDFCLIFE", "BAJAJ-AUTO"
+            ],
+            "NIFTY BANK": [
+                "HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK", "AXISBANK",
+                "INDUSINDBK", "BANDHANBNK", "FEDERALBNK", "IDFCFIRSTB",
+                "PNB", "BANKBARODA", "AUBANK"
+            ],
+            "SENSEX": [
+                "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
+                "HINDUNILVR", "SBIN", "BHARTIARTL", "KOTAKBANK", "LT",
+                "ITC", "AXISBANK", "ASIANPAINT", "MARUTI", "TITAN",
+                "SUNPHARMA", "ULTRACEMCO", "BAJFINANCE", "WIPRO", "HCLTECH",
+                "NESTLEIND", "TATAMOTORS", "TATASTEEL", "POWERGRID", "NTPC",
+                "ONGC", "M&M", "TECHM", "ADANIPORTS", "HINDALCO"
+            ],
+            "NIFTY IT": [
+                "TCS", "INFY", "WIPRO", "HCLTECH", "TECHM",
+                "LTIM", "PERSISTENT", "COFORGE", "MPHASIS", "LTTS"
+            ],
+            "NIFTY AUTO": [
+                "MARUTI", "TATAMOTORS", "M&M", "EICHERMOT", "HEROMOTOCO",
+                "BAJAJ-AUTO", "ASHOKLEY", "TVSMOTOR", "BALKRISIND", "MOTHERSON"
+            ]
         }
         
-        if not self.connected:
-            return []
+        constituents = index_constituents.get(index_name, [])
         
-        try:
-            # Get all NSE instruments
-            all_instruments = self.kite.instruments("NSE")
-            
-            # Filter by segment (indices data)
-            constituents = []
-            for inst in all_instruments:
-                if inst['instrument_type'] == 'EQ' and inst.get('segment') == 'NSE':
-                    constituents.append(inst['tradingsymbol'])
-            
-            return constituents[:50]  # Limit for demo
-        except Exception as e:
-            st.error(f"Error fetching index constituents: {e}")
+        if constituents:
+            return constituents
+        else:
+            st.warning(f"⚠️ Could not fetch constituents for {index_name}")
             return []
+
 
 # Create dummy object if Kite not available
 class DummyKiteData:
