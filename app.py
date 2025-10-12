@@ -1674,132 +1674,156 @@ class MultiAssetAPIHandler:
         return html
     
     # ======================== INDEX CONSTITUENTS ========================
-    
-    def get_index_constituents_finnhub(self, index_symbol):
+
+    def get_index_constituents(self, index_symbol):
         """
-        Fetch index constituents from Finnhub API
-        Supports: ^GSPC, ^DJI, ^NDX, ^RUT (US indices)
+        Get index constituents with intelligent multi-source fallback
+        
+        Priority Chain:
+        1. Kite Connect API (for Indian indices) - Live NSE data
+        2. Finnhub API (for US indices) - Live US data  
+        3. Static fallback (all markets) - Hardcoded list
         
         Args:
-            index_symbol: Index symbol (e.g., "^GSPC")
+            index_symbol (str): Index ticker symbol (e.g., "^NSEI", "^GSPC")
         
         Returns:
-            Tuple: (List of tickers, source_info)
+            tuple: (list of stock tickers, source_info dict)
         """
-        if not self.finnhub_available or not self.finnhub_client:
-            return None, {
-                'type': 'Error',
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'details': 'Finnhub API not available. Please add FINNHUB_API_KEY to .env file'
+        
+        # ================================================================
+        # PRIORITY 1: Kite Connect for Indian Indices
+        # ================================================================
+        
+        indian_indices = ["^NSEI", "^NSEBANK", "^BSESN", "^CNXIT", "^CNXAUTO"]
+        
+        if index_symbol in indian_indices and kite_data.connected:
+            # Map Yahoo Finance symbols to Kite index names
+            kite_index_map = {
+                "^NSEI": "NIFTY 50",
+                "^NSEBANK": "NIFTY BANK",
+                "^BSESN": "SENSEX",
+                "^CNXIT": "NIFTY IT",
+                "^CNXAUTO": "NIFTY AUTO"
             }
+            
+            index_name = kite_index_map.get(index_symbol)
+            
+            if index_name:
+                try:
+                    # Call the KiteDataFetcher's get_index_constituents method
+                    constituents = kite_data.get_index_constituents(index_name)
+                    
+                    if constituents and len(constituents) > 0:
+                        # Add .NS suffix for Yahoo Finance compatibility
+                        formatted_constituents = [
+                            f"{c}.NS" if not c.endswith('.NS') else c 
+                            for c in constituents
+                        ]
+                        
+                        source_info = {
+                            'type': 'Kite Connect',
+                            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            'details': f'Fetched {len(formatted_constituents)} constituents from Kite API (Live NSE Data)'
+                        }
+                        
+                        return formatted_constituents, source_info
+                        
+                except Exception as e:
+                    # Silently fall through to next priority
+                    pass
         
-        cache_key = f"finnhub_constituents_{index_symbol}"
+        # ================================================================
+        # PRIORITY 2: Finnhub API for US Indices
+        # ================================================================
         
-        def fetch():
+        finnhub_supported = ["^GSPC", "^DJI", "^NDX", "^RUT"]
+        
+        if index_symbol in finnhub_supported:
             try:
-                # Finnhub API call
-                result = self.finnhub_client.indices_constituents(index_symbol)
+                constituents, source_info = self.get_index_constituents_finnhub(index_symbol)
                 
-                if result and 'constituents' in result:
-                    constituents = result['constituents']
-                    
-                    source_info = {
-                        'type': 'Finnhub',
-                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        'details': f'Fetched {len(constituents)} constituents from Finnhub API (Free tier: 60 calls/min)'
-                    }
-                    
+                if constituents and len(constituents) > 0:
                     return constituents, source_info
-                else:
-                    # API returned empty or error
-                    return None, {
-                        'type': 'Error',
-                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        'details': f'Finnhub API returned no data for {index_symbol}'
-                    }
                     
             except Exception as e:
-                error_msg = str(e)
-                
-                # Check for rate limit error
-                if '429' in error_msg or 'rate limit' in error_msg.lower():
-                    return None, {
-                        'type': 'Error',
-                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        'details': '⚠️ Finnhub API rate limit exceeded (60 calls/min). Please wait.'
-                    }
-                
-                return None, {
-                    'type': 'Error',
-                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    'details': f'Finnhub API error: {error_msg}'
-                }
+                # Silently fall through to static fallback
+                pass
         
-        return self._get_cached_or_fetch(cache_key, fetch)
-    
-    def get_index_constituents(self, index_symbol):
-        """
-        Get index constituents dynamically from Kite
-        Indian Market Only
-        """
+        # ================================================================
+        # PRIORITY 3: Static Fallback (All Markets)
+        # ================================================================
         
-        # Map user-facing index names to Kite symbols
-        kite_index_map = {
-            "^NSEI": "NIFTY 50",
-            "^NSEBANK": "NIFTY BANK",
-            "^BSESN": "SENSEX",
-            "^CNXIT": "NIFTY IT",
-            "^CNXAUTO": "NIFTY AUTO"
-        }
-        
-        index_name = kite_index_map.get(index_symbol)
-        
-        if not index_name:
-            return [], {
-                'type': 'Error',
-                'details': f'Unsupported index: {index_symbol}'
-            }
-        
-        # Use Kite to fetch constituents
-        constituents = kite_data.get_index_constituents(index_name)
-        
-        if constituents:
-            source_info = {
-                'type': 'Kite Connect',
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'details': f'Fetched {len(constituents)} constituents from Kite API (Live NSE Data)'
-            }
-            return constituents, source_info
-        
-        # Fallback to static only if Kite fails
         return self.get_static_constituents(index_symbol)
     
-    def get_index_constituents(self, index_symbol):
+    
+    def get_static_constituents(self, index_symbol):
         """
-        Get index constituents with automatic API -> Static fallback
-        
-        Priority:
-        1. Finnhub API (for supported indices)
-        2. Static fallback
+        Static fallback list of index constituents
+        Used when all APIs fail or are unavailable
         
         Args:
-            index_symbol: Index symbol (e.g., "^GSPC")
+            index_symbol (str): Index ticker symbol
         
         Returns:
-            Tuple: (List of tickers, source_info dict)
+            tuple: (list of stock tickers, source_info dict)
         """
-        # Finnhub supported indices (US only in free tier)
-        finnhub_supported = ['^GSPC', '^DJI', '^NDX', '^RUT']
         
-        # Try Finnhub first if supported
-        if index_symbol in finnhub_supported:
-            constituents, source_info = self.get_index_constituents_finnhub(index_symbol)
+        static_constituents = {
+            # Indian Indices
+            "^NSEI": [
+                "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+                "HINDUNILVR.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS",
+                "ITC.NS", "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "TITAN.NS",
+                "SUNPHARMA.NS", "ULTRACEMCO.NS", "BAJFINANCE.NS", "WIPRO.NS", "HCLTECH.NS",
+                "NESTLEIND.NS", "TATAMOTORS.NS", "TATASTEEL.NS", "POWERGRID.NS", "NTPC.NS",
+                "ONGC.NS", "M&M.NS", "TECHM.NS", "ADANIPORTS.NS", "HINDALCO.NS",
+                "DIVISLAB.NS", "DRREDDY.NS", "BAJAJFINSV.NS", "INDUSINDBK.NS", "CIPLA.NS",
+                "JSWSTEEL.NS", "GRASIM.NS", "COALINDIA.NS", "BPCL.NS", "EICHERMOT.NS",
+                "HEROMOTOCO.NS", "BRITANNIA.NS", "SHREECEM.NS", "UPL.NS", "TATACONSUM.NS",
+                "APOLLOHOSP.NS", "ADANIENT.NS", "SBILIFE.NS", "HDFCLIFE.NS", "BAJAJ-AUTO.NS"
+            ],
+            "^NSEBANK": [
+                "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS",
+                "INDUSINDBK.NS", "BANDHANBNK.NS", "FEDERALBNK.NS", "IDFCFIRSTB.NS",
+                "PNB.NS", "BANKBARODA.NS", "AUBANK.NS"
+            ],
+            "^BSESN": [
+                "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+                "HINDUNILVR.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS",
+                "ITC.NS", "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "TITAN.NS",
+                "SUNPHARMA.NS", "ULTRACEMCO.NS", "BAJFINANCE.NS", "WIPRO.NS", "HCLTECH.NS"
+            ],
+            "^CNXIT": [
+                "TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS",
+                "LTIM.NS", "PERSISTENT.NS", "COFORGE.NS", "MPHASIS.NS", "LTTS.NS"
+            ],
+            "^CNXAUTO": [
+                "MARUTI.NS", "TATAMOTORS.NS", "M&M.NS", "EICHERMOT.NS", "HEROMOTOCO.NS",
+                "BAJAJ-AUTO.NS", "ASHOKLEY.NS", "TVSMOTOR.NS", "BALKRISIND.NS", "MOTHERSON.NS"
+            ],
             
-            if constituents:
-                return constituents, source_info
+            # US Indices
+            "^GSPC": [
+                "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
+                "UNH", "JNJ", "XOM", "V", "JPM", "WMT", "PG", "MA", "CVX", "HD"
+            ],
+            "^DJI": [
+                "AAPL", "MSFT", "UNH", "GS", "HD", "MCD", "CAT", "AMGN", "V",
+                "BA", "HON", "IBM", "JPM", "JNJ", "CRM", "CVX", "AXP", "WMT"
+            ]
+        }
         
-        # Fallback to static data
-        return self.get_static_constituents(index_symbol)
+        constituents = static_constituents.get(index_symbol, [])
+        
+        source_info = {
+            'type': 'Static',
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'details': f'Static fallback list ({len(constituents)} constituents)'
+        }
+        
+        return constituents, source_info
+
     
     # ======================== AVAILABLE INDICES ========================
     
