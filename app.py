@@ -3578,46 +3578,53 @@ def load_available_indices(market_name):
 
 def run_premarket_screener_kite(market_name, market_config):
     """Pre-market screener using Kite Connect for Indian Market"""
-    
     if "India" not in market_name:
         # Use existing screener for non-Indian markets
         return run_premarket_screener(market_name, market_config)
     
-    st.info("🔄 Fetching live Indian stock data from Kite Connect...")
+    # Check if Kite is connected
+    if not kite_data.connected:
+        st.warning("⚠️ Kite not connected. Using fallback screener.")
+        return run_premarket_screener(market_name, market_config)
     
-    # Get all NSE stocks
-    all_stocks = kite_data.get_all_instruments("NSE")
+    try:
+        # Get all NSE stocks
+        all_stocks = kite_data.get_all_instruments("NSE")  # ✅ FIXED
+        
+        if not all_stocks:
+            st.warning("⚠️ Could not fetch stocks from Kite. Using fallback.")
+            return run_premarket_screener(market_name, market_config)
+        
+        # Get live quotes for screening (limit to avoid API rate limits)
+        symbols = [stock['symbol'] for stock in all_stocks[:50]]  # Reduced limit
+        quotes = kite_data.get_quote(symbols)  # ✅ FIXED
+        
+        screened = {}
+        for symbol_key, quote_data in quotes.items():
+            try:
+                clean_symbol = symbol_key.replace('NSE:', '')
+                last_price = quote_data.get('last_price', 0)
+                volume = quote_data.get('volume', 0)
+                change_pct = quote_data.get('change_percent', 0)
+                
+                # Apply filters
+                if last_price >= 50.0 and volume >= 100000:
+                    screened[clean_symbol] = {
+                        'price': last_price,
+                        'volume': volume,
+                        'change_pct': change_pct,
+                        'currency': '₹'
+                    }
+            except Exception as e:
+                continue
+        
+        return screened
     
-    if not all_stocks:
-        st.error("❌ Could not fetch stocks from Kite")
-        return {}
-    
-    st.success(f"✅ Loaded {len(all_stocks)} stocks from **NSE (Kite Connect)**")
-    
-    # Get live quotes for screening
-    symbols = [stock['symbol'] for stock in all_stocks[:100]]  # Limit for API
-    quotes = kite_data.get_quote(symbols)
-    
-    screened = {}
-    for symbol, quote_data in quotes.items():
-        try:
-            clean_symbol = symbol.replace('NSE:', '')
-            last_price = quote_data['last_price']
-            volume = quote_data['volume']
-            change_pct = quote_data['change_percent']
-            
-            # Apply filters
-            if last_price >= 50.0 and volume >= 100000:
-                screened[clean_symbol] = {
-                    'price': last_price,
-                    'volume': volume,
-                    'change_pct': change_pct,
-                    'currency': '₹'
-                }
-        except:
-            continue
-    
-    return screened
+    except Exception as e:
+        st.error(f"❌ Kite screener error: {e}")
+        # Fallback to regular screener
+        return run_premarket_screener(market_name, market_config)
+
     
     # Show appropriate feedback based on data source quality
     if errors and "Emergency" in source:
@@ -6325,8 +6332,12 @@ def main():
         
         if st.sidebar.button("▶️ Run Pre-Market Scan"):
             with st.spinner(f"Scanning {selected_market} market..."):
-                screened_stocks = run_premarket_screener(selected_market, market_config)
-                
+                # Use Kite screener for Indian market if available
+                if "India" in selected_market and kite_data.connected:
+                    screened_stocks = run_premarket_screener_kite(selected_market, market_config)
+                else:
+                    screened_stocks = run_premarket_screener(selected_market, market_config)
+
                 if screened_stocks:
                     st.session_state['screened_stocks'] = screened_stocks
                     st.sidebar.success(f"✅ Found {len(screened_stocks)} stocks")
