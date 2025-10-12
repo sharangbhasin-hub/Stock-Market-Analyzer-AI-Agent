@@ -433,6 +433,217 @@ class BrokerAPI:
         except:
             return False
 
+
+class KiteDataFetcher:
+    """Fetch all Indian market data dynamically using Kite Connect API"""
+    
+    def __init__(self):
+        self.kite = None
+        self.connected = False
+        self._initialize_kite()
+    
+    def _initialize_kite(self):
+        """Initialize Kite Connect with proper authentication"""
+        if not KITE_API_KEY or not KITE_ACCESS_TOKEN:
+            st.error("❌ Kite API credentials missing in .env file")
+            return False
+        
+        try:
+            self.kite = KiteConnect(api_key=KITE_API_KEY)
+            self.kite.set_access_token(KITE_ACCESS_TOKEN)
+            
+            # Verify connection
+            profile = self.kite.profile()
+            self.connected = True
+            st.success(f"✅ Kite Connect: Logged in as {profile['user_name']}")
+            return True
+        except Exception as e:
+            st.error(f"❌ Kite Connect initialization failed: {e}")
+            return False
+    
+    def get_all_instruments(self, exchange="NSE"):
+        """Fetch all tradable instruments from Kite"""
+        if not self.connected:
+            return []
+        
+        try:
+            instruments = self.kite.instruments(exchange)
+            # Convert to list of dicts
+            stocks = []
+            for inst in instruments:
+                if inst['instrument_type'] == 'EQ':  # Only equities
+                    stocks.append({
+                        'symbol': inst['tradingsymbol'],
+                        'name': inst['name'],
+                        'exchange': inst['exchange'],
+                        'token': inst['instrument_token']
+                    })
+            return stocks
+        except Exception as e:
+            st.error(f"Error fetching instruments: {e}")
+            return []
+    
+    def get_index_constituents(self, index_name):
+        """Get stocks in a specific index (Nifty 50, Bank Nifty, etc.)"""
+        # Kite doesn't directly provide index constituents
+        # Use instruments list and filter by segment
+        
+        index_mapping = {
+            "NIFTY 50": "NIFTY 50",
+            "NIFTY BANK": "NIFTY BANK",
+            "NIFTY IT": "NIFTY IT",
+            "NIFTY AUTO": "NIFTY AUTO"
+        }
+        
+        if not self.connected:
+            return []
+        
+        try:
+            # Get all NSE instruments
+            all_instruments = self.kite.instruments("NSE")
+            
+            # Filter by segment (indices data)
+            constituents = []
+            for inst in all_instruments:
+                if inst['instrument_type'] == 'EQ' and inst.get('segment') == 'NSE':
+                    constituents.append(inst['tradingsymbol'])
+            
+            return constituents[:50]  # Limit for demo
+        except Exception as e:
+            st.error(f"Error fetching index constituents: {e}")
+            return []
+    
+    def get_historical_data(self, symbol, from_date, to_date, interval="day"):
+        """Fetch historical OHLCV data"""
+        if not self.connected:
+            return None
+        
+        try:
+            # Get instrument token first
+            instruments = self.kite.instruments("NSE")
+            token = None
+            for inst in instruments:
+                if inst['tradingsymbol'] == symbol:
+                    token = inst['instrument_token']
+                    break
+            
+            if not token:
+                return None
+            
+            # Fetch historical data
+            data = self.kite.historical_data(
+                instrument_token=token,
+                from_date=from_date,
+                to_date=to_date,
+                interval=interval
+            )
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(data)
+            df['date'] = pd.to_datetime(df['date'])
+            df.set_index('date', inplace=True)
+            
+            # Rename columns to match yfinance format
+            df.rename(columns={
+                'open': 'Open',
+                'high': 'High',
+                'low': 'Low',
+                'close': 'Close',
+                'volume': 'Volume'
+            }, inplace=True)
+            
+            return df
+        except Exception as e:
+            st.error(f"Error fetching historical data: {e}")
+            return None
+    
+    def get_quote(self, symbols):
+        """Get real-time quotes for symbols"""
+        if not self.connected:
+            return {}
+        
+        try:
+            # Format: exchange:symbol
+            formatted = [f"NSE:{s}" for s in symbols if isinstance(s, str)]
+            quotes = self.kite.quote(formatted)
+            return quotes
+        except Exception as e:
+            st.error(f"Error fetching quotes: {e}")
+            return {}
+    
+    def get_ltp(self, symbols):
+        """Get Last Traded Price"""
+        if not self.connected:
+            return {}
+        
+        try:
+            formatted = [f"NSE:{s}" for s in symbols]
+            ltps = self.kite.ltp(formatted)
+            return ltps
+        except Exception as e:
+            st.error(f"Error fetching LTP: {e}")
+            return {}
+
+# Initialize global Kite data fetcher
+kite_data = KiteDataFetcher()
+
+# ============================================================================
+# === WRAPPER FUNCTION: Smart Data Fetching (Kite for India, YF for others)
+# ============================================================================
+
+def fetch_market_data_smart(ticker, period_days=60, interval="1d"):
+    """
+    Smart data fetcher: Uses Kite for Indian stocks, Yahoo Finance for others
+    
+    Args:
+        ticker: Stock symbol (e.g., 'RELIANCE.NS', 'AAPL')
+        period_days: Number of days of historical data
+        interval: Data interval ('1d', '1h', etc.)
+    
+    Returns:
+        DataFrame with OHLCV data
+    """
+    
+    # Step 1: Check if Indian stock
+    is_indian = ticker.endswith('.NS') or ticker.endswith('.BO')
+    
+    if is_indian and kite_data.connected:
+        # Indian stock + Kite available → Use Kite
+        st.caption("📊 Data Source: **Kite Connect (NSE/BSE Live)**")
+        
+        # Remove suffix for Kite API
+        clean_symbol = ticker.replace('.NS', '').replace('.BO', '')
+        
+        # Calculate date range
+        to_date = datetime.now()
+        from_date = to_date - timedelta(days=period_days)
+        
+        # Fetch from Kite
+        data = kite_data.get_historical_data(
+            symbol=clean_symbol,
+            from_date=from_date,
+            to_date=to_date,
+            interval="day"  # Kite uses 'day', not '1d'
+        )
+        
+        if data is not None and not data.empty:
+            return data
+        else:
+            st.warning("⚠️ Kite fetch failed, falling back to Yahoo Finance")
+    
+    # Step 2: Use Yahoo Finance (fallback or non-Indian stocks)
+    st.caption("📊 Data Source: **Yahoo Finance**")
+    
+    try:
+        ticker_obj = yf.Ticker(ticker)
+        data = ticker_obj.history(period=f"{period_days}d", interval=interval)
+        return data
+    except Exception as e:
+        st.error(f"❌ Data fetch failed: {e}")
+        return pd.DataFrame()
+
+
+
 # ==============================================================================
 # === NOTIFICATION SYSTEM ======================================================
 # ==============================================================================
@@ -592,67 +803,51 @@ class OptionsAnalyzer:
             return None
 
     def fetch_options_chain(self, ticker):
-        """Fetch options chain data with error handling"""
+        """Fetch options chain from Kite for Indian stocks"""
+        
+        if not kite_data.connected:
+            return None
+        
         try:
-            # Try different ticker format variations
-            ticker_variations = [
-                ticker,
-                ticker.upper(),
-                ticker.replace('.NS', ''),
-                ticker.replace('.BO', ''),
-            ]
+            # Remove suffixes
+            symbol = ticker.replace('.NS', '').replace('.BO', '')
             
-            # Add common formats for Indian markets (though unlikely to work)
-            if 'NIFTY' in ticker.upper() or 'NSEI' in ticker.upper():
-                ticker_variations.extend(['^NSEI', 'NIFTY'])
-            if 'BANK' in ticker.upper():
-                ticker_variations.extend(['^NSEBANK', 'BANKNIFTY'])
+            # Get options instruments
+            nfo_instruments = kite_data.kite.instruments("NFO")
             
-            # Remove duplicates while preserving order
-            ticker_variations = list(dict.fromkeys(ticker_variations))
+            # Filter options for this symbol
+            calls = []
+            puts = []
             
-            # Try each ticker variation
-            for test_ticker in ticker_variations:
-                try:
-                    stock = yf.Ticker(test_ticker)
-                    expiry_dates = stock.options
+            for inst in nfo_instruments:
+                if inst['name'] == symbol and inst['instrument_type'] in ['CE', 'PE']:
+                    option_data = {
+                        'strike': inst['strike'],
+                        'expiry': inst['expiry'],
+                        'type': 'call' if inst['instrument_type'] == 'CE' else 'put',
+                        'token': inst['instrument_token'],
+                        'symbol': inst['tradingsymbol']
+                    }
                     
-                    # Check if options data exists
-                    if not expiry_dates or len(expiry_dates) == 0:
-                        continue
-                    
-                    # Get nearest expiry
-                    nearest_expiry = expiry_dates[0]
-                    options = stock.option_chain(nearest_expiry)
-                    
-                    # Validate that we actually have data
-                    if options.calls is not None and not options.calls.empty and \
-                       options.puts is not None and not options.puts.empty:
-                        
-                        return {
-                            'calls': options.calls,
-                            'puts': options.puts,
-                            'expiry': nearest_expiry,
-                            'ticker': test_ticker,
-                            'all_expiries': expiry_dates
-                        }
-                except Exception:
-                    continue
+                    if inst['instrument_type'] == 'CE':
+                        calls.append(option_data)
+                    else:
+                        puts.append(option_data)
+            
+            if calls or puts:
+                return {
+                    'calls': pd.DataFrame(calls),
+                    'puts': pd.DataFrame(puts),
+                    'expiry': calls[0]['expiry'] if calls else None,
+                    'ticker': symbol
+                }
             
             return None
-            
         except Exception as e:
+            st.error(f"Kite options fetch failed: {e}")
             return None
 
-    import requests
-    import pandas as pd
-    import os
-    
-    def fetchoptionschain_alpha(self, ticker):
-        import requests
-        import os
-        import pandas as pd
-    
+    def fetchoptionschain_alpha(self, ticker):    
         api_key = os.getenv("ALPHAVANTAGEAPIKEY")
         if not api_key:
             print("Alpha Vantage API key missing.")
@@ -1198,81 +1393,42 @@ class MultiAssetAPIHandler:
         
         return self._get_cached_or_fetch(cache_key, fetch)
     
-    def get_static_constituents(self, index_symbol):
+    def get_index_constituents(self, index_symbol):
         """
-        Static fallback data for index constituents
-        Used when all APIs fail or for unsupported indices
-        
-        Args:
-            index_symbol: Index symbol
-        
-        Returns:
-            Tuple: (List of tickers, source_info)
+        Get index constituents dynamically from Kite
+        Indian Market Only
         """
-        static_data = {
-            # US Indices (Finnhub supported)
-            "^GSPC": [
-                "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "BRK-B",
-                "UNH", "JNJ", "JPM", "V", "XOM", "PG", "MA", "HD", "CVX", "LLY",
-                "ABBV", "MRK", "PEP", "KO", "AVGO", "COST", "TMO", "WMT", "MCD",
-                "CSCO", "ABT", "ACN", "DHR", "VZ", "ADBE", "NEE", "NFLX", "CRM"
-            ],
-            "^DJI": [
-                "AAPL", "MSFT", "UNH", "HD", "GS", "MCD", "V", "BA", "CAT", "AMGN",
-                "HON", "TRV", "JPM", "IBM", "CVX", "CSCO", "AXP", "CRM", "JNJ", "PG",
-                "WMT", "MMM", "NKE", "MRK", "DIS", "KO", "DOW", "INTC", "VZ", "WBA"
-            ],
-            "^NDX": [
-                "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA", "AVGO",
-                "COST", "PEP", "CSCO", "ADBE", "NFLX", "CMCSA", "INTC", "AMD"
-            ],
-            "^RUT": [
-                "AMC", "GME", "PLTR", "SOFI", "F", "NIO", "AAL", "LCID", "RIVN"
-            ],
-            
-            # Indian Indices (Not in Finnhub free tier)
-            "^NSEI": [
-                "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
-                "HINDUNILVR.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "ITC.NS",
-                "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "TITAN.NS",
-                "SUNPHARMA.NS", "ULTRACEMCO.NS", "BAJFINANCE.NS", "WIPRO.NS", "HCLTECH.NS"
-            ],
-            "^NSEBANK": [
-                "HDFCBANK.NS", "ICICIBANK.NS", "SBIN.NS", "KOTAKBANK.NS", "AXISBANK.NS",
-                "INDUSINDBK.NS", "BANDHANBNK.NS", "FEDERALBNK.NS", "IDFCFIRSTB.NS", "PNB.NS"
-            ],
-            "^BSESN": [
-                "RELIANCE.BO", "TCS.BO", "HDFCBANK.BO", "INFY.BO", "ICICIBANK.BO"
-            ],
-            
-            # UK Indices
-            "^FTSE": [
-                "BARC.L", "HSBA.L", "BP.L", "SHEL.L", "VOD.L", "AZN.L", "GLEN.L",
-                "RIO.L", "LSEG.L", "LLOY.L", "GSK.L", "ULVR.L", "DGE.L", "NG.L"
-            ],
-            "^FTMC": [
-                "WIZZ.L", "IMB.L", "MARS.L", "MNG.L", "AUTO.L"
-            ],
-            
-            # Japan Indices
-            "^N225": [
-                "7203.T", "6758.T", "9984.T", "6861.T", "8306.T", "7267.T",
-                "6098.T", "9432.T", "8035.T", "4063.T"
-            ],
-            "^TOPX": [
-                "7203.T", "6758.T", "9984.T", "8306.T"
-            ]
+        
+        # Map user-facing index names to Kite symbols
+        kite_index_map = {
+            "^NSEI": "NIFTY 50",
+            "^NSEBANK": "NIFTY BANK",
+            "^BSESN": "SENSEX",
+            "^CNXIT": "NIFTY IT",
+            "^CNXAUTO": "NIFTY AUTO"
         }
         
-        constituents = static_data.get(index_symbol, [])
+        index_name = kite_index_map.get(index_symbol)
         
-        source_info = {
-            'type': 'Static',
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            'details': f'Using static fallback data ({len(constituents)} constituents). For live data, add FINNHUB_API_KEY to .env'
-        }
+        if not index_name:
+            return [], {
+                'type': 'Error',
+                'details': f'Unsupported index: {index_symbol}'
+            }
         
-        return constituents, source_info
+        # Use Kite to fetch constituents
+        constituents = kite_data.get_index_constituents(index_name)
+        
+        if constituents:
+            source_info = {
+                'type': 'Kite Connect',
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                'details': f'Fetched {len(constituents)} constituents from Kite API (Live NSE Data)'
+            }
+            return constituents, source_info
+        
+        # Fallback to static only if Kite fails
+        return self.get_static_constituents(index_symbol)
     
     def get_index_constituents(self, index_symbol):
         """
@@ -1404,22 +1560,29 @@ class MultiAssetAPIHandler:
         return indices, source_info
     
     def get_available_indices(self, market=None):
-        """
-        Get available indices with API -> Static fallback
+        """Get available Indian indices from Kite"""
         
-        Args:
-            market: Market name (optional filter)
+        if market and "India" in market:
+            # Fetch index list from Kite
+            try:
+                instruments = kite_data.kite.instruments("NSE")
+                indices = {}
+                
+                for inst in instruments:
+                    if inst['segment'] == 'INDICES':
+                        indices[inst['name']] = inst['tradingsymbol']
+                
+                if indices:
+                    source_info = {
+                        'type': 'Kite Connect',
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        'details': f'Fetched {len(indices)} indices from NSE via Kite API'
+                    }
+                    return indices, source_info
+            except Exception as e:
+                st.warning(f"Kite fetch failed: {e}. Using fallback.")
         
-        Returns:
-            Tuple: (Dictionary of indices, source_info)
-        """
-        # For US market, try Finnhub first
-        if market and "USA" in market:
-            indices, source_info = self.get_available_indices_finnhub()
-            if indices:
-                return indices, source_info
-        
-        # Fallback to static
+        # Fallback to static for non-Indian markets
         return self.get_static_indices(market)
     
     # ======================== CRYPTO / FOREX / COMMODITIES ========================
@@ -3215,20 +3378,48 @@ def load_available_indices(market_name):
     
     return indices, source_info
 
-def run_premarket_screener(market_name, market_config):
-    """Pre-market screener with comprehensive error handling and user feedback"""
+def run_premarket_screener_kite(market_name, market_config):
+    """Pre-market screener using Kite Connect for Indian Market"""
     
-    # Fetch tickers with source tracking
-    all_tickers, source, errors = get_dynamic_tickers(market_name, ALPHA_VANTAGE_API_KEY)
+    if "India" not in market_name:
+        # Use existing screener for non-Indian markets
+        return run_premarket_screener(market_name, market_config)
     
-    # Handle no tickers scenario
-    if not all_tickers:
-        st.error("❌ Unable to fetch stock list from any source")
-        if errors:
-            with st.expander("🔍 Click to view error details"):
-                for err in errors:
-                    st.text(f"• {err}")
+    st.info("🔄 Fetching live Indian stock data from Kite Connect...")
+    
+    # Get all NSE stocks
+    all_stocks = kite_data.get_all_instruments("NSE")
+    
+    if not all_stocks:
+        st.error("❌ Could not fetch stocks from Kite")
         return {}
+    
+    st.success(f"✅ Loaded {len(all_stocks)} stocks from **NSE (Kite Connect)**")
+    
+    # Get live quotes for screening
+    symbols = [stock['symbol'] for stock in all_stocks[:100]]  # Limit for API
+    quotes = kite_data.get_quote(symbols)
+    
+    screened = {}
+    for symbol, quote_data in quotes.items():
+        try:
+            clean_symbol = symbol.replace('NSE:', '')
+            last_price = quote_data['last_price']
+            volume = quote_data['volume']
+            change_pct = quote_data['change_percent']
+            
+            # Apply filters
+            if last_price >= 50.0 and volume >= 100000:
+                screened[clean_symbol] = {
+                    'price': last_price,
+                    'volume': volume,
+                    'change_pct': change_pct,
+                    'currency': '₹'
+                }
+        except:
+            continue
+    
+    return screened
     
     # Show appropriate feedback based on data source quality
     if errors and "Emergency" in source:
@@ -3268,13 +3459,25 @@ def run_premarket_screener(market_name, market_config):
         
         try:
             # Download batch data
-            data = yf.download(
-                " ".join(batch_tickers), 
-                period="5d", 
-                group_by='ticker', 
-                auto_adjust=True, 
-                progress=False
-            )
+            # Use Kite for Indian market, Yahoo for others
+            if "India" in market_name:
+                # Batch fetch from Kite
+                all_data = {}
+                for ticker in batch_tickers:
+                    ticker_data = fetch_market_data_smart(ticker, period_days=5)
+                    if not ticker_data.empty:
+                        all_data[ticker] = ticker_data
+                data = all_data  # Dictionary format
+            else:
+                # Keep Yahoo Finance for non-Indian markets
+                data = yf.download(
+                    " ".join(batch_tickers), 
+                    period="5d", 
+                    group_by="ticker", 
+                    auto_adjust=True, 
+                    progress=False
+                )
+
             
             # Process each ticker in the batch
             for ticker in batch_tickers:
@@ -3386,6 +3589,28 @@ def search_for_ticker(query: str, asset_type: str = "EQUITY") -> dict:
         return ticker_options
     except Exception as e:
         return {}
+
+def analyze_ticker(ticker_input):
+    """Main analysis function with Kite integration"""
+    
+    # Detect if Indian stock
+    is_indian_stock = (
+        ticker_input.endswith('.NS') or 
+        ticker_input.endswith('.BO') or
+        ticker_input in [s['symbol'] for s in kite_data.get_all_instruments("NSE")]
+    )
+    
+    if is_indian_stock:
+        # Use Kite for Indian stocks
+        data = fetch_indian_market_data(ticker_input, period_days=180)
+        st.info("📊 Data Source: **Kite Connect (NSE Live Data)**")
+    else:
+        # Use Yahoo Finance for international stocks
+        data = yf.Ticker(ticker_input).history(period="180d")
+        st.info("📊 Data Source: **Yahoo Finance (International)**")
+    
+    # Continue with existing analysis...
+
 
 # ============================================================
 # ENHANCED COMPANY NAME FETCHER (Multiple Sources)
@@ -6098,9 +6323,23 @@ def main():
                                     batch = all_tickers[i:i+batch_size]
                                     
                                     try:
-                                        data = yf.download(" ".join(batch), period="1d", 
-                                                         group_by='ticker', progress=False)
-                                        
+                                        # Use Kite for Indian stocks
+                                        if "India" in selected_market:
+                                            batch_data = {}
+                                            for ticker in batch:
+                                                ticker_data = fetch_market_data_smart(ticker, period_days=1)
+                                                if not ticker_data.empty:
+                                                    batch_data[ticker] = ticker_data
+                                            data = batch_data
+                                        else:
+                                            # Yahoo Finance for non-Indian
+                                            data = yf.download(
+                                                " ".join(batch), 
+                                                period="1d", 
+                                                group_by="ticker", 
+                                                progress=False
+                                            )
+
                                         for ticker in batch:
                                             try:
                                                 if len(batch) > 1:
@@ -8410,7 +8649,17 @@ def main():
 
         if st.button("🚀 Run Backtest"):
             with st.spinner("Running backtest..."):
-                data = yf.Ticker(bt_ticker).history(period=bt_period)
+                if bt_period == "1mo":
+                    days = 30
+                elif bt_period == "3mo":
+                    days = 90
+                elif bt_period == "6mo":
+                    days = 180
+                elif bt_period == "1y":
+                    days = 365
+                else:
+                    days = 60
+                data = fetch_market_data_smart(bt_ticker, period_days=days)
 
                 if not data.empty:
                     signals = pd.Series(index=data.index, data='HOLD') # Default
@@ -8466,8 +8715,8 @@ def main():
 
                 for i, ticker in enumerate(tickers):
                     try:
-                        stock = yf.Ticker(ticker)
-                        data = stock.history(period="60d")
+                        data = fetch_market_data_smart(ticker, period_days=60)
+
 
                         if not data.empty:
                             latest_price = data['Close'].iloc[-1]
@@ -8932,13 +9181,12 @@ def main():
                         
                         # Get current price
                         try:
-                            ticker_obj = yf.Ticker(index_ticker)
-                            current_data = ticker_obj.history(period='1d')
-                            
+                            # Use smart fetcher
+                            current_data = fetch_market_data_smart(index_ticker, period_days=1)
                             if current_data.empty:
                                 continue
-                            
-                            current_price = current_data['Close'].iloc[-1]
+                            current_price = current_data["Close"].iloc[-1]
+
                         except:
                             continue
                         
