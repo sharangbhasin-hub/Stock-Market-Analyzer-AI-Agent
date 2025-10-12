@@ -998,57 +998,52 @@ class OptionsAnalyzer:
         is_indian = ticker.endswith('.NS') or ticker.endswith('.BO')
         
         if is_indian and KITE_AVAILABLE and kite_data.connected:
-            # st.caption("📊 Options Data Source: **Kite Connect (NSE F&O Live)**")
-            
             kite_options = self.fetch_options_chain_kite(ticker)
             if kite_options is not None:
                 return kite_options
-            else:
-                # st.warning("⚠️ Kite options fetch failed, trying Yahoo Finance...")
         
         # Priority 2: Yahoo Finance (fallback or non-Indian stocks)
-        # st.caption("📊 Options Data Source: **Yahoo Finance**")
-        
-            try:
-                # Find nearest future expiry...
-                ticker_variations = [ticker, ticker.upper(), ticker.replace(".NS", ""), ticker.replace(".BO", "")]
-                
-                # Add common formats for Indian markets
-                if "NIFTY" in ticker.upper() or "NSEI" in ticker.upper():
-                    ticker_variations.extend(["^NSEI", "NIFTY"])
-                if "BANK" in ticker.upper():
-                    ticker_variations.extend(["^NSEBANK", "BANKNIFTY"])
-                
-                # Remove duplicates while preserving order
-                ticker_variations = list(dict.fromkeys(ticker_variations))
-                
-                for test_ticker in ticker_variations:
-                    try:
-                        stock = yf.Ticker(test_ticker)
-                        expiry_dates = stock.options
-                        
-                        # Check if options data exists
-                        if not expiry_dates or len(expiry_dates) == 0:
-                            continue
-                        
-                        # Get nearest expiry
-                        nearest_expiry = expiry_dates[0]
-                        options = stock.option_chain(nearest_expiry)
-                        
-                        if options.calls is not None and not options.calls.empty and options.puts is not None and not options.puts.empty:
-                            return {
-                                'calls': options.calls,
-                                'puts': options.puts,
-                                'expiry': nearest_expiry,
-                                'ticker': test_ticker,
-                                'allexpiries': expiry_dates
-                            }
-                    except Exception:
+        try:
+            # Find nearest future expiry...
+            ticker_variations = [ticker, ticker.upper(), ticker.replace(".NS", ""), ticker.replace(".BO", "")]
+            
+            # Add common formats for Indian markets
+            if "NIFTY" in ticker.upper() or "NSEI" in ticker.upper():
+                ticker_variations.extend(["^NSEI", "NIFTY"])
+            if "BANK" in ticker.upper():
+                ticker_variations.extend(["^NSEBANK", "BANKNIFTY"])
+            
+            # Remove duplicates while preserving order
+            ticker_variations = list(dict.fromkeys(ticker_variations))
+            
+            for test_ticker in ticker_variations:
+                try:
+                    stock = yf.Ticker(test_ticker)
+                    expiry_dates = stock.options
+                    
+                    # Check if options data exists
+                    if not expiry_dates or len(expiry_dates) == 0:
                         continue
-                
-                return None
-            except Exception as e:
-                return None
+                    
+                    # Get nearest expiry
+                    nearest_expiry = expiry_dates[0]
+                    options = stock.option_chain(nearest_expiry)
+                    
+                    if options.calls is not None and not options.calls.empty and options.puts is not None and not options.puts.empty:
+                        return {
+                            'calls': options.calls,
+                            'puts': options.puts,
+                            'expiry': nearest_expiry,
+                            'ticker': test_ticker,
+                            'allexpiries': expiry_dates
+                        }
+                except Exception:
+                    continue
+            
+            return None
+        except Exception as e:
+            return None
+
 
     def fetchoptionschain_alpha(self, ticker):    
         api_key = os.getenv("ALPHAVANTAGEAPIKEY")
