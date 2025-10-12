@@ -3748,7 +3748,10 @@ def run_premarket_screener_kite(market_name, market_config):
         if not quotes:
             return {}
         
+        # Initialize screened dictionary ONCE
         screened = {}
+        
+        # Loop through quotes and filter
         for symbol_key, quote_data in quotes.items():
             try:
                 clean_symbol = symbol_key.replace('NSE:', '')
@@ -3766,10 +3769,6 @@ def run_premarket_screener_kite(market_name, market_config):
                     }
             except Exception as e:
                 continue
-
-        screened = {}
-        for symbol_key, quote_data in quotes.items():
-            # ... existing filtering code ...
         
         # DEBUG: Show what we're returning
         if screened:
@@ -3783,10 +3782,11 @@ def run_premarket_screener_kite(market_name, market_config):
         
         return screened
     
-    
     except Exception as e:
         # Return empty dict on error
+        st.error(f"❌ Screener error: {e}")
         return {}
+
     
     # Show appropriate feedback based on data source quality
     if errors and "Emergency" in source:
