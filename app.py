@@ -483,6 +483,126 @@ class KiteDataFetcher:
         except Exception as e:
             st.error(f"❌ Kite Data Fetcher initialization failed: {e}")
             return False
+
+    def get_quote(self, symbols):
+        """
+        Get real-time quotes for multiple symbols
+        
+        Args:
+            symbols: List of symbol strings (e.g., ['RELIANCE', 'TCS']) or single string
+        
+        Returns:
+            Dictionary with quotes data
+        """
+        if not KITE_AVAILABLE:
+            return {}
+        
+        if not self.connected:
+            return {}
+        
+        try:
+            # Handle single string input
+            if isinstance(symbols, str):
+                symbols = [symbols]
+            
+            # Format symbols for Kite API (add NSE: prefix if not present)
+            formatted_symbols = []
+            for s in symbols:
+                if isinstance(s, str):
+                    if ':' not in s:
+                        formatted_symbols.append(f"NSE:{s}")
+                    else:
+                        formatted_symbols.append(s)
+            
+            if not formatted_symbols:
+                return {}
+            
+            # Fetch quotes from Kite
+            quotes = self.kite.quote(formatted_symbols)
+            return quotes
+            
+        except Exception as e:
+            return {}
+    
+    def get_ltp(self, symbols):
+        """
+        Get Last Traded Price for multiple symbols
+        
+        Args:
+            symbols: List of symbol strings or single string
+        
+        Returns:
+            Dictionary with LTP data
+        """
+        if not KITE_AVAILABLE:
+            return {}
+        
+        if not self.connected:
+            return {}
+        
+        try:
+            # Handle single string input
+            if isinstance(symbols, str):
+                symbols = [symbols]
+            
+            # Format symbols for Kite API
+            formatted_symbols = []
+            for s in symbols:
+                if isinstance(s, str):
+                    if ':' not in s:
+                        formatted_symbols.append(f"NSE:{s}")
+                    else:
+                        formatted_symbols.append(s)
+            
+            if not formatted_symbols:
+                return {}
+            
+            # Fetch LTP from Kite
+            ltp_data = self.kite.ltp(formatted_symbols)
+            return ltp_data
+            
+        except Exception as e:
+            return {}
+    
+    def get_ohlc(self, symbols):
+        """
+        Get OHLC data for multiple symbols
+        
+        Args:
+            symbols: List of symbol strings or single string
+        
+        Returns:
+            Dictionary with OHLC data
+        """
+        if not KITE_AVAILABLE:
+            return {}
+        
+        if not self.connected:
+            return {}
+        
+        try:
+            # Handle single string input
+            if isinstance(symbols, str):
+                symbols = [symbols]
+            
+            # Format symbols for Kite API
+            formatted_symbols = []
+            for s in symbols:
+                if isinstance(s, str):
+                    if ':' not in s:
+                        formatted_symbols.append(f"NSE:{s}")
+                    else:
+                        formatted_symbols.append(s)
+            
+            if not formatted_symbols:
+                return {}
+            
+            # Fetch OHLC from Kite
+            ohlc_data = self.kite.ohlc(formatted_symbols)
+            return ohlc_data
+            
+        except Exception as e:
+            return {}
     
     def get_all_instruments(self, exchange="NSE"):
         """Fetch all tradable instruments from Kite"""
@@ -544,7 +664,33 @@ class KiteDataFetcher:
         except Exception as e:
             st.error(f"Error fetching index constituents: {e}")
             return []
+
+# Create dummy object if Kite not available
+class DummyKiteData:
+    connected = False
+    _instruments_cache = []
     
+    def get_all_instruments(self, *args, **kwargs):
+        return []
+    
+    def get_index_constituents(self, *args, **kwargs):
+        return []
+    
+    def get_historical_data(self, *args, **kwargs):
+        return None
+    
+    def get_quote(self, *args, **kwargs):
+        return {}
+    
+    def get_ltp(self, *args, **kwargs):
+        return {}
+    
+    def get_ohlc(self, *args, **kwargs):
+        return {}
+
+kite_data = DummyKiteData()
+
+
 def get_historical_data(self, symbol, from_date, to_date, interval="day"):
     """Fetch historical OHLCV data from Kite Connect"""
     if not KITE_AVAILABLE:
@@ -3580,24 +3726,27 @@ def run_premarket_screener_kite(market_name, market_config):
     """Pre-market screener using Kite Connect for Indian Market"""
     if "India" not in market_name:
         # Use existing screener for non-Indian markets
-        return run_premarket_screener(market_name, market_config)
+        return {}  # Return empty dict instead of calling undefined function
     
     # Check if Kite is connected
     if not kite_data.connected:
-        st.warning("⚠️ Kite not connected. Using fallback screener.")
-        return run_premarket_screener(market_name, market_config)
+        return {}  # Return empty dict if Kite not available
     
     try:
         # Get all NSE stocks
-        all_stocks = kite_data.get_all_instruments("NSE")  # ✅ FIXED
+        all_stocks = kite_data.get_all_instruments("NSE")
         
         if not all_stocks:
-            st.warning("⚠️ Could not fetch stocks from Kite. Using fallback.")
-            return run_premarket_screener(market_name, market_config)
+            return {}
         
         # Get live quotes for screening (limit to avoid API rate limits)
-        symbols = [stock['symbol'] for stock in all_stocks[:50]]  # Reduced limit
-        quotes = kite_data.get_quote(symbols)  # ✅ FIXED
+        symbols = [stock['symbol'] for stock in all_stocks[:50]]
+        
+        # Use get_quote to fetch live data
+        quotes = kite_data.get_quote(symbols)
+        
+        if not quotes:
+            return {}
         
         screened = {}
         for symbol_key, quote_data in quotes.items():
@@ -3605,7 +3754,7 @@ def run_premarket_screener_kite(market_name, market_config):
                 clean_symbol = symbol_key.replace('NSE:', '')
                 last_price = quote_data.get('last_price', 0)
                 volume = quote_data.get('volume', 0)
-                change_pct = quote_data.get('change_percent', 0)
+                change_pct = quote_data.get('change', 0)  # Note: 'change' not 'change_percent'
                 
                 # Apply filters
                 if last_price >= 50.0 and volume >= 100000:
@@ -3621,10 +3770,8 @@ def run_premarket_screener_kite(market_name, market_config):
         return screened
     
     except Exception as e:
-        st.error(f"❌ Kite screener error: {e}")
-        # Fallback to regular screener
-        return run_premarket_screener(market_name, market_config)
-
+        # Return empty dict on error
+        return {}
     
     # Show appropriate feedback based on data source quality
     if errors and "Emergency" in source:
