@@ -546,7 +546,7 @@ class KiteDataFetcher:
             return []
     
     def get_historical_data(self, symbol, from_date, to_date, interval="day"):
-        """Fetch historical OHLCV data"""
+        """Fetch historical OHLCV data from Kite Connect"""
         if not KITE_AVAILABLE:
             return None
         
@@ -557,15 +557,20 @@ class KiteDataFetcher:
             # Get instrument token first
             instruments = self.kite.instruments("NSE")
             token = None
+            instrument_name = None
+            
             for inst in instruments:
                 if inst['tradingsymbol'] == symbol:
                     token = inst['instrument_token']
+                    instrument_name = inst['name']
                     break
             
             if not token:
+                st.warning(f"⚠️ Symbol '{symbol}' not found in NSE instruments")
                 return None
             
-            # Fetch historical data
+            # Fetch historical data from Kite
+            # Kite returns list of dicts with lowercase keys
             data = self.kite.historical_data(
                 instrument_token=token,
                 from_date=from_date,
@@ -573,23 +578,70 @@ class KiteDataFetcher:
                 interval=interval
             )
             
+            # Check if data is empty
+            if not data or len(data) == 0:
+                st.warning(f"⚠️ No historical data available for {symbol}")
+                return None
+            
             # Convert to DataFrame
             df = pd.DataFrame(data)
-            df['date'] = pd.to_datetime(df['date'])
-            df.set_index('date', inplace=True)
             
-            # Rename columns to match yfinance format
-            df.rename(columns={
-                'open': 'Open',
-                'high': 'High',
-                'low': 'Low',
-                'close': 'Close',
-                'volume': 'Volume'
-            }, inplace=True)
+            # Debug: Check what columns we actually received
+            # st.write(f"DEBUG: Columns received from Kite: {df.columns.tolist()}")
+            
+            # Kite API returns lowercase column names
+            # The date column might be 'date' or 'datetime'
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'])
+                df.set_index('date', inplace=True)
+            elif 'datetime' in df.columns:
+                df['datetime'] = pd.to_datetime(df['datetime'])
+                df.rename(columns={'datetime': 'date'}, inplace=True)
+                df.set_index('date', inplace=True)
+            else:
+                # If no date column found, use the first column as index
+                st.warning(f"⚠️ Unexpected data format from Kite API")
+                return None
+            
+            # Rename columns to match yfinance format (Title Case)
+            # Kite uses lowercase: open, high, low, close, volume
+            column_mapping = {}
+            for col in df.columns:
+                col_lower = col.lower()
+                if col_lower == 'open':
+                    column_mapping[col] = 'Open'
+                elif col_lower == 'high':
+                    column_mapping[col] = 'High'
+                elif col_lower == 'low':
+                    column_mapping[col] = 'Low'
+                elif col_lower == 'close':
+                    column_mapping[col] = 'Close'
+                elif col_lower == 'volume':
+                    column_mapping[col] = 'Volume'
+            
+            df.rename(columns=column_mapping, inplace=True)
+            
+            # Ensure all required columns exist
+            required_columns = ['Open', 'High', 'Low', 'Close', 'Volume']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            
+            if missing_columns:
+                st.warning(f"⚠️ Missing columns in Kite data: {missing_columns}")
+                return None
+            
+            # Success message
+            st.success(f"✅ Fetched {len(df)} rows from Kite for {symbol}")
             
             return df
+            
+        except KeyError as ke:
+            st.error(f"❌ Data format error: Missing key '{ke}'. Kite API response structure may have changed.")
+            return None
         except Exception as e:
-            st.error(f"Error fetching historical data: {e}")
+            st.error(f"❌ Error fetching historical data: {str(e)}")
+            # Print more detailed error for debugging
+            import traceback
+            st.code(traceback.format_exc())
             return None
     
     def get_quote(self, symbols):
@@ -653,24 +705,39 @@ def fetch_market_data_smart(ticker, period_days=60, interval="1d"):
         st.caption("📊 Data Source: **Kite Connect (NSE/BSE Live)**")
         
         # Remove suffix for Kite API
-        clean_symbol = ticker.replace('.NS', '').replace('.BO', '')
+        clean_symbol = ticker.replace('.NS', '').replace('.BO', '').strip()
         
         # Calculate date range
         to_date = datetime.now()
         from_date = to_date - timedelta(days=period_days)
         
-        # Fetch from Kite
-        data = kite_data.get_historical_data(
-            symbol=clean_symbol,
-            from_date=from_date,
-            to_date=to_date,
-            interval="day"  # Kite uses 'day', not '1d'
-        )
+        # Convert interval format (Kite uses different naming)
+        kite_interval = "day"
+        if interval == "1d":
+            kite_interval = "day"
+        elif interval == "1h" or interval == "60m":
+            kite_interval = "60minute"
+        elif interval == "5m":
+            kite_interval = "5minute"
+        elif interval == "15m":
+            kite_interval = "15minute"
         
-        if data is not None and not data.empty:
-            return data
-        else:
-            st.warning("⚠️ Kite fetch failed, falling back to Yahoo Finance")
+        # Fetch from Kite with better error handling
+        try:
+            data = kite_data.get_historical_data(
+                symbol=clean_symbol,
+                from_date=from_date,
+                to_date=to_date,
+                interval=kite_interval
+            )
+            
+            if data is not None and not data.empty:
+                st.success(f"✅ Loaded {len(data)} candles from Kite")
+                return data
+            else:
+                st.warning("⚠️ Kite returned empty data, trying Yahoo Finance...")
+        except Exception as e:
+            st.warning(f"⚠️ Kite fetch error: {e}, falling back to Yahoo Finance")
     
     # Step 2: Use Yahoo Finance (fallback or non-Indian stocks)
     st.caption("📊 Data Source: **Yahoo Finance**")
@@ -678,12 +745,14 @@ def fetch_market_data_smart(ticker, period_days=60, interval="1d"):
     try:
         ticker_obj = yf.Ticker(ticker)
         data = ticker_obj.history(period=f"{period_days}d", interval=interval)
+        
+        if not data.empty:
+            st.success(f"✅ Loaded {len(data)} candles from Yahoo Finance")
+        
         return data
     except Exception as e:
         st.error(f"❌ Data fetch failed: {e}")
         return pd.DataFrame()
-
-
 
 # ==============================================================================
 # === NOTIFICATION SYSTEM ======================================================
