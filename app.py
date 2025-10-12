@@ -670,31 +670,31 @@ def get_historical_data(self, symbol, from_date, to_date, interval="day"):
 # Initialize global Kite data fetcher
 kite_data = KiteDataFetcher()
 # Initialize Kite data fetcher
-    if KITE_AVAILABLE:
-        broker_api = BrokerAPI()
-        kite_data = KiteDataFetcher(broker_api=broker_api)
-        
-        # Pre-load instruments cache (do this once at startup)
-        if kite_data.connected:
-            with st.spinner("🔄 Loading NSE instruments list..."):
-                try:
-                    kite_data._instruments_cache = kite_data.kite.instruments("NSE")
-                    st.success(f"✅ Loaded {len(kite_data._instruments_cache)} NSE instruments")
-                except Exception as e:
-                    st.warning(f"⚠️ Could not preload instruments: {e}")
-                    kite_data._instruments_cache = []
-    else:
-        # Dummy kite_data object
-        class DummyKiteData:
-            connected = False
-            def get_historical_data(self, *args, **kwargs):
-                return None
-            def get_quote(self, *args, **kwargs):
-                return {}
-            def get_ltp(self, *args, **kwargs):
-                return {}
-        
-        kite_data = DummyKiteData()
+if KITE_AVAILABLE:
+    broker_api = BrokerAPI()
+    kite_data = KiteDataFetcher(broker_api=broker_api)
+    
+    # Pre-load instruments cache (do this once at startup)
+    if kite_data.connected:
+        with st.spinner("🔄 Loading NSE instruments list..."):
+            try:
+                kite_data._instruments_cache = kite_data.kite.instruments("NSE")
+                st.success(f"✅ Loaded {len(kite_data._instruments_cache)} NSE instruments")
+            except Exception as e:
+                st.warning(f"⚠️ Could not preload instruments: {e}")
+                kite_data._instruments_cache = []
+else:
+    # Dummy kite_data object
+    class DummyKiteData:
+        connected = False
+        def get_historical_data(self, *args, **kwargs):
+            return None
+        def get_quote(self, *args, **kwargs):
+            return {}
+        def get_ltp(self, *args, **kwargs):
+            return {}
+    
+    kite_data = DummyKiteData()
 
 
 # ============================================================================
