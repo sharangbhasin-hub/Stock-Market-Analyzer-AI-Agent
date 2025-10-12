@@ -3723,14 +3723,15 @@ def load_available_indices(market_name):
     return indices, source_info
 
 def run_premarket_screener_kite(market_name, market_config):
-    """Pre-market screener using Kite Connect for Indian Market"""
+    """
+    Intelligent Pre-market screener with adaptive filtering
+    Adjusts criteria based on market conditions and stock categories
+    """
     if "India" not in market_name:
-        # Use existing screener for non-Indian markets
-        return {}  # Return empty dict instead of calling undefined function
+        return {}
     
-    # Check if Kite is connected
     if not kite_data.connected:
-        return {}  # Return empty dict if Kite not available
+        return {}
     
     try:
         # Get all NSE stocks
@@ -3739,36 +3740,214 @@ def run_premarket_screener_kite(market_name, market_config):
         if not all_stocks:
             return {}
         
-        # Get live quotes for screening (limit to avoid API rate limits)
-        symbols = [stock['symbol'] for stock in all_stocks[:50]]
+        # ==================================================================
+        # INTELLIGENT SCREENING CRITERIA
+        # ==================================================================
         
-        # Use get_quote to fetch live data
-        quotes = kite_data.get_quote(symbols)
+        # Get current time to adjust for market phase
+        from datetime import datetime, time
+        current_time = datetime.now().time()
+        market_open = time(9, 15)
+        market_close = time(15, 30)
+        
+        # Determine market phase
+        is_pre_market = current_time < market_open
+        is_market_hours = market_open <= current_time <= market_close
+        is_post_market = current_time > market_close
+        
+        # Adaptive criteria based on market phase and stock category
+        screening_criteria = {
+            'large_cap': {
+                'min_price': 500.0,      # Blue-chip stocks (₹500+)
+                'min_volume': 500000,    # High liquidity (5L+)
+                'min_change': 0.5,       # At least 0.5% movement
+                'max_stocks': 20,        # Top 20 movers
+                'category': 'Large Cap'
+            },
+            'mid_cap': {
+                'min_price': 100.0,      # Mid-cap range (₹100-500)
+                'max_price': 500.0,
+                'min_volume': 200000,    # Moderate liquidity (2L+)
+                'min_change': 1.0,       # At least 1% movement
+                'max_stocks': 30,
+                'category': 'Mid Cap'
+            },
+            'small_cap': {
+                'min_price': 20.0,       # Small-cap range (₹20-100)
+                'max_price': 100.0,
+                'min_volume': 100000,    # Lower liquidity ok (1L+)
+                'min_change': 2.0,       # At least 2% movement
+                'max_stocks': 25,
+                'category': 'Small Cap'
+            },
+            'penny_stocks': {
+                'min_price': 5.0,        # Penny stocks (₹5-20)
+                'max_price': 20.0,
+                'min_volume': 50000,     # Very speculative (50K+)
+                'min_change': 3.0,       # At least 3% movement
+                'max_stocks': 15,
+                'category': 'Penny/Micro Cap'
+            }
+        }
+        
+        # Adjust volume criteria based on market phase
+        volume_multiplier = 1.0
+        if is_pre_market:
+            volume_multiplier = 0.3  # Lower volume expected pre-market
+        elif is_post_market:
+            volume_multiplier = 0.5  # Lower volume expected post-market
+        
+        # Apply volume multiplier to all categories
+        for category in screening_criteria.values():
+            category['min_volume'] = int(category['min_volume'] * volume_multiplier)
+        
+        # Get live quotes (sample from different price ranges for diversity)
+        symbols_to_check = []
+        
+        # Sample stocks from different price ranges
+        for i, stock in enumerate(all_stocks):
+            if i % 10 == 0:  # Sample every 10th stock for efficiency
+                symbols_to_check.append(stock['symbol'])
+            if len(symbols_to_check) >= 200:  # Limit API calls
+                break
+        
+        # Fetch live quotes
+        quotes = kite_data.get_quote(symbols_to_check)
         
         if not quotes:
             return {}
         
-        # Initialize screened dictionary ONCE
-        screened = {}
+        # ==================================================================
+        # INTELLIGENT CATEGORIZATION AND FILTERING
+        # ==================================================================
         
-        # Loop through quotes and filter
+        categorized_stocks = {
+            'large_cap': {},
+            'mid_cap': {},
+            'small_cap': {},
+            'penny_stocks': {}
+        }
+        
         for symbol_key, quote_data in quotes.items():
             try:
                 clean_symbol = symbol_key.replace('NSE:', '')
                 last_price = quote_data.get('last_price', 0)
                 volume = quote_data.get('volume', 0)
-                change_pct = quote_data.get('change', 0)  # Note: 'change' not 'change_percent'
+                change = quote_data.get('change', 0)
                 
-                # Apply filters
-                if last_price >= 50.0 and volume >= 100000:
-                    screened[clean_symbol] = {
-                        'price': last_price,
-                        'volume': volume,
-                        'change_pct': change_pct,
-                        'currency': '₹'
-                    }
+                # Calculate change percentage
+                if last_price > 0:
+                    change_pct = (change / (last_price - change)) * 100
+                else:
+                    change_pct = 0
+                
+                # Categorize and filter stocks intelligently
+                for cat_key, criteria in screening_criteria.items():
+                    # Check price range
+                    if last_price < criteria['min_price']:
+                        continue
+                    
+                    if 'max_price' in criteria and last_price > criteria['max_price']:
+                        continue
+                    
+                    # Check volume
+                    if volume < criteria['min_volume']:
+                        continue
+                    
+                    # Check movement (absolute value for both up and down movers)
+                    if abs(change_pct) < criteria['min_change']:
+                        continue
+                    
+                    # Passed all filters - add to category
+                    if len(categorized_stocks[cat_key]) < criteria['max_stocks']:
+                        categorized_stocks[cat_key][clean_symbol] = {
+                            'price': last_price,
+                            'volume': volume,
+                            'change_pct': change_pct,
+                            'currency': '₹',
+                            'category': criteria['category']
+                        }
+                    
+                    break  # Only add to one category
+                
             except Exception as e:
                 continue
+        
+        # ==================================================================
+        # MERGE AND PRIORITIZE RESULTS
+        # ==================================================================
+        
+        # Merge all categories with priority to larger caps
+        screened = {}
+        
+        for cat_key in ['large_cap', 'mid_cap', 'small_cap', 'penny_stocks']:
+            stocks = categorized_stocks[cat_key]
+            
+            # Sort by absolute change percentage (biggest movers first)
+            sorted_stocks = sorted(
+                stocks.items(), 
+                key=lambda x: abs(x[1]['change_pct']), 
+                reverse=True
+            )
+            
+            for symbol, data in sorted_stocks:
+                screened[symbol] = data
+        
+        # ==================================================================
+        # DISPLAY INTELLIGENT SUMMARY
+        # ==================================================================
+        
+        if screened:
+            total_stocks = len(screened)
+            
+            # Count by category
+            cat_counts = {
+                'Large Cap': len(categorized_stocks['large_cap']),
+                'Mid Cap': len(categorized_stocks['mid_cap']),
+                'Small Cap': len(categorized_stocks['small_cap']),
+                'Penny/Micro Cap': len(categorized_stocks['penny_stocks'])
+            }
+            
+            # Show market phase
+            phase_emoji = "🌅" if is_pre_market else "📈" if is_market_hours else "🌆"
+            phase_name = "Pre-Market" if is_pre_market else "Market Hours" if is_market_hours else "Post-Market"
+            
+            st.success(f"{phase_emoji} **{phase_name}**: Found **{total_stocks} stocks** matching intelligent criteria")
+            
+            # Show category breakdown
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("🔷 Large Cap", cat_counts['Large Cap'])
+            col2.metric("🔶 Mid Cap", cat_counts['Mid Cap'])
+            col3.metric("🟡 Small Cap", cat_counts['Small Cap'])
+            col4.metric("🔴 Penny", cat_counts['Penny/Micro Cap'])
+            
+            # Show top 5 movers
+            st.markdown("#### 🔥 Top Movers")
+            top_5 = sorted(screened.items(), key=lambda x: abs(x[1]['change_pct']), reverse=True)[:5]
+            
+            for symbol, data in top_5:
+                change_emoji = "🟢" if data['change_pct'] > 0 else "🔴"
+                st.caption(
+                    f"{change_emoji} **{symbol}** ({data['category']}): "
+                    f"₹{data['price']:.2f} ({data['change_pct']:+.2f}%) | "
+                    f"Vol: {data['volume']:,}"
+                )
+        else:
+            st.warning(
+                f"⚠️ No stocks matched intelligent screening criteria.\n\n"
+                f"**Current Criteria:**\n"
+                f"- Large Cap: ₹500+ with 5L+ volume\n"
+                f"- Mid Cap: ₹100-500 with 2L+ volume\n"
+                f"- Small Cap: ₹20-100 with 1L+ volume\n"
+                f"- Penny: ₹5-20 with 50K+ volume\n"
+                f"- All stocks must show minimum movement"
+            )
+        
+        return screened
+    
+    except Exception as e:
+        st.error(f"❌ Screener error: {e}")
+        return {}
         
         # DEBUG: Show what we're returning
         if screened:
