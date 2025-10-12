@@ -437,32 +437,58 @@ class BrokerAPI:
 class KiteDataFetcher:
     """Fetch all Indian market data dynamically using Kite Connect API"""
     
-    def __init__(self):
+    def __init__(self, broker_api=None):
+        """
+        Initialize with optional BrokerAPI instance to reuse connection
+        """
         self.kite = None
         self.connected = False
-        self._initialize_kite()
+        
+        # Check if KiteConnect is available
+        if not KITE_AVAILABLE:
+            st.warning("⚠️ Kite Connect library not installed. Run: pip install kiteconnect")
+            return
+        
+        # Try to reuse BrokerAPI connection if provided
+        if broker_api and broker_api.connected:
+            self.kite = broker_api.kite
+            self.connected = True
+            st.success("✅ KiteDataFetcher: Reusing BrokerAPI connection")
+        else:
+            # Create own connection if BrokerAPI not available
+            self._initialize_kite()
     
     def _initialize_kite(self):
-        """Initialize Kite Connect with proper authentication"""
+        """Initialize Kite Connect independently"""
+        # Check if library is available
+        if not KITE_AVAILABLE:
+            return False
+        
         if not KITE_API_KEY or not KITE_ACCESS_TOKEN:
-            st.error("❌ Kite API credentials missing in .env file")
+            st.warning("⚠️ Kite API credentials missing in .env file")
             return False
         
         try:
+            # Import KiteConnect only when needed
+            from kiteconnect import KiteConnect
+            
             self.kite = KiteConnect(api_key=KITE_API_KEY)
             self.kite.set_access_token(KITE_ACCESS_TOKEN)
             
             # Verify connection
             profile = self.kite.profile()
             self.connected = True
-            st.success(f"✅ Kite Connect: Logged in as {profile['user_name']}")
+            st.success(f"✅ Kite Data Fetcher: Connected as {profile['user_name']}")
             return True
         except Exception as e:
-            st.error(f"❌ Kite Connect initialization failed: {e}")
+            st.error(f"❌ Kite Data Fetcher initialization failed: {e}")
             return False
     
     def get_all_instruments(self, exchange="NSE"):
         """Fetch all tradable instruments from Kite"""
+        if not KITE_AVAILABLE:
+            return []
+    
         if not self.connected:
             return []
         
@@ -487,6 +513,12 @@ class KiteDataFetcher:
         """Get stocks in a specific index (Nifty 50, Bank Nifty, etc.)"""
         # Kite doesn't directly provide index constituents
         # Use instruments list and filter by segment
+
+        if not KITE_AVAILABLE:
+        return []
+        
+        if not self.connected:
+        return []
         
         index_mapping = {
             "NIFTY 50": "NIFTY 50",
@@ -515,6 +547,9 @@ class KiteDataFetcher:
     
     def get_historical_data(self, symbol, from_date, to_date, interval="day"):
         """Fetch historical OHLCV data"""
+        if not KITE_AVAILABLE:
+        return None
+        
         if not self.connected:
             return None
         
@@ -559,6 +594,9 @@ class KiteDataFetcher:
     
     def get_quote(self, symbols):
         """Get real-time quotes for symbols"""
+        if not KITE_AVAILABLE:
+        return None
+        
         if not self.connected:
             return {}
         
@@ -573,6 +611,9 @@ class KiteDataFetcher:
     
     def get_ltp(self, symbols):
         """Get Last Traded Price"""
+        if not KITE_AVAILABLE:
+        return None
+        
         if not self.connected:
             return {}
         
@@ -747,6 +788,79 @@ class OptionsAnalyzer:
             3: "Nifty 50"
         }
 
+    # ===== ADD THIS NEW METHOD HERE =====
+    def fetch_options_chain_kite(self, ticker):
+        """
+        Fetch options chain from Kite Connect for Indian stocks
+        Only works for NSE/BSE stocks with options
+        """
+        # Check if Kite is available and connected
+        if not KITE_AVAILABLE or not kite_data.connected:
+            return None
+        
+        try:
+            # Clean ticker symbol (remove .NS or .BO suffix)
+            symbol = ticker.replace('.NS', '').replace('.BO', '').strip()
+            
+            # Get all NFO (National Stock Exchange F&O) instruments
+            nfo_instruments = kite_data.kite.instruments("NFO")
+            
+            # Filter options for this underlying symbol
+            calls_list = []
+            puts_list = []
+            
+            for inst in nfo_instruments:
+                # Match the underlying name
+                if inst['name'] == symbol and inst['instrument_type'] in ['CE', 'PE']:
+                    option_data = {
+                        'strike': inst['strike'],
+                        'expiry': inst['expiry'],
+                        'type': 'call' if inst['instrument_type'] == 'CE' else 'put',
+                        'token': inst['instrument_token'],
+                        'symbol': inst['tradingsymbol']
+                    }
+                    
+                    if inst['instrument_type'] == 'CE':
+                        calls_list.append(option_data)
+                    else:
+                        puts_list.append(option_data)
+            
+            # If we found options data
+            if calls_list or puts_list:
+                # Get real-time quotes for these options
+                option_symbols = [f"NFO:{opt['symbol']}" for opt in calls_list + puts_list]
+                
+                # Fetch quotes (if too many, limit to first 100)
+                if len(option_symbols) > 100:
+                    option_symbols = option_symbols[:100]
+                
+                quotes = kite_data.kite.quote(option_symbols)
+                
+                # Enrich options data with live prices
+                for opt in calls_list + puts_list:
+                    symbol_key = f"NFO:{opt['symbol']}"
+                    if symbol_key in quotes:
+                        quote = quotes[symbol_key]
+                        opt['lastPrice'] = quote.get('last_price', 0)
+                        opt['volume'] = quote.get('volume', 0)
+                        opt['openInterest'] = quote.get('oi', 0)
+                        opt['bid'] = quote.get('depth', {}).get('buy', [{}])[0].get('price', 0)
+                        opt['ask'] = quote.get('depth', {}).get('sell', [{}])[0].get('price', 0)
+                
+                return {
+                    'calls': pd.DataFrame(calls_list),
+                    'puts': pd.DataFrame(puts_list),
+                    'expiry': calls_list[0]['expiry'] if calls_list else None,
+                    'ticker': symbol,
+                    'allexpiries': list(set([opt['expiry'] for opt in calls_list]))
+                }
+            
+            return None
+            
+        except Exception as e:
+            st.error(f"❌ Kite options fetch failed: {e}")
+            return None
+    
     def fetchoptionschain_adaptive(self, ticker):
         df = self.fetchoptionschain_alpha(ticker)
         if df is not None and not df.empty:
@@ -801,50 +915,68 @@ class OptionsAnalyzer:
             
         except Exception as e:
             return None
-
+    
     def fetch_options_chain(self, ticker):
-        """Fetch options chain from Kite for Indian stocks"""
+        """
+        Fetch options chain data with priority:
+        1. Kite Connect (for Indian stocks)
+        2. Yahoo Finance (fallback)
+        """
         
-        if not kite_data.connected:
-            return None
+        # Priority 1: Try Kite for Indian stocks
+        is_indian = ticker.endswith('.NS') or ticker.endswith('.BO')
+        
+        if is_indian and KITE_AVAILABLE and kite_data.connected:
+            st.caption("📊 Options Data Source: **Kite Connect (NSE F&O Live)**")
+            
+            kite_options = self.fetch_options_chain_kite(ticker)
+            if kite_options is not None:
+                return kite_options
+            else:
+                st.warning("⚠️ Kite options fetch failed, trying Yahoo Finance...")
+        
+        # Priority 2: Yahoo Finance (fallback or non-Indian stocks)
+        st.caption("📊 Options Data Source: **Yahoo Finance**")
         
         try:
-            # Remove suffixes
-            symbol = ticker.replace('.NS', '').replace('.BO', '')
+            # Find nearest future expiry...
+            ticker_variations = [ticker, ticker.upper(), ticker.replace(".NS", ""), ticker.replace(".BO", "")]
             
-            # Get options instruments
-            nfo_instruments = kite_data.kite.instruments("NFO")
+            # Add common formats for Indian markets
+            if "NIFTY" in ticker.upper() or "NSEI" in ticker.upper():
+                ticker_variations.extend(["^NSEI", "NIFTY"])
+            if "BANK" in ticker.upper():
+                ticker_variations.extend(["^NSEBANK", "BANKNIFTY"])
             
-            # Filter options for this symbol
-            calls = []
-            puts = []
+            # Remove duplicates while preserving order
+            ticker_variations = list(dict.fromkeys(ticker_variations))
             
-            for inst in nfo_instruments:
-                if inst['name'] == symbol and inst['instrument_type'] in ['CE', 'PE']:
-                    option_data = {
-                        'strike': inst['strike'],
-                        'expiry': inst['expiry'],
-                        'type': 'call' if inst['instrument_type'] == 'CE' else 'put',
-                        'token': inst['instrument_token'],
-                        'symbol': inst['tradingsymbol']
-                    }
+            for test_ticker in ticker_variations:
+                try:
+                    stock = yf.Ticker(test_ticker)
+                    expiry_dates = stock.options
                     
-                    if inst['instrument_type'] == 'CE':
-                        calls.append(option_data)
-                    else:
-                        puts.append(option_data)
-            
-            if calls or puts:
-                return {
-                    'calls': pd.DataFrame(calls),
-                    'puts': pd.DataFrame(puts),
-                    'expiry': calls[0]['expiry'] if calls else None,
-                    'ticker': symbol
-                }
+                    # Check if options data exists
+                    if not expiry_dates or len(expiry_dates) == 0:
+                        continue
+                    
+                    # Get nearest expiry
+                    nearest_expiry = expiry_dates[0]
+                    options = stock.option_chain(nearest_expiry)
+                    
+                    if options.calls is not None and not options.calls.empty and options.puts is not None and not options.puts.empty:
+                        return {
+                            'calls': options.calls,
+                            'puts': options.puts,
+                            'expiry': nearest_expiry,
+                            'ticker': test_ticker,
+                            'allexpiries': expiry_dates
+                        }
+                except Exception:
+                    continue
             
             return None
         except Exception as e:
-            st.error(f"Kite options fetch failed: {e}")
             return None
 
     def fetchoptionschain_alpha(self, ticker):    
