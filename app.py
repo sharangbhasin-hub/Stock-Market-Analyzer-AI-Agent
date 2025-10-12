@@ -3766,8 +3766,23 @@ def run_premarket_screener_kite(market_name, market_config):
                     }
             except Exception as e:
                 continue
+
+        screened = {}
+        for symbol_key, quote_data in quotes.items():
+            # ... existing filtering code ...
+        
+        # DEBUG: Show what we're returning
+        if screened:
+            st.success(f"🎯 Kite Screener: Found {len(screened)} stocks matching criteria")
+            # Show sample
+            sample = list(screened.items())[:3]
+            for symbol, data in sample:
+                st.caption(f"✓ {symbol}: ₹{data['price']:.2f} (Vol: {data['volume']:,})")
+        else:
+            st.warning("⚠️ Kite Screener: No stocks matched criteria (Price ≥₹50, Volume ≥100K)")
         
         return screened
+    
     
     except Exception as e:
         # Return empty dict on error
@@ -6484,10 +6499,15 @@ def main():
                     screened_stocks = run_premarket_screener_kite(selected_market, market_config)
                 else:
                     screened_stocks = run_premarket_screener(selected_market, market_config)
-
+                
+                # Store in session state for "From Scanner" method to access
                 if screened_stocks:
-                    st.session_state['screened_stocks'] = screened_stocks
-                    st.sidebar.success(f"✅ Found {len(screened_stocks)} stocks")
+                    st.session_state.screened_stocks = screened_stocks
+                    st.success(f"✅ Screened {len(screened_stocks)} stocks successfully!")
+                else:
+                    st.warning("⚠️ No stocks matched screening criteria")
+                    st.session_state.screened_stocks = {}
+
         
         # Display screened stocks in dropdown
         if 'screened_stocks' in st.session_state and st.session_state['screened_stocks']:
@@ -6803,13 +6823,49 @@ def main():
                 
                 # METHOD 4: FROM SCANNER
                 elif method == "From Scanner":
-                    st.markdown("### 📊 Select from Pre-Market Screener")
+                    st.markdown("#### Select from Pre-Market Screener")
                     
-                    if 'screened_stocks' not in st.session_state or not st.session_state['screened_stocks']:
+                    # Check if screened stocks exist in session state
+                    has_screened_stocks = (
+                        "screened_stocks" in st.session_state and 
+                        st.session_state.screened_stocks and 
+                        len(st.session_state.screened_stocks) > 0
+                    )
+                    
+                    if not has_screened_stocks:
                         st.warning("⚠️ No stocks in scanner. Run Pre-Market Screener first.")
-                        st.info("👈 Click 'Run Pre-Market Scan' in the sidebar to populate this list.")
+                        st.info("💡 Go to sidebar → **'Pre-Market Screener'** section → Click **'Run Pre-Market Scan'**")
+                        
+                        # Show debug info
+                        if st.checkbox("🔍 Debug: Check Session State"):
+                            st.write("Session state keys:", list(st.session_state.keys()))
+                            if "screened_stocks" in st.session_state:
+                                st.write("Screened stocks count:", len(st.session_state.screened_stocks))
+                                st.write("Sample:", list(st.session_state.screened_stocks.keys())[:5])
                     else:
-                        screened = st.session_state['screened_stocks']
+                        screened = st.session_state.screened_stocks
+                        st.success(f"✅ {len(screened)} stocks available from screener")
+                        
+                        # Display stocks as selectbox
+                        selected_stock = st.selectbox(
+                            "Select Stock from Scanner",
+                            options=list(screened.keys()),
+                            format_func=lambda x: f"{x} - ₹{screened[x]['price']:.2f} ({screened[x]['change_pct']:+.2f}%)"
+                        )
+                        
+                        if selected_stock:
+                            ticker_input = selected_stock
+                            st.success(f"Selected: {ticker_input}")
+                            
+                            # Show stock details
+                            with st.expander("📊 Stock Details"):
+                                stock_info = screened[selected_stock]
+                                col1, col2, col3 = st.columns(3)
+                                col1.metric("Price", f"₹{stock_info['price']:.2f}")
+                                col2.metric("Change", f"{stock_info['change_pct']:+.2f}%")
+                                col3.metric("Volume", f"{stock_info['volume']:,}")
+
+
                         
                         # Create display options
                         stock_options = []
