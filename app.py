@@ -8258,88 +8258,88 @@ def main():
                     else:
                         st.warning("⚠️ Consolidation")
                 
-                st.markdown("---")
+        st.markdown("---")
 
         # ============================================================================
         # NEW: ADD ML PREDICTIONS SECTION HERE (BEFORE THE CHARTS SECTION)
         # ============================================================================
         
-            # ML Predictions Section
-            if st.session_state.get('ml_enabled', False) and 'daily_data' in results:
+        # ML Predictions Section
+        if st.session_state.get('ml_enabled', False) and 'daily_data' in results:
+            st.markdown("---")
+            st.subheader("🧠 Machine Learning Price Predictions")
+            
+            predictor = MLPredictor()
+            ml_models = st.session_state.get('ml_models', [])
+            
+            pred_col1, pred_col2 = st.columns(2)
+            
+            # Random Forest Prediction
+            if "Random Forest" in ml_models:
+                with pred_col1:
+                    st.markdown("### 🌲 Random Forest Model")
+                    
+                    with st.spinner("Training model..."):
+                        rf_pred = predictor.predict_random_forest(results['daily_data'])
+                        
+                        if rf_pred:
+                            current_price = rf_pred['current_price']
+                            pred_price = rf_pred['prediction']
+                            pred_change = rf_pred['prediction_change']
+                            pred_change_pct = rf_pred['prediction_change_pct']
+                            
+                            st.metric(
+                                "Next Day Prediction",
+                                f"{currency}{pred_price:.2f}",
+                                f"{pred_change:+.2f} ({pred_change_pct:+.2f}%)"
+                            )
+                            
+                            st.progress(min(1.0, rf_pred['confidence']))
+                            st.caption(f"Model Confidence: {rf_pred['confidence']:.1%}")
+                            
+                            st.write(f"**Confidence Interval:**")
+                            st.write(f"Low: {currency}{rf_pred['lower_bound']:.2f}")
+                            st.write(f"High: {currency}{rf_pred['upper_bound']:.2f}")
+                            
+                            if pred_change > 0:
+                                st.success("🟢 Bullish Prediction")
+                            else:
+                                st.error("🔴 Bearish Prediction")
+                        else:
+                            st.warning("Insufficient data for prediction")
+            
+            # LSTM Prediction
+            if "LSTM Neural Network" in ml_models:
+                with pred_col2:
+                    st.markdown("### 🧠 LSTM Neural Network")
+                    
+                    with st.spinner("Training neural network..."):
+                        lstm_pred = predictor.predict_lstm(results['daily_data'])
+                        
+                        if lstm_pred:
+                            current_price = results['latest_price']
+                            pred_change = lstm_pred - current_price
+                            pred_change_pct = (pred_change / current_price) * 100
+                            
+                            st.metric(
+                                "Next Day Prediction",
+                                f"{currency}{lstm_pred:.2f}",
+                                f"{pred_change:+.2f} ({pred_change_pct:+.2f}%)"
+                            )
+                            
+                            st.caption("Deep learning model (60-day lookback)")
+                            
+                            if pred_change > 0:
+                                st.success("🟢 Neural Network: Bullish")
+                            else:
+                                st.error("🔴 Neural Network: Bearish")
+                        else:
+                            st.warning("Insufficient data for LSTM")
+            
+            # Consensus prediction
+            if len(ml_models) > 1:
                 st.markdown("---")
-                st.subheader("🧠 Machine Learning Price Predictions")
-                
-                predictor = MLPredictor()
-                ml_models = st.session_state.get('ml_models', [])
-                
-                pred_col1, pred_col2 = st.columns(2)
-                
-                # Random Forest Prediction
-                if "Random Forest" in ml_models:
-                    with pred_col1:
-                        st.markdown("### 🌲 Random Forest Model")
-                        
-                        with st.spinner("Training model..."):
-                            rf_pred = predictor.predict_random_forest(results['daily_data'])
-                            
-                            if rf_pred:
-                                current_price = rf_pred['current_price']
-                                pred_price = rf_pred['prediction']
-                                pred_change = rf_pred['prediction_change']
-                                pred_change_pct = rf_pred['prediction_change_pct']
-                                
-                                st.metric(
-                                    "Next Day Prediction",
-                                    f"{currency}{pred_price:.2f}",
-                                    f"{pred_change:+.2f} ({pred_change_pct:+.2f}%)"
-                                )
-                                
-                                st.progress(min(1.0, rf_pred['confidence']))
-                                st.caption(f"Model Confidence: {rf_pred['confidence']:.1%}")
-                                
-                                st.write(f"**Confidence Interval:**")
-                                st.write(f"Low: {currency}{rf_pred['lower_bound']:.2f}")
-                                st.write(f"High: {currency}{rf_pred['upper_bound']:.2f}")
-                                
-                                if pred_change > 0:
-                                    st.success("🟢 Bullish Prediction")
-                                else:
-                                    st.error("🔴 Bearish Prediction")
-                            else:
-                                st.warning("Insufficient data for prediction")
-                
-                # LSTM Prediction
-                if "LSTM Neural Network" in ml_models:
-                    with pred_col2:
-                        st.markdown("### 🧠 LSTM Neural Network")
-                        
-                        with st.spinner("Training neural network..."):
-                            lstm_pred = predictor.predict_lstm(results['daily_data'])
-                            
-                            if lstm_pred:
-                                current_price = results['latest_price']
-                                pred_change = lstm_pred - current_price
-                                pred_change_pct = (pred_change / current_price) * 100
-                                
-                                st.metric(
-                                    "Next Day Prediction",
-                                    f"{currency}{lstm_pred:.2f}",
-                                    f"{pred_change:+.2f} ({pred_change_pct:+.2f}%)"
-                                )
-                                
-                                st.caption("Deep learning model (60-day lookback)")
-                                
-                                if pred_change > 0:
-                                    st.success("🟢 Neural Network: Bullish")
-                                else:
-                                    st.error("🔴 Neural Network: Bearish")
-                            else:
-                                st.warning("Insufficient data for LSTM")
-                
-                # Consensus prediction
-                if len(ml_models) > 1:
-                    st.markdown("---")
-                    st.info("💡 **Consensus:** Use both models for confirmation. Agreement increases confidence.")
+                st.info("💡 **Consensus:** Use both models for confirmation. Agreement increases confidence.")
 
 
                 # ========== DISPLAY CHARTS ==========
